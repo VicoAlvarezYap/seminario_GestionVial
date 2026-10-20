@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TurnoTrabajo extends Model
 {
@@ -18,5 +19,10 @@ class TurnoTrabajo extends Model
     protected function casts(): array
     {
         return ['fecha' => 'date'];
+    }
+
+    public function agente(): BelongsTo
+    {
+        return $this->belongsTo(Agente::class, 'agente_id');
     }
 }
