@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DIAS_CORTOS, formatoFecha, hoyISO, parseFecha, sumarDias } from '@/lib/fechas';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import MapaRecorrido from '@/components/MapaRecorrido';
 
 export type Punto = {
     id: number;
@@ -180,21 +181,25 @@ export default function CalendarioMesEventos({ fecha, inicio, fin, eventos, onCa
                             </div>
 
                             {/* Puntos de recorrido vinculados */}
+                            <div className="mb-4">
+                                <h4 className="font-semibold mb-2">Ruta del Evento</h4>
+                                <MapaRecorrido puntos={eventoSeleccionado.puntos} />
+                            </div>
                             <div>
-                                <h4 className="font-semibold mb-2">Puntos de Recorrido / Itinerario</h4>
+                                <h4 className="font-semibold mb-2">Detalle de Puntos del Itinerario</h4>
                                 {eventoSeleccionado.puntos && eventoSeleccionado.puntos.length > 0 ? (
                                     <ul className="space-y-2">
                                         {eventoSeleccionado.puntos.map((punto) => (
-                                            <li key={punto.id} className="bg-blue-50 dark:bg-zinc-800 p-2 rounded border border-blue-100 dark:border-zinc-700">
+                                            <li key={punto.id} className="bg-blue-50 dark:bg-zinc-800 p-2 rounded border border-blue-100 dark:border-zinc-700 text-xs">
                                                 <span className="font-bold text-blue-800 dark:text-blue-400">Punto {punto.orden}:</span> {punto.descripcion_referencia}
-                                                <div className="text-xs text-gray-500 mt-0.5">
+                                                <div className="text-gray-500 mt-0.5">
                                                     Lat: {punto.latitud} | Long: {punto.longitud}
                                                 </div>
                                             </li>
                                         ))}
                                     </ul>
                                 ) : (
-                                    <p className="text-gray-500 italic">No hay puntos de recorrido registrados para este evento.</p>
+                                    <p className="text-gray-500 italic text-xs">No hay puntos de recorrido registrados.</p>
                                 )}
                             </div>
                         </div>
