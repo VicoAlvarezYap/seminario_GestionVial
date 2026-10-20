@@ -29,8 +29,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // SQLite (usado en los tests) no soporta ADD CONSTRAINT
-
+      
         if (in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
             DB::statement('ALTER TABLE eventos_operativos ADD CONSTRAINT chk_eo_fechas CHECK (fecha_hora_fin IS NULL OR fecha_hora_fin >= fecha_hora_inicio)');
         }

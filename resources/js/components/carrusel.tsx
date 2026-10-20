@@ -23,7 +23,7 @@ export default function Carrusel({ slides }: { slides: SlideCarrusel[] }) {
                         type="button"
                         onClick={() => ir(indice - 1)}
                         aria-label="Anterior"
-                        className="hover:bg-muted rounded-md border p-2"
+                        className="hover:bg-muted rounded-md border p-2 cursor-pointer"
                     >
                         <ChevronLeft className="size-4" />
                     </button>
@@ -31,7 +31,7 @@ export default function Carrusel({ slides }: { slides: SlideCarrusel[] }) {
                         type="button"
                         onClick={() => ir(indice + 1)}
                         aria-label="Siguiente"
-                        className="hover:bg-muted rounded-md border p-2"
+                        className="hover:bg-muted rounded-md border p-2 cursor-pointer"
                     >
                         <ChevronRight className="size-4" />
                     </button>
@@ -45,7 +45,12 @@ export default function Carrusel({ slides }: { slides: SlideCarrusel[] }) {
                     style={{ transform: `translateX(-${indice * 100}%)` }}
                 >
                     {slides.map((s, i) => (
-                        <div key={s.titulo} className="w-full shrink-0" aria-hidden={i !== indice}>
+                        <div 
+                            key={s.titulo} 
+                            className={`w-full shrink-0 ${i !== indice ? 'pointer-events-none select-none' : ''}`} 
+                            aria-hidden={i !== indice}
+                            tabIndex={i !== indice ? -1 : 0}
+                        >
                             {s.contenido}
                         </div>
                     ))}
@@ -60,7 +65,7 @@ export default function Carrusel({ slides }: { slides: SlideCarrusel[] }) {
                         type="button"
                         onClick={() => ir(i)}
                         aria-label={`Ir a ${s.titulo}`}
-                        className={`size-2.5 rounded-full ${i === indice ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                        className={`size-2.5 rounded-full cursor-pointer ${i === indice ? 'bg-primary' : 'bg-muted-foreground/30'}`}
                     />
                 ))}
             </div>
