@@ -22,7 +22,10 @@ return new class extends Migration
             $table->index(['fecha_inicio', 'fecha_fin']);
         });
 
-        DB::statement('ALTER TABLE historial_licencias ADD CONSTRAINT chk_lic_fechas CHECK (fecha_fin >= fecha_inicio)');
+       
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
+            DB::statement('ALTER TABLE historial_licencias ADD CONSTRAINT chk_lic_fechas CHECK (fecha_fin >= fecha_inicio)');
+        }
     }
 
     public function down(): void

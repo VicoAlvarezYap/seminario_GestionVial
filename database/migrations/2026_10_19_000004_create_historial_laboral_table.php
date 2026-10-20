@@ -17,7 +17,11 @@ return new class extends Migration
             $table->string('motivo_ingreso_egreso')->nullable();
         });
 
-        DB::statement('ALTER TABLE historial_laboral ADD CONSTRAINT chk_hl_fechas CHECK (fecha_baja IS NULL OR fecha_baja >= fecha_alta)');
+        // SQLite (usado en los tests) no soporta ADD CONSTRAINT
+
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
+            DB::statement('ALTER TABLE historial_laboral ADD CONSTRAINT chk_hl_fechas CHECK (fecha_baja IS NULL OR fecha_baja >= fecha_alta)');
+        }
     }
 
     public function down(): void
