@@ -19,10 +19,9 @@ return new class extends Migration
             $table->string('password');
 
             // --- Campos propios del sistema ---
-            // Las claves foráneas se agregan en la migración 2026_10_19_000003,
-            // porque roles y agentes todavía no existen en este punto.
-            $table->unsignedBigInteger('rol_id')->nullable();
-            $table->unsignedBigInteger('agente_id')->nullable()->unique();
+            // Quitamos 'rol_id' porque Spatie lo maneja con sus propias tablas.
+            // Vinculamos 'agente_id' directamente aquí (o puedes hacerlo con foreignId).
+            $table->foreignId('agente_id')->nullable()->unique()->constrained('agentes')->nullOnDelete();
             $table->boolean('activo')->default(true);
             // ----------------------------------
 

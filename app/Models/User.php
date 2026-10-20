@@ -10,6 +10,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Permission\Traits\HasRoles; // Trait oficial de Spatie[cite: 4]
 
 
 /**
@@ -25,12 +26,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password', 'rol_id', 'agente_id', 'activo'])]
+#[Fillable(['name', 'email', 'password', 'agente_id', 'activo'])] // Quitamos 'rol_id'
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles; //[cite: 4]
 
     /**
      * Get the attributes that should be cast.
@@ -45,19 +46,13 @@ class User extends Authenticatable
             'activo' => 'boolean',
         ];
     }
-    public function rol(): BelongsTo
-    {
-        return $this->belongsTo(Rol::class, 'rol_id');
-    }
 
     public function agente(): BelongsTo
     {
         return $this->belongsTo(Agente::class, 'agente_id');
     }
-
     public function tieneRol(string $nombre): bool
     {
-        return $this->rol?->nombre === $nombre;
+        return $this->hasRole($nombre);
     }
-
 }
