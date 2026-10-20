@@ -18,7 +18,7 @@ class Agente extends Model
         'correo',
     ];
 
-    /** Cuenta de acceso al sistema (opcional: no todo agente tiene una). */
+   
     public function usuario(): HasOne
     {
         return $this->hasOne(User::class, 'agente_id');
@@ -30,8 +30,7 @@ class Agente extends Model
     }
 
     /*
-     * Descomentar a medida que se creen estos modelos:
-     *
+     * 
      * public function historialLaboral(): HasMany
      * {
      *     return $this->hasMany(HistorialLaboral::class, 'agente_id');
