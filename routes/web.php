@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PaginaAgenteController;
 use App\Http\Controllers\Admin\EventoOperativoController;
+use App\Http\Controllers\AgentePerfilController;
 
 Route::inertia('/', 'welcome')->name('home');
 
@@ -15,6 +16,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/eventos-operativos', [EventoOperativoController::class, 'store'])->name('admin.eventos-operativos.store');
     Route::put('/admin/eventos-operativos/{evento}', [EventoOperativoController::class, 'update'])->name('admin.eventos-operativos.update');
     Route::delete('/admin/eventos-operativos/{evento}', [EventoOperativoController::class, 'destroy'])->name('admin.eventos-operativos.destroy');
+    });
+    //Ruta al perfil
+    Route::middleware(['auth'])->group(function () {
+    Route::get('/mi-perfil', [AgentePerfilController::class, 'show'])->name('mi-perfil');
     });
 });
 

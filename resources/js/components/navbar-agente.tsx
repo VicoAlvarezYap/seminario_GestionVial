@@ -5,7 +5,7 @@ import { useState } from 'react';
 // Para agregar más opciones al menú, sumá una línea acá
 const enlaces = [
     { titulo: 'Inicio', href: '/pagina-agente', icono: LayoutGrid },
-    { titulo: 'Mi perfil', href: '/settings/profile', icono: UserRound },
+    { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound },
 ];
 
 export default function NavbarAgente() {
