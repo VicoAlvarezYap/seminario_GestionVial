@@ -13,16 +13,20 @@ export default function NavbarAgente() {
     const { url } = usePage();
 
     return (
-        <header className="bg-background sticky top-0 z-40 border-b">
+        <header className="sticky top-0 z-40 border-b bg-background">
             <div className="relative flex h-14 items-center justify-between px-4">
                 {/* Izquierda: botón de menú */}
                 <button
                     type="button"
                     onClick={() => setAbierto(!abierto)}
                     aria-label="Abrir menú"
-                    className="hover:bg-muted rounded-md p-2"
+                    className="rounded-md p-2 hover:bg-muted"
                 >
-                    {abierto ? <X className="size-5" /> : <Menu className="size-5" />}
+                    {abierto ? (
+                        <X className="size-5" />
+                    ) : (
+                        <Menu className="size-5" />
+                    )}
                 </button>
 
                 {/* Centro: nombre del sistema */}
@@ -35,7 +39,7 @@ export default function NavbarAgente() {
                     type="button"
                     onClick={() => router.post('/logout')}
                     aria-label="Cerrar sesión"
-                    className="hover:bg-muted rounded-md p-2"
+                    className="rounded-md p-2 hover:bg-muted"
                 >
                     <LogOut className="size-5" />
                 </button>
@@ -49,8 +53,10 @@ export default function NavbarAgente() {
                             key={e.href}
                             href={e.href}
                             onClick={() => setAbierto(false)}
-                            className={`hover:bg-muted flex items-center gap-2 rounded-md px-3 py-2 ${
-                                url.startsWith(e.href) ? 'bg-muted font-medium' : ''
+                            className={`flex items-center gap-2 rounded-md px-3 py-2 hover:bg-muted ${
+                                url.startsWith(e.href)
+                                    ? 'bg-muted font-medium'
+                                    : ''
                             }`}
                         >
                             <e.icono className="size-4" />

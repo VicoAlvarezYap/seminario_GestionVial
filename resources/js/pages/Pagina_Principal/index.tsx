@@ -14,13 +14,23 @@ type Props = {
     mes: DatosMes;
 };
 
-export default function PaginaAgente({ puedeEditar, agentes, semana, mes }: Props) {
+export default function PaginaAgente({
+    puedeEditar,
+    agentes,
+    semana,
+    mes,
+}: Props) {
     // Cada calendario cambia solo su fecha y mantiene la del otro
     const navegar = (cambios: { semana?: string; mes?: string }) => {
         router.get(
             '/pagina-agente',
             { semana: semana.fecha, mes: mes.fecha, ...cambios },
-            { only: ['semana', 'mes'], preserveState: true, preserveScroll: true, replace: true },
+            {
+                only: ['semana', 'mes'],
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            },
         );
     };
 
@@ -33,7 +43,9 @@ export default function PaginaAgente({ puedeEditar, agentes, semana, mes }: Prop
                 <Carrusel
                     slides={[
                         {
-                            titulo: puedeEditar ? 'Asignación de turnos de la semana' : 'Mis turnos de la semana',
+                            titulo: puedeEditar
+                                ? 'Asignación de turnos de la semana'
+                                : 'Mis turnos de la semana',
                             contenido: (
                                 <CalendarioSemanaTurnos
                                     {...semana}

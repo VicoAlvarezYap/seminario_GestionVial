@@ -1,4 +1,10 @@
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import {
+    MapContainer,
+    TileLayer,
+    Marker,
+    Popup,
+    Polyline,
+} from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -28,7 +34,11 @@ interface Props {
 
 export default function MapaRecorrido({ puntos }: Props) {
     if (!puntos || puntos.length === 0) {
-        return <p className="text-xs text-zinc-500 italic">No hay coordenadas para mostrar el mapa.</p>;
+        return (
+            <p className="text-xs text-zinc-500 italic">
+                No hay coordenadas para mostrar el mapa.
+            </p>
+        );
     }
 
     // Convertimos las coordenadas para Leaflet [lat, lng]
@@ -41,7 +51,7 @@ export default function MapaRecorrido({ puntos }: Props) {
     const centro = posiciones[0];
 
     return (
-        <div className="h-64 w-full rounded-lg overflow-hidden border border-zinc-300 dark:border-zinc-700 z-0 relative">
+        <div className="relative z-0 h-64 w-full overflow-hidden rounded-lg border border-zinc-300 dark:border-zinc-700">
             <MapContainer
                 center={centro}
                 zoom={14}
@@ -56,11 +66,17 @@ export default function MapaRecorrido({ puntos }: Props) {
 
                 {/* Marcadores para cada punto */}
                 {puntos.map((p) => (
-                    <Marker key={p.id} position={[Number(p.latitud), Number(p.longitud)]}>
+                    <Marker
+                        key={p.id}
+                        position={[Number(p.latitud), Number(p.longitud)]}
+                    >
                         <Popup>
                             <div className="text-xs">
                                 <strong>Punto {p.orden}:</strong>
-                                <p>{p.descripcion_referencia || 'Sin descripción'}</p>
+                                <p>
+                                    {p.descripcion_referencia ||
+                                        'Sin descripción'}
+                                </p>
                             </div>
                         </Popup>
                     </Marker>
@@ -68,7 +84,12 @@ export default function MapaRecorrido({ puntos }: Props) {
 
                 {/* Línea trazada que une los puntos si hay 2 o más */}
                 {posiciones.length > 1 && (
-                    <Polyline positions={posiciones} color="#2563eb" weight={4} dashArray="5, 10" />
+                    <Polyline
+                        positions={posiciones}
+                        color="#2563eb"
+                        weight={4}
+                        dashArray="5, 10"
+                    />
                 )}
             </MapContainer>
         </div>

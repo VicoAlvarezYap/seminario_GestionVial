@@ -37,7 +37,9 @@ export default function FormTurno({ fecha, agentes, onCerrar }: Props) {
                     <select
                         className={CLASE_CAMPO}
                         value={form.data.agente_id}
-                        onChange={(e) => form.setData('agente_id', e.target.value)}
+                        onChange={(e) =>
+                            form.setData('agente_id', e.target.value)
+                        }
                     >
                         <option value="">Elegir agente…</option>
                         {agentes.map((a) => (
@@ -63,7 +65,9 @@ export default function FormTurno({ fecha, agentes, onCerrar }: Props) {
                             type="time"
                             className={CLASE_CAMPO}
                             value={form.data.hora_inicio}
-                            onChange={(e) => form.setData('hora_inicio', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('hora_inicio', e.target.value)
+                            }
                         />
                     </Campo>
                     <Campo etiqueta="Hasta" error={form.errors.hora_fin}>
@@ -71,26 +75,38 @@ export default function FormTurno({ fecha, agentes, onCerrar }: Props) {
                             type="time"
                             className={CLASE_CAMPO}
                             value={form.data.hora_fin}
-                            onChange={(e) => form.setData('hora_fin', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('hora_fin', e.target.value)
+                            }
                         />
                     </Campo>
                 </div>
 
-                <Campo etiqueta="Lugar asignado" error={form.errors.direccion_asignada}>
+                <Campo
+                    etiqueta="Lugar asignado"
+                    error={form.errors.direccion_asignada}
+                >
                     <input
                         type="text"
                         className={CLASE_CAMPO}
                         value={form.data.direccion_asignada}
-                        onChange={(e) => form.setData('direccion_asignada', e.target.value)}
+                        onChange={(e) =>
+                            form.setData('direccion_asignada', e.target.value)
+                        }
                     />
                 </Campo>
 
-                <Campo etiqueta="Tarea / observaciones" error={form.errors.observaciones}>
+                <Campo
+                    etiqueta="Tarea / observaciones"
+                    error={form.errors.observaciones}
+                >
                     <textarea
                         rows={3}
                         className={CLASE_CAMPO}
                         value={form.data.observaciones}
-                        onChange={(e) => form.setData('observaciones', e.target.value)}
+                        onChange={(e) =>
+                            form.setData('observaciones', e.target.value)
+                        }
                     />
                 </Campo>
 

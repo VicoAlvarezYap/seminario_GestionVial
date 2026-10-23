@@ -1,5 +1,11 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { DIAS_CORTOS, formatoFecha, hoyISO, parseFecha, sumarDias } from '@/lib/fechas';
+import {
+    DIAS_CORTOS,
+    formatoFecha,
+    hoyISO,
+    parseFecha,
+    sumarDias,
+} from '@/lib/fechas';
 
 export type TurnoCalendario = {
     id: number;
@@ -21,7 +27,12 @@ type Props = DatosSemana & {
     onCambiar: (nuevaFecha: string) => void;
 };
 
-export default function CalendarioSemanaTurnos({ fecha, inicio, turnos, onCambiar }: Props) {
+export default function CalendarioSemanaTurnos({
+    fecha,
+    inicio,
+    turnos,
+    onCambiar,
+}: Props) {
     const hoy = hoyISO();
     const base = parseFecha(fecha);
     const lunes = parseFecha(inicio);
@@ -40,7 +51,7 @@ export default function CalendarioSemanaTurnos({ fecha, inicio, turnos, onCambia
                     type="button"
                     onClick={() => onCambiar(formatoFecha(sumarDias(base, -7)))}
                     aria-label="Semana anterior"
-                    className="hover:bg-muted rounded-md border p-2"
+                    className="rounded-md border p-2 hover:bg-muted"
                 >
                     <ChevronLeft className="size-4" />
                 </button>
@@ -48,7 +59,7 @@ export default function CalendarioSemanaTurnos({ fecha, inicio, turnos, onCambia
                     type="button"
                     onClick={() => onCambiar(formatoFecha(sumarDias(base, 7)))}
                     aria-label="Semana siguiente"
-                    className="hover:bg-muted rounded-md border p-2"
+                    className="rounded-md border p-2 hover:bg-muted"
                 >
                     <ChevronRight className="size-4" />
                 </button>
@@ -56,7 +67,7 @@ export default function CalendarioSemanaTurnos({ fecha, inicio, turnos, onCambia
                 <button
                     type="button"
                     onClick={() => onCambiar(hoy)}
-                    className="hover:bg-muted ml-auto rounded-md border px-3 py-2 text-sm"
+                    className="ml-auto rounded-md border px-3 py-2 text-sm hover:bg-muted"
                 >
                     Hoy
                 </button>
@@ -64,7 +75,7 @@ export default function CalendarioSemanaTurnos({ fecha, inicio, turnos, onCambia
 
             {/* Una columna por día */}
             <div className="overflow-x-auto">
-                <div className="grid min-w-700px grid-cols-7 rounded-lg border">
+                <div className="min-w-700px grid grid-cols-7 rounded-lg border">
                     {dias.map((d, idx) => {
                         const clave = formatoFecha(d);
                         const delDia = turnos.filter((t) => t.fecha === clave);
@@ -76,10 +87,14 @@ export default function CalendarioSemanaTurnos({ fecha, inicio, turnos, onCambia
                                 className={`flex min-h-40 flex-col gap-2 p-2 ${idx > 0 ? 'border-l' : ''}`}
                             >
                                 <div className="text-center">
-                                    <div className="text-muted-foreground text-xs">{DIAS_CORTOS[idx]}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {DIAS_CORTOS[idx]}
+                                    </div>
                                     <div
                                         className={`mx-auto flex size-7 items-center justify-center rounded-full text-sm ${
-                                            esHoy ? 'bg-primary text-primary-foreground font-semibold' : ''
+                                            esHoy
+                                                ? 'bg-primary font-semibold text-primary-foreground'
+                                                : ''
                                         }`}
                                     >
                                         {d.getDate()}
@@ -95,13 +110,19 @@ export default function CalendarioSemanaTurnos({ fecha, inicio, turnos, onCambia
                                             {t.hora_inicio} – {t.hora_fin}
                                         </div>
                                         {t.direccion && (
-                                            <div className="truncate" title={t.direccion}>
+                                            <div
+                                                className="truncate"
+                                                title={t.direccion}
+                                            >
                                                 {t.direccion}
                                             </div>
                                         )}
-                                        {t.estado && t.estado !== 'programado' && (
-                                            <div className="capitalize opacity-75">{t.estado}</div>
-                                        )}
+                                        {t.estado &&
+                                            t.estado !== 'programado' && (
+                                                <div className="capitalize opacity-75">
+                                                    {t.estado}
+                                                </div>
+                                            )}
                                     </div>
                                 ))}
                             </div>
@@ -111,7 +132,9 @@ export default function CalendarioSemanaTurnos({ fecha, inicio, turnos, onCambia
             </div>
 
             {turnos.length === 0 && (
-                <p className="text-muted-foreground text-sm">No hay turnos asignados en esta semana.</p>
+                <p className="text-sm text-muted-foreground">
+                    No hay turnos asignados en esta semana.
+                </p>
             )}
         </div>
     );
