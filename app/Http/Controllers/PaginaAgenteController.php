@@ -32,11 +32,11 @@ class PaginaAgenteController extends Controller
         $turnos = TurnoTrabajo::with('agente:id,nombre,apellido')
             ->whereBetween('fecha', [$inicioSemana->toDateString(), $finSemana->toDateString()])
             // Un agente ve solo los suyos (si no está vinculado a un agente, no ve ninguno)
-            ->when(! $verTodos, fn ($q) => $q->where('agente_id', $usuario->agente_id))
+            ->when(!$verTodos, fn($q) => $q->where('agente_id', $usuario->agente_id))
             ->orderBy('fecha')
             ->orderBy('hora_inicio')
             ->get()
-            ->map(fn (TurnoTrabajo $t) => [
+            ->map(fn(TurnoTrabajo $t) => [
                 'id' => $t->id,
                 'fecha' => $t->fecha->toDateString(),
                 'hora_inicio' => substr((string) $t->hora_inicio, 0, 5),
@@ -53,10 +53,11 @@ class PaginaAgenteController extends Controller
         $inicioMes = $fechaMes->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
         $finMes = $fechaMes->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
 
-        $eventos = EventoOperativo::whereBetween('fecha_hora_inicio', [$inicioMes, $finMes])
+        $eventos = EventoOperativo::with('puntosRecorrido')
+            ->whereBetween('fecha_hora_inicio', [$inicioMes, $finMes])
             ->orderBy('fecha_hora_inicio')
             ->get()
-            ->map(fn (EventoOperativo $e) => [
+            ->map(fn(EventoOperativo $e) => [
                 'id' => $e->id,
                 'titulo' => $e->titulo,
                 'fecha' => $e->fecha_hora_inicio->toDateString(),
@@ -65,6 +66,17 @@ class PaginaAgenteController extends Controller
                 'direccion' => $e->direccion,
                 'descripcion' => $e->descripcion,
                 'estado' => $e->estado,
+                'tipo_recorrido' => $e->tipo_recorrido,
+                'latitud_inicio' => $e->latitud_inicio,
+                'longitud_inicio' => $e->longitud_inicio,
+                'solicitante_ente' => $e->solicitante_ente,
+                'solicitante_nombre' => $e->solicitante_nombre,
+                'solicitante_celular' => $e->solicitante_celular,
+                'puntos' => $e->puntosRecorrido->map(fn($p) => [
+                    'descripcion_referencia' => $p->descripcion_referencia,
+                    'latitud' => $p->latitud,
+                    'longitud' => $p->longitud,
+                ])->values()->all(),
             ])
             ->values()
             ->all();
@@ -72,7 +84,7 @@ class PaginaAgenteController extends Controller
         // Lista de agentes para el selector de "asignar turno" (solo el administrador la necesita)
         $agentes = $puedeEditar
             ? Agente::orderBy('apellido')->orderBy('nombre')->get(['id', 'nombre', 'apellido'])
-                ->map(fn (Agente $a) => ['id' => $a->id, 'nombre' => "{$a->apellido}, {$a->nombre}"])
+                ->map(fn(Agente $a) => ['id' => $a->id, 'nombre' => "{$a->apellido}, {$a->nombre}"])
                 ->values()
                 ->all()
             : [];
@@ -98,7 +110,7 @@ class PaginaAgenteController extends Controller
     /** Convierte el texto recibido en fecha; si falta o es inválido, usa la de respaldo. */
     private function leerFecha(mixed $valor, CarbonInterface $respaldo): CarbonInterface
     {
-        if (! is_string($valor) || $valor === '') {
+        if (!is_string($valor) || $valor === '') {
             return $respaldo->copy();
         }
 

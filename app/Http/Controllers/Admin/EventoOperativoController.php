@@ -11,22 +11,18 @@ class EventoOperativoController extends Controller
 {
     public function store(EventoOperativoRequest $request): RedirectResponse
     {
-        $datos = $request->validated();
-
-        // El formulario manda fecha y horas por separado; la tabla guarda fecha y hora juntas
-        EventoOperativo::create([
-            'titulo' => $datos['titulo'],
-            'descripcion' => $datos['descripcion'] ?? null,
-            'direccion' => $datos['direccion'] ?? null,
+        EventoOperativo::create($this->datosParaGuardar($request->validated()) + [
             'tipo_recorrido' => 'estatico',
-            'estado' => 'programado',
-            'fecha_hora_inicio' => "{$datos['fecha']} {$datos['hora_inicio']}",
-            'fecha_hora_fin' => ! empty($datos['hora_fin'])
-                ? "{$datos['fecha']} {$datos['hora_fin']}"
-                : null,
         ]);
 
         return back()->with('success', 'Evento creado correctamente.');
+    }
+
+    public function update(EventoOperativoRequest $request, EventoOperativo $evento): RedirectResponse
+    {
+        $evento->update($this->datosParaGuardar($request->validated()));
+
+        return back()->with('success', 'Evento actualizado correctamente.');
     }
 
     public function destroy(EventoOperativo $evento): RedirectResponse
@@ -34,5 +30,20 @@ class EventoOperativoController extends Controller
         $evento->delete();
 
         return back()->with('success', 'Evento eliminado correctamente.');
+    }
+
+
+    private function datosParaGuardar(array $datos): array
+    {
+        return [
+            'titulo' => $datos['titulo'],
+            'descripcion' => $datos['descripcion'] ?? null,
+            'direccion' => $datos['direccion'] ?? null,
+            'estado' => $datos['estado'] ?? 'programado',
+            'fecha_hora_inicio' => "{$datos['fecha']} {$datos['hora_inicio']}",
+            'fecha_hora_fin' => ! empty($datos['hora_fin'])
+                ? "{$datos['fecha']} {$datos['hora_fin']}"
+                : null,
+        ];
     }
 }

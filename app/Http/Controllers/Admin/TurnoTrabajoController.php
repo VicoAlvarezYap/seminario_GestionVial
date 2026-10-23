@@ -18,6 +18,14 @@ class TurnoTrabajoController extends Controller
         return back()->with('success', 'Turno asignado correctamente.');
     }
 
+    /** Modifica un turno (también sirve para reasignarlo a otro agente). */
+    public function update(TurnoTrabajoRequest $request, TurnoTrabajo $turno): RedirectResponse
+    {
+        $turno->update($request->validated());
+
+        return back()->with('success', 'Turno actualizado correctamente.');
+    }
+
     public function destroy(TurnoTrabajo $turno): RedirectResponse
     {
         $turno->delete();
