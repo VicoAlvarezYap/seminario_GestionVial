@@ -13,6 +13,30 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    # 1. Definimos el servicio de base de datos como MySQL
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: gestion_vial
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -p$MYSQL_ROOT_PASSWORD"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    # 2. Configuramos las variables de entorno para que Laravel use MySQL
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: gestion_vial
+      DB_USERNAME: root
+      DB_PASSWORD: password
+
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
