@@ -3,7 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PaginaAgenteController;
 use App\Http\Controllers\Admin\EventoOperativoController;
-use App\Http\Controllers\AgentePerfilController;
+use App\Http\Controllers\ContactoEmergenciaController;
+use App\Http\Controllers\AgenteController;
 
 Route::inertia('/', 'welcome')->name('home');
 
@@ -19,7 +20,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     //Ruta al perfil
     Route::middleware(['auth'])->group(function () {
-    Route::get('/mi-perfil', [AgentePerfilController::class, 'show'])->name('mi-perfil');
+    // Vista principal del perfil del agente
+    Route::get('/mi-perfil', [AgenteController::class, 'show'])->name('mi-perfil');
+
+    // Gestión de contactos de emergencia
+    Route::post('/mi-perfil/contactos', [ContactoEmergenciaController::class, 'store'])->name('contactos.store');
+    Route::delete('/mi-perfil/contactos/{contacto}', [ContactoEmergenciaController::class, 'destroy'])->name('contactos.destroy');
     });
 });
 

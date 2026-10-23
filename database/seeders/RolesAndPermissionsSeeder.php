@@ -15,7 +15,7 @@ class RolesAndPermissionsSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Limpiar la caché de los permisos de Spatie (esencial)[cite: 5]
+       
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         // 2. Crear Permisos específicos para Eventos Operativos y Turnos
@@ -26,12 +26,12 @@ class RolesAndPermissionsSeeder extends Seeder
         
         Permission::firstOrCreate(['name' => 'ver pagina agente']); // Para ver el calendario mensual y turnos
 
-        // 3. Crear Roles utilizando findOrCreate para evitar duplicados[cite: 5, 10]
+       
         $roleSuperAdmin = Role::firstOrCreate(['name' => 'super-admin']);
         $roleAdmin = Role::firstOrCreate(['name' => 'admin']);
         $roleAgente = Role::firstOrCreate(['name' => 'agente']);
 
-        // 4. Asignar Permisos a Roles[cite: 5]
+        
         $roleSuperAdmin->givePermissionTo(Permission::all());
         
         $roleAdmin->givePermissionTo([
