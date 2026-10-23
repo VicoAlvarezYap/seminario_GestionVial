@@ -21,10 +21,6 @@ type Props = DatosMes & {
     puedeEditar: boolean;
     onCambiar: (nuevaFecha: string) => void;
 };
-
-
-
-
 const enlaceMapa = (lat: string | number, lng: string | number): string =>
     `https://www.google.com/maps?q=${Number(lat)},${Number(lng)}`;
 

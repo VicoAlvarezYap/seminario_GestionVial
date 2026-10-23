@@ -20,19 +20,18 @@ export default function PaginaAgente({
     semana,
     mes,
 }: Props) {
-    // Cada calendario cambia solo su fecha y mantiene la del otro
     const navegar = (cambios: { semana?: string; mes?: string }) => {
-        router.get(
-            '/pagina-agente',
-            { semana: semana.fecha, mes: mes.fecha, ...cambios },
-            {
-                only: ['semana', 'mes'],
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            },
-        );
-    };
+    router.get( //con la ultima modificacion el usuario puede moverse entre las semanas y los meses
+        '/pagina_principal', 
+        { semana: semana.fecha, mes: mes.fecha, ...cambios },
+        {
+            only: ['semana', 'mes'],
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        },
+    );
+};
 
     return (
         <>
@@ -56,7 +55,7 @@ export default function PaginaAgente({
                             ),
                         },
                         {
-                            titulo: 'Eventos operativos del mes',
+                            titulo: 'Eventos del Mes',
                             contenido: (
                                 <CalendarioMesEventos
                                     {...mes}

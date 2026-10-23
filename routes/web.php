@@ -11,8 +11,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     
     Route::get('/pagina_principal', [PaginaAgenteController::class, 'index'])->name('pagina_principal');
-    Route::middleware(['auth'])->prefix('admin')->as('admin.')->group(function () { //Redireccion una vez que se guarda o edita un evento
-    Route::resource('eventos-operativos', EventoOperativoController::class)->except(['create', 'show', 'edit']);
+    Route::middleware(['auth'])->group(function () { //Elimina, crea y edita
+    Route::post('/admin/eventos-operativos', [EventoOperativoController::class, 'store'])->name('admin.eventos-operativos.store');
+    Route::put('/admin/eventos-operativos/{evento}', [EventoOperativoController::class, 'update'])->name('admin.eventos-operativos.update');
+    Route::delete('/admin/eventos-operativos/{evento}', [EventoOperativoController::class, 'destroy'])->name('admin.eventos-operativos.destroy');
     });
 });
 
