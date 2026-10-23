@@ -29,32 +29,51 @@ class Agente extends Model
         return $this->hasMany(ContactoEmergencia::class, 'agente_id');
     }
 
-    /*
-     * 
-     * public function historialLaboral(): HasMany
-     * {
-     *     return $this->hasMany(HistorialLaboral::class, 'agente_id');
-     * }
-     *
-     * public function licencias(): HasMany
-     * {
-     *     return $this->hasMany(HistorialLicencia::class, 'agente_id');
-     * }
-     *
-     * public function observacionesMedicas(): HasMany
-     * {
-     *     return $this->hasMany(ObservacionMedica::class, 'agente_id');
-     * }
-     *
-     * public function turnos(): HasMany
-     * {
-     *     return $this->hasMany(TurnoTrabajo::class, 'agente_id');
-     * }
-     */
+   
+     
+      public function historialLaboral(): HasMany
+      {
+          return $this->hasMany(HistorialLaboral::class, 'agente_id');
+      }
+     
+
+     
+      public function observacionesMedicas(): HasMany
+      {
+          return $this->hasMany(ObservacionMedicas::class, 'agente_id');
+      }
+ 
 
     /** "Apellido, Nombre" para listados y selects. */
     public function getNombreCompletoAttribute(): string
     {
         return "{$this->apellido}, {$this->nombre}";
     }
+      public function licencias(): HasMany
+      {
+          return $this->hasMany(HistorialLicencia::class, 'agente_id');
+      }
+public function relevos():HasMany {
+    return $this->hasMany(Relevo::class, 'agente_id');
 }
+public function intervencion_emergencia() :HasMany{
+    return $this->hasMany(Relevo::class, 'agente_id');
+}
+
+public function intervencionesReportadas(): HasMany
+{
+    return $this->hasMany(IntervencionEmergencia::class, 'agente_reporta_id');
+}
+
+public function intervenciones(): BelongsToMany
+{
+    return $this->belongsToMany(
+        IntervencionEmergencia::class,
+        'intervencion_agentes',
+        'agente_id',
+        'intervencion_id'
+    )->withPivot('rol_en_intervencion');
+}
+    }
+
+
