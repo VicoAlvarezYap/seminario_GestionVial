@@ -40,7 +40,7 @@ class Agente extends Model
      
       public function observacionesMedicas(): HasMany
       {
-          return $this->hasMany(ObservacionMedicas::class, 'agente_id');
+          return $this->hasMany(ObservacionesMedicas::class, 'agente_id');
       }
  
 
@@ -62,13 +62,13 @@ public function intervencion_emergencia() :HasMany{
 
 public function intervencionesReportadas(): HasMany
 {
-    return $this->hasMany(IntervencionEmergencia::class, 'agente_reporta_id');
+    return $this->hasMany(IntervencionesDeEmergencias::class, 'agente_reporta_id');
 }
 
 public function intervenciones(): BelongsToMany
 {
     return $this->belongsToMany(
-        IntervencionEmergencia::class,
+        IntervencionesDeEmergencias::class,
         'intervencion_agentes',
         'agente_id',
         'intervencion_id'

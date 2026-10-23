@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-class intervencionDeEmergencias extends model{
+class IntervencionesDeEmergencias extends Model{
 protected $table='intervenciones_emergencias';
 protected $fillable=[
     
@@ -38,6 +38,6 @@ protected function casts(): array{
         )->withPivot('rol_en_intervencion');
     }
 public function participaciones(): HasMany{
-   return $this->hasMany(IntervencionAgente::class, 'intervencion_id');
+   return $this->hasMany(IntervencionDeAgente::class, 'intervencion_id');
 }
 }

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-class intervencionDeAgente extends model{
+class IntervencionDeAgente extends Model{
 protected $table='intervencion_agentes';
 protected $fillable=[
     

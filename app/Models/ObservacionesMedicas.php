@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-class ObservacionMedicas extends Model
+class ObservacionesMedicas extends Model
 {
-protected $table = 'observacaiones_medicas';
+protected $table = 'observaciones_medicas';
 protected $fillable=[
 'agente_id',
 'fecha_registro',
