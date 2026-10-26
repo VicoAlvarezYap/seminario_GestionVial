@@ -2,6 +2,8 @@ import { useForm } from '@inertiajs/react';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import type { SyntheticEvent } from 'react';
 import ModalSimple, { CLASE_CAMPO, Campo } from '@/components/modal-simple';
+import SelectorLugar from '@/components/selector-lugar';
+import type { LugarOpcion } from '@/components/selector-lugar';
 import { Button } from '@/components/ui/button';
 
 export type TipoRecorrido = 'estatico' | 'movil_itinerante';
@@ -20,6 +22,8 @@ export type EventoEditable = {
     fecha: string;
     hora_inicio: string;
     hora_fin: string | null;
+    lugar_id?: number | null;
+    lugar?: string | null;
     direccion: string | null;
     descripcion: string | null;
     estado: string | null;
@@ -39,6 +43,7 @@ type DatosFormulario = {
     fecha: string;
     hora_inicio: string;
     hora_fin: string;
+    lugar_id: string;
     direccion: string;
     descripcion: string;
     estado: string;
@@ -72,16 +77,18 @@ const puntoVacio = (): PuntoForm => ({ descripcion_referencia: '', latitud: '', 
 
 type Props = {
     fecha: string; // fecha sugerida para un evento nuevo (YYYY-MM-DD)
+    lugares: LugarOpcion[];
     evento?: EventoEditable | null; // si viene, el formulario edita ese evento; si no, crea uno nuevo
     onCerrar: () => void;
 };
 
-export default function FormEvento({ fecha, evento = null, onCerrar }: Props) {
+export default function FormEvento({ fecha, lugares, evento = null, onCerrar }: Props) {
     const form = useForm<DatosFormulario>({
         titulo: evento?.titulo ?? '',
         fecha: evento?.fecha ?? fecha,
         hora_inicio: evento?.hora_inicio ?? '09:00',
         hora_fin: evento?.hora_fin ?? '',
+        lugar_id: evento?.lugar_id ? String(evento.lugar_id) : '',
         direccion: evento?.direccion ?? '',
         descripcion: evento?.descripcion ?? '',
         estado: evento?.estado ?? 'programado',
@@ -147,13 +154,14 @@ export default function FormEvento({ fecha, evento = null, onCerrar }: Props) {
 
         const opciones = {
             preserveScroll: true,
+            preserveState: true,
             onSuccess: () => onCerrar(),
         };
 
-        if (evento) { // redirecciona el boton de guardar
-            form.put(`/admin/eventos-operativos/${evento.id}`, opciones);
+        if (evento) {
+            form.put(`/admin/eventos/${evento.id}`, opciones);
         } else {
-            form.post('/admin/eventos-operativos', opciones);
+            form.post('/admin/eventos', opciones);
         }
     };
 
@@ -201,7 +209,15 @@ export default function FormEvento({ fecha, evento = null, onCerrar }: Props) {
                     </Campo>
                 </div>
 
-                <Campo etiqueta="Dirección o zona" error={form.errors.direccion}>
+                <SelectorLugar
+                    lugares={lugares}
+                    valor={form.data.lugar_id}
+                    onCambiar={(id) => form.setData('lugar_id', id)}
+                    error={form.errors.lugar_id}
+                    actual={evento?.lugar_id ? { id: evento.lugar_id, nombre: evento.lugar ?? 'Lugar actual' } : null}
+                />
+
+                <Campo etiqueta="Dirección o zona (opcional)" error={form.errors.direccion}>
                     <input
                         type="text"
                         className={CLASE_CAMPO}

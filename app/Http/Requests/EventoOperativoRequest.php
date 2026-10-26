@@ -8,7 +8,7 @@ class EventoOperativoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; 
+        return true; // el acceso lo controla el middleware 'role:Administrador' en las rutas
     }
 
     public function rules(): array
@@ -23,6 +23,7 @@ class EventoOperativoRequest extends FormRequest
             'fecha' => ['required', 'date'],
             'hora_inicio' => ['required', 'date_format:H:i'],
             'hora_fin' => ['nullable', 'date_format:H:i', 'after:hora_inicio'],
+            'lugar_id' => ['nullable', 'integer', 'exists:lugares,id'],
             'direccion' => ['nullable', 'string', 'max:255'],
             'estado' => ['nullable', 'in:programado,en_curso,finalizado,cancelado,suspendido'],
 
@@ -31,12 +32,12 @@ class EventoOperativoRequest extends FormRequest
             'solicitante_nombre' => ['nullable', 'string', 'max:150'],
             'solicitante_celular' => ['nullable', 'string', 'max:30'],
 
-            // Tipo de recorrido y ubicación (evento estatico)
+            // Tipo de recorrido y ubicación (evento estático)
             'tipo_recorrido' => ['required', 'in:estatico,movil_itinerante'],
             'latitud_inicio' => ['nullable', 'numeric', 'between:-90,90'],
             'longitud_inicio' => ['nullable', 'numeric', 'between:-180,180'],
 
-            // Puntos del recorrido (evento movil/itinerante): minimo inicio y fin
+            // Puntos del recorrido (evento móvil/itinerante): mínimo inicio y fin
             'puntos' => [$soloMovil, 'required', 'array', 'min:2'],
             'puntos.*.descripcion_referencia' => [$soloMovil, 'nullable', 'string', 'max:255'],
             'puntos.*.latitud' => [$soloMovil, 'required', 'numeric', 'between:-90,90'],
@@ -51,6 +52,7 @@ class EventoOperativoRequest extends FormRequest
             'descripcion' => 'descripción',
             'hora_inicio' => 'hora de inicio',
             'hora_fin' => 'hora de fin',
+            'lugar_id' => 'lugar',
             'direccion' => 'dirección',
             'solicitante_ente' => 'ente solicitante',
             'solicitante_nombre' => 'nombre del solicitante',

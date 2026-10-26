@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agente;
+use App\Models\Lugar;
 use App\Models\EventoOperativo;
 use App\Models\TurnoTrabajo;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class PaginaAgenteController extends Controller
         $inicioSemana = $fechaSemana->copy()->startOfWeek(Carbon::MONDAY);
         $finSemana = $fechaSemana->copy()->endOfWeek(Carbon::SUNDAY);
 
-        $turnos = TurnoTrabajo::with('agente:id,nombre,apellido')
+        $turnos = TurnoTrabajo::with(['agente:id,nombre,apellido', 'lugar:id,nombre'])
             ->whereBetween('fecha', [$inicioSemana->toDateString(), $finSemana->toDateString()])
             // Un agente ve solo los suyos (si no está vinculado a un agente, no ve ninguno)
             ->when(!$verTodos, fn($q) => $q->where('agente_id', $usuario->agente_id))
@@ -38,10 +39,12 @@ class PaginaAgenteController extends Controller
             ->get()
             ->map(fn(TurnoTrabajo $t) => [
                 'id' => $t->id,
+                'lugar_id' => $t->lugar_id,
                 'fecha' => $t->fecha->toDateString(),
+                'lugar' => $t->lugar?->nombre,
                 'hora_inicio' => substr((string) $t->hora_inicio, 0, 5),
                 'hora_fin' => substr((string) $t->hora_fin, 0, 5),
-                'agente' => $t->agente?->nombre_completo,
+                'agente_id' => $t->agente_id,
                 'direccion' => $t->direccion_asignada,
                 'observaciones' => $t->observaciones,
                 'estado' => $t->estado_turno,
@@ -53,13 +56,15 @@ class PaginaAgenteController extends Controller
         $inicioMes = $fechaMes->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
         $finMes = $fechaMes->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
 
-        $eventos = EventoOperativo::with('puntosRecorrido')
+        $eventos = EventoOperativo::with(['puntosRecorrido', 'lugar:id,nombre'])
             ->whereBetween('fecha_hora_inicio', [$inicioMes, $finMes])
             ->orderBy('fecha_hora_inicio')
             ->get()
             ->map(fn(EventoOperativo $e) => [
                 'id' => $e->id,
                 'titulo' => $e->titulo,
+                'lugar_id' => $e->lugar_id,
+                'lugar' => $e->lugar?->nombre,
                 'fecha' => $e->fecha_hora_inicio->toDateString(),
                 'hora_inicio' => $e->fecha_hora_inicio->format('H:i'),
                 'hora_fin' => $e->fecha_hora_fin?->format('H:i'),
@@ -92,6 +97,12 @@ class PaginaAgenteController extends Controller
         return Inertia::render('Pagina_Principal/index', [
             'puedeEditar' => $puedeEditar,
             'agentes' => $agentes,
+            'lugares' => $puedeEditar
+                ? Lugar::where('activo', true)->orderBy('nombre')->get(['id', 'nombre'])
+                    ->map(fn(Lugar $l) => ['id' => $l->id, 'nombre' => $l->nombre])
+                    ->values()
+                    ->all()
+                : [],
             'semana' => [
                 'fecha' => $fechaSemana->toDateString(),
                 'inicio' => $inicioSemana->toDateString(),
