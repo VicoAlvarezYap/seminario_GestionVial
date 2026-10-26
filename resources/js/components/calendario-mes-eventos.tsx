@@ -4,27 +4,30 @@ import { useState } from 'react';
 import FormEvento from '@/components/form-evento';
 import type { EventoEditable } from '@/components/form-evento';
 import ModalSimple from '@/components/modal-simple';
+import type { LugarOpcion } from '@/components/selector-lugar';
 import { Button } from '@/components/ui/button';
 import { DIAS_CORTOS, formatoFecha, hoyISO, parseFecha, sumarDias } from '@/lib/fechas';
 
-
+// Un evento del calendario tiene los mismos datos que el formulario de edición
 export type EventoCalendario = EventoEditable;
 
 export type DatosMes = {
-    fecha: string; // dia de referencia 
-    inicio: string; 
-    fin: string; // ultimo domingo que se dibuja
+    fecha: string; // día de referencia (define el mes)
+    inicio: string; // primer lunes que se dibuja
+    fin: string; // último domingo que se dibuja
     eventos: EventoCalendario[];
 };
 
 type Props = DatosMes & {
     puedeEditar: boolean;
+    lugares: LugarOpcion[];
     onCambiar: (nuevaFecha: string) => void;
 };
+
 const enlaceMapa = (lat: string | number, lng: string | number): string =>
     `https://www.google.com/maps?q=${Number(lat)},${Number(lng)}`;
 
-export default function CalendarioMesEventos({ fecha, inicio, fin, eventos, puedeEditar, onCambiar }: Props) {
+export default function CalendarioMesEventos({ fecha, inicio, fin, eventos, puedeEditar, lugares, onCambiar }: Props) {
     const hoy = hoyISO();
     const base = parseFecha(fecha);
 
@@ -94,9 +97,9 @@ export default function CalendarioMesEventos({ fecha, inicio, fin, eventos, pued
                 </div>
             </div>
 
-            {/* COlumnas de los 7 dias */}
+            {/* Grilla de 7 columnas */}
             <div className="overflow-x-auto">
-                <div className="grid min-w-700px grid-cols-7 rounded-lg border">
+                <div className="grid min-w-[700px] grid-cols-7 rounded-lg border">
                     {DIAS_CORTOS.map((d) => (
                         <div key={d} className="bg-muted/50 p-2 text-center text-sm font-medium">
                             {d}
@@ -172,6 +175,12 @@ export default function CalendarioMesEventos({ fecha, inicio, fin, eventos, pued
                                 {seleccionado.hora_fin ? ` – ${seleccionado.hora_fin}` : ''}
                             </dd>
                         </div>
+                        {seleccionado.lugar && (
+                            <div>
+                                <dt className="text-muted-foreground">Lugar</dt>
+                                <dd>{seleccionado.lugar}</dd>
+                            </div>
+                        )}
                         {seleccionado.direccion && (
                             <div>
                                 <dt className="text-muted-foreground">Dirección</dt>
@@ -271,9 +280,16 @@ export default function CalendarioMesEventos({ fecha, inicio, fin, eventos, pued
                 </ModalSimple>
             )}
 
-            {creando && <FormEvento fecha={fecha} onCerrar={() => setCreando(false)} />}
+            {creando && <FormEvento fecha={fecha} lugares={lugares} onCerrar={() => setCreando(false)} />}
 
-            {editando && <FormEvento fecha={editando.fecha} evento={editando} onCerrar={() => setEditando(null)} />}
+            {editando && (
+                <FormEvento
+                    fecha={editando.fecha}
+                    evento={editando}
+                    lugares={lugares}
+                    onCerrar={() => setEditando(null)}
+                />
+            )}
         </div>
     );
 }

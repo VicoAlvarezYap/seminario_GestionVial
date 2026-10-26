@@ -6,32 +6,25 @@ import type { DatosSemana } from '@/components/calendario-semana-turnos';
 import Carrusel from '@/components/carrusel';
 import type { AgenteOpcion } from '@/components/form-turno';
 import NavbarAgente from '@/components/navbar-agente';
+import type { LugarOpcion } from '@/components/selector-lugar';
 
 type Props = {
     puedeEditar: boolean; // true solo para el Administrador
     agentes: AgenteOpcion[]; // lista para el selector de "asignar turno"
+    lugares: LugarOpcion[]; // lista para el selector de lugar (turnos y eventos)
     semana: DatosSemana;
     mes: DatosMes;
 };
 
-export default function PaginaAgente({
-    puedeEditar,
-    agentes,
-    semana,
-    mes,
-}: Props) {
+export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, mes }: Props) {
+    // Cada calendario cambia solo su fecha y mantiene la del otro
     const navegar = (cambios: { semana?: string; mes?: string }) => {
-    router.get( //con la ultima modificacion el usuario puede moverse entre las semanas y los meses
-        '/pagina_principal', 
-        { semana: semana.fecha, mes: mes.fecha, ...cambios },
-        {
-            only: ['semana', 'mes'],
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        },
-    );
-};
+        router.get(
+            '/pagina-agente',
+            { semana: semana.fecha, mes: mes.fecha, ...cambios },
+            { only: ['semana', 'mes'], preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
 
     return (
         <>
@@ -42,24 +35,24 @@ export default function PaginaAgente({
                 <Carrusel
                     slides={[
                         {
-                            titulo: puedeEditar
-                                ? 'Asignación de turnos de la semana'
-                                : 'Mis turnos de la semana',
+                            titulo: puedeEditar ? 'Asignación de turnos de la semana' : 'Mis turnos de la semana',
                             contenido: (
                                 <CalendarioSemanaTurnos
                                     {...semana}
                                     puedeEditar={puedeEditar}
                                     agentes={agentes}
+                                    lugares={lugares}
                                     onCambiar={(f) => navegar({ semana: f })}
                                 />
                             ),
                         },
                         {
-                            titulo: 'Eventos del Mes',
+                            titulo: 'Eventos operativos del mes',
                             contenido: (
                                 <CalendarioMesEventos
                                     {...mes}
                                     puedeEditar={puedeEditar}
+                                    lugares={lugares}
                                     onCambiar={(f) => navegar({ mes: f })}
                                 />
                             ),

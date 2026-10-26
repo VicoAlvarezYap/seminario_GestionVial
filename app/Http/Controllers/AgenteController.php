@@ -66,6 +66,14 @@ class AgenteController extends Controller
             'agente' => $agente,
         ]);
     }
+    public function show(Request $request)
+    {
+        $agente = $request->user()->agente()->with('contactosEmergencia')->first();
+
+        return Inertia::render('Agentes/Perfil', [
+            'agente' => $agente,
+        ]);
+    }
 
     public function update(UpdateAgenteRequest $request, Agente $agente): RedirectResponse
     {

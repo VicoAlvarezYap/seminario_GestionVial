@@ -6,16 +6,38 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\TurnoTrabajoRequest;
 use App\Models\TurnoTrabajo;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class TurnoTrabajoController extends Controller
 {
-    /** Asigna un turno a un agente. */
-    public function store(TurnoTrabajoRequest $request): RedirectResponse
+    /** Asigna un o varios turnos a varios agente o solo a uno */
+      public function store(TurnoTrabajoRequest $request): RedirectResponse
     {
-        TurnoTrabajo::create($request->validated());
+        $datos = $request->validated();
 
-        // back() vuelve a la misma página, con la misma semana y mes que se estaban viendo
-        return back()->with('success', 'Turno asignado correctamente.');
+        $agenteIds = $datos['agente_ids'];
+        unset($datos['agente_ids']);
+
+        // Los turnos creados juntos comparten un identificador de asignación
+        $asignacionId = count($agenteIds) > 1 ? (string) Str::uuid() : null;
+
+        // Todo o nada: si falla un agente, no se crea ninguno
+        DB::transaction(function () use ($agenteIds, $datos, $asignacionId) {
+            foreach ($agenteIds as $agenteId) {
+                TurnoTrabajo::create($datos + [
+                    'agente_id' => $agenteId,
+                    'asignacion_id' => $asignacionId,
+                ]);
+            }
+        });
+
+        $cantidad = count($agenteIds);
+
+        return back()->with(
+            'success',
+            $cantidad === 1 ? 'Turno asignado correctamente.' : "Turno asignado a {$cantidad} agentes.",
+        );
     }
 
     /** Modifica un turno (también sirve para reasignarlo a otro agente). */
