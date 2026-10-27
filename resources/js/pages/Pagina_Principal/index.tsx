@@ -20,15 +20,23 @@ export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, me
     // Cada calendario cambia solo su fecha y mantiene la del otro
     const { auth } = usePage<{ auth: { user: { name: string } } }>().props;
 
-    const navegar = (cambios: { semana?: string; mes?: string }) => {
+    const navegarSemana = (desde: string, hasta: string) => {
         router.get(
-            '/pagina-agente',
-            { semana: semana.fecha, mes: mes.fecha, ...cambios },
+            '/pagina_principal',
+            { desde, hasta, ev_desde: mes.desde, ev_hasta: mes.hasta },
             { only: ['semana', 'mes'], preserveState: true, preserveScroll: true, replace: true },
         );
     };
 
-    const iniciar =()=>{
+    const navegarEventos = (ev_desde: string, ev_hasta: string) => {
+        router.get(
+            '/pagina_principal',
+            { desde: semana.desde, hasta: semana.hasta, ev_desde, ev_hasta },
+            { only: ['semana', 'mes'], preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
+
+    const iniciar = () => {
         console.log('Iniciar Jornada');
     };
 
@@ -39,31 +47,27 @@ export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, me
 
             <main className="p-4">
                 <div className="mb-4">
-                    <TarjetaBienvenida nombre ={auth.user.name} onIniciar={iniciar} />
+                    <TarjetaBienvenida nombre={auth.user.name} onIniciar={iniciar} />
                 </div>
                 <Carrusel
                     slides={[
                         {
                             titulo: puedeEditar ? 'Asignación de turnos de la semana' : 'Mis turnos de la semana',
                             contenido: (
-                                <CalendarioSemanaTurnos
-                                    {...semana}
+                                <CalendarioSemanaTurnos {...semana}
                                     puedeEditar={puedeEditar}
                                     agentes={agentes}
                                     lugares={lugares}
-                                    onCambiar={(f) => navegar({ semana: f })}
-                                />
+                                    onCambiar={navegarSemana} />
                             ),
                         },
                         {
                             titulo: 'Eventos operativos del mes',
                             contenido: (
-                                <CalendarioMesEventos
-                                    {...mes}
+                                <CalendarioMesEventos {...mes}
                                     puedeEditar={puedeEditar}
                                     lugares={lugares}
-                                    onCambiar={(f) => navegar({ mes: f })}
-                                />
+                                    onCambiar={navegarEventos} />
                             ),
                         },
                     ]}
