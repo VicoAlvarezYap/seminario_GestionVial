@@ -1,11 +1,13 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { LayoutGrid, LogOut, Menu, UserRound, X } from 'lucide-react';
+import { LayoutGrid, LogOut, Menu, UserRound, X,FileText,AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
-
 // Para agregar más opciones al menú, sumá una línea acá
 const enlaces = [
     { titulo: 'Inicio', href: '/pagina-agente', icono: LayoutGrid },
     { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound },
+    {titulo: 'Licencias',href:'/licencias', icono:FileText},
+    {titulo:'Relevos', href:'/relevos',icono:FileText},
+    {titulo:'Intervencion de emergencias', href:'/intervenciones',icono:AlertTriangle}
 ];
 
 export default function NavbarAgente() {
