@@ -18,22 +18,28 @@ class PaginaAgenteController extends Controller
     {
         $usuario = $request->user();
 
-        // Solo el Administrador modifica. Administrador y Supervisor ven los turnos de todos.
         $puedeEditar = $usuario->hasRole('Administrador');
         $verTodos = $usuario->hasAnyRole(['Administrador', 'Supervisor']);
 
-        $hoy = now()->startOfDay();
-        $fechaSemana = $this->leerFecha($request->query('semana'), $hoy);
-        $fechaMes = $this->leerFecha($request->query('mes'), $hoy);
+        $request->validate([
+            'desde' => ['nullable', 'date'],
+            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'ev_desde' => ['nullable', 'date'],
+            'ev_hasta' => ['nullable', 'date', 'after_or_equal:ev_desde'],
+        ]);
 
-        // ---- Semana: turnos de trabajo (de lunes a domingo) ----
-        $inicioSemana = $fechaSemana->copy()->startOfWeek(Carbon::MONDAY);
-        $finSemana = $fechaSemana->copy()->endOfWeek(Carbon::SUNDAY);
+        // Turnos: por defecto, la semana actual
+        [$desde, $hasta] = $this->leerRango($request, 'desde', 'hasta', now()->startOfWeek(), now()->endOfWeek());
+
+        // Eventos: por defecto, el mes actual
+        [$evDesde, $evHasta] = $this->leerRango($request, 'ev_desde', 'ev_hasta', now()->startOfMonth(), now()->endOfMonth());
 
         $turnos = TurnoTrabajo::with(['agente:id,nombre,apellido', 'lugar:id,nombre'])
-            ->whereBetween('fecha', [$inicioSemana->toDateString(), $finSemana->toDateString()])
-            // Un agente ve solo los suyos (si no está vinculado a un agente, no ve ninguno)
-            ->when(!$verTodos, fn($q) => $q->where('agente_id', $usuario->agente_id))
+            ->whereBetween('fecha', [$desde->toDateString(), $hasta->toDateString()])
+            // Antes usabas !$puedeEditar y el Supervisor veía solo lo suyo, contra tu propio comentario
+           ->when(! $verTodos, fn ($q) => $usuario->agente_id
+    ? $q->where('agente_id', $usuario->agente_id)
+    : $q->whereRaw('1 = 0'))
             ->orderBy('fecha')
             ->orderBy('hora_inicio')
             ->get()
@@ -45,6 +51,7 @@ class PaginaAgenteController extends Controller
                 'hora_inicio' => substr((string) $t->hora_inicio, 0, 5),
                 'hora_fin' => substr((string) $t->hora_fin, 0, 5),
                 'agente_id' => $t->agente_id,
+                'agente' => $t->agente ? "{$t->agente->apellido}, {$t->agente->nombre}" : null,
                 'direccion' => $t->direccion_asignada,
                 'observaciones' => $t->observaciones,
                 'estado' => $t->estado_turno,
@@ -52,12 +59,8 @@ class PaginaAgenteController extends Controller
             ->values()
             ->all();
 
-        // ---- Mes: eventos operativos (semanas completas) ----
-        $inicioMes = $fechaMes->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
-        $finMes = $fechaMes->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
-
         $eventos = EventoOperativo::with(['puntosRecorrido', 'lugar:id,nombre'])
-            ->whereBetween('fecha_hora_inicio', [$inicioMes, $finMes])
+            ->whereBetween('fecha_hora_inicio', [$evDesde->copy()->startOfDay(), $evHasta->copy()->endOfDay()])
             ->orderBy('fecha_hora_inicio')
             ->get()
             ->map(fn(EventoOperativo $e) => [
@@ -68,25 +71,10 @@ class PaginaAgenteController extends Controller
                 'fecha' => $e->fecha_hora_inicio->toDateString(),
                 'hora_inicio' => $e->fecha_hora_inicio->format('H:i'),
                 'hora_fin' => $e->fecha_hora_fin?->format('H:i'),
-                'direccion' => $e->direccion,
-                'descripcion' => $e->descripcion,
-                'estado' => $e->estado,
-                'tipo_recorrido' => $e->tipo_recorrido,
-                'latitud_inicio' => $e->latitud_inicio,
-                'longitud_inicio' => $e->longitud_inicio,
-                'solicitante_ente' => $e->solicitante_ente,
-                'solicitante_nombre' => $e->solicitante_nombre,
-                'solicitante_celular' => $e->solicitante_celular,
-                'puntos' => $e->puntosRecorrido->map(fn($p) => [
-                    'descripcion_referencia' => $p->descripcion_referencia,
-                    'latitud' => $p->latitud,
-                    'longitud' => $p->longitud,
-                ])->values()->all(),
             ])
             ->values()
             ->all();
 
-        // Lista de agentes para el selector de "asignar turno" (solo el administrador la necesita)
         $agentes = $puedeEditar
             ? Agente::orderBy('apellido')->orderBy('nombre')->get(['id', 'nombre', 'apellido'])
                 ->map(fn(Agente $a) => ['id' => $a->id, 'nombre' => "{$a->apellido}, {$a->nombre}"])
@@ -104,20 +92,30 @@ class PaginaAgenteController extends Controller
                     ->all()
                 : [],
             'semana' => [
-                'fecha' => $fechaSemana->toDateString(),
-                'inicio' => $inicioSemana->toDateString(),
-                'fin' => $finSemana->toDateString(),
+                'desde' => $desde->toDateString(),
+                'hasta' => $hasta->toDateString(),
                 'turnos' => $turnos,
             ],
-            'mes' => [
-                'fecha' => $fechaMes->toDateString(),
-                'inicio' => $inicioMes->toDateString(),
-                'fin' => $finMes->toDateString(),
+            'mes' => [   // conservo la clave "mes" para no tocar la página
+                'desde' => $evDesde->toDateString(),
+                'hasta' => $evHasta->toDateString(),
                 'eventos' => $eventos,
             ],
         ]);
     }
 
+    /** Lee un rango desde la query; si falta o es inválido usa el de respaldo. Máximo 366 días. */
+    private function leerRango(Request $request, string $kDesde, string $kHasta, CarbonInterface $respDesde, CarbonInterface $respHasta): array
+    {
+        $desde = $this->leerFecha($request->query($kDesde), $respDesde);
+        $hasta = $this->leerFecha($request->query($kHasta), $respHasta);
+
+        if ($desde->diffInDays($hasta) > 365) {
+            $hasta = $desde->copy()->addDays(365);
+        }
+
+        return [$desde, $hasta];
+    }
     /** Convierte el texto recibido en fecha; si falta o es inválido, usa la de respaldo. */
     private function leerFecha(mixed $valor, CarbonInterface $respaldo): CarbonInterface
     {

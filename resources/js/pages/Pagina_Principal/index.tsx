@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import CalendarioMesEventos from '@/components/calendario-mes-eventos';
 import type { DatosMes } from '@/components/calendario-mes-eventos';
 import CalendarioSemanaTurnos from '@/components/calendario-semana-turnos';
@@ -7,7 +7,7 @@ import Carrusel from '@/components/carrusel';
 import type { AgenteOpcion } from '@/components/form-turno';
 import NavbarAgente from '@/components/navbar-agente';
 import type { LugarOpcion } from '@/components/selector-lugar';
-
+import TarjetaBienvenida from '@/components/tarjeta-bienvenida';
 type Props = {
     puedeEditar: boolean; // true solo para el Administrador
     agentes: AgenteOpcion[]; // lista para el selector de "asignar turno"
@@ -18,12 +18,26 @@ type Props = {
 
 export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, mes }: Props) {
     // Cada calendario cambia solo su fecha y mantiene la del otro
-    const navegar = (cambios: { semana?: string; mes?: string }) => {
+    const { auth } = usePage<{ auth: { user: { name: string } } }>().props;
+
+    const navegarSemana = (desde: string, hasta: string) => {
         router.get(
-            '/pagina-agente',
-            { semana: semana.fecha, mes: mes.fecha, ...cambios },
+            '/pagina_principal',
+            { desde, hasta, ev_desde: mes.desde, ev_hasta: mes.hasta },
             { only: ['semana', 'mes'], preserveState: true, preserveScroll: true, replace: true },
         );
+    };
+
+    const navegarEventos = (ev_desde: string, ev_hasta: string) => {
+        router.get(
+            '/pagina_principal',
+            { desde: semana.desde, hasta: semana.hasta, ev_desde, ev_hasta },
+            { only: ['semana', 'mes'], preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
+
+    const iniciar = () => {
+        console.log('Iniciar Jornada');
     };
 
     return (
@@ -32,29 +46,28 @@ export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, me
             <NavbarAgente />
 
             <main className="p-4">
+                <div className="mb-4">
+                    <TarjetaBienvenida nombre={auth.user.name} onIniciar={iniciar} />
+                </div>
                 <Carrusel
                     slides={[
                         {
                             titulo: puedeEditar ? 'Asignación de turnos de la semana' : 'Mis turnos de la semana',
                             contenido: (
-                                <CalendarioSemanaTurnos
-                                    {...semana}
+                                <CalendarioSemanaTurnos {...semana}
                                     puedeEditar={puedeEditar}
                                     agentes={agentes}
                                     lugares={lugares}
-                                    onCambiar={(f) => navegar({ semana: f })}
-                                />
+                                    onCambiar={navegarSemana} />
                             ),
                         },
                         {
-                            titulo: 'Eventos operativos del mes',
+                            titulo: 'Eventos del mes',
                             contenido: (
-                                <CalendarioMesEventos
-                                    {...mes}
+                                <CalendarioMesEventos {...mes}
                                     puedeEditar={puedeEditar}
                                     lugares={lugares}
-                                    onCambiar={(f) => navegar({ mes: f })}
-                                />
+                                    onCambiar={navegarEventos} />
                             ),
                         },
                     ]}
