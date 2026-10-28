@@ -107,6 +107,9 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
     const [asignando, setAsignando] = useState<string | null>(null);
     const [editando, setEditando] = useState<TurnoCalendario | null>(null);
 
+    // 'todos' o el id del agente (como string, porque viene de un <select>)
+    const [agenteFiltro, setAgenteFiltro] = useState<string>('todos');
+
     // Valores de los inputs (se aplican con el botón, para no recargar en cada tecla)
     const [desdeInput, setDesdeInput] = useState(desde);
     const [hastaInput, setHastaInput] = useState(hasta);
@@ -126,6 +129,9 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
         dHasta.getDate() === ultimoDiaMes(dDesde).getDate() &&
         dDesde.getMonth() === dHasta.getMonth() &&
         dDesde.getFullYear() === dHasta.getFullYear();
+
+    // Fecha por defecto para "Agregar turno": hoy si está dentro del rango; si no, el primer día
+    const fechaNueva = hoy >= desde && hoy <= hasta ? hoy : desde;
 
     /* ---- Acciones del filtro ---- */
     const aplicar = () => {
@@ -173,9 +179,14 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
     };
 
     /* ---- Datos derivados ---- */
+    const turnosVisibles = useMemo(
+        () => (agenteFiltro === 'todos' ? turnos : turnos.filter((t) => String(t.agente_id) === agenteFiltro)),
+        [turnos, agenteFiltro],
+    );
+
     const ordenados = useMemo(
-        () => [...turnos].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio)),
-        [turnos],
+        () => [...turnosVisibles].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio)),
+        [turnosVisibles],
     );
 
     const porDia = useMemo(() => {
@@ -235,7 +246,36 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                     Filtrar
                 </button>
 
+                {/* Filtro por agente (solo quien puede editar; el resto ya ve solo sus turnos) */}
+                {puedeEditar && (
+                    <label className="flex flex-col gap-1 text-xs font-medium">
+                        Agente
+                        <select
+                            value={agenteFiltro}
+                            onChange={(e) => setAgenteFiltro(e.target.value)}
+                            className="bg-background rounded-md border px-2 py-1.5 text-sm"
+                        >
+                            <option value="todos">Todos los agentes</option>
+                            {agentes.map((a) => (
+                                <option key={a.id} value={String(a.id)}>
+                                    {a.nombre}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                )}
+
                 <div className="flex flex-wrap gap-2 sm:ml-auto">
+                    {puedeEditar && (
+                        <button
+                            type="button"
+                            onClick={() => setAsignando(fechaNueva)}
+                            className="bg-primary text-primary-foreground flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium"
+                        >
+                            <Plus className="size-4" />
+                            Agregar turno
+                        </button>
+                    )}
                     <button type="button" onClick={estaSemana} className={btnAtajo}>
                         Esta semana
                     </button>
@@ -268,7 +308,7 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                     </button>
                     <span className="ml-2 font-medium">{titulo}</span>
                     <span className="text-muted-foreground text-sm">
-                        ({turnos.length} {turnos.length === 1 ? 'turno' : 'turnos'})
+                        ({turnosVisibles.length} {turnosVisibles.length === 1 ? 'turno' : 'turnos'})
                     </span>
                 </div>
 
@@ -381,10 +421,10 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                     <p className="text-muted-foreground text-sm">No hay turnos en el rango seleccionado.</p>
                 ))}
 
-            {/* ===== VISTA CALENDARIO (una fila por semana) ===== */}
+            {/* ===== VISTA CALENDARIO (una fila por semana, solo visualización) ===== */}
             {vista === 'calendario' && (
                 <div className="overflow-x-auto">
-                    <div className="min-w-700px overflow-hidden rounded-lg border">
+                    <div className="min-w-[700px] overflow-hidden rounded-lg border">
                         {/* Encabezado con los días */}
                         <div className="bg-muted/50 grid grid-cols-7 border-b">
                             {DIAS_CORTOS.map((d, i) => (
@@ -422,17 +462,6 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                                                         ? `${d.getDate()} ${d.toLocaleDateString('es-AR', { month: 'short' })}`
                                                         : d.getDate()}
                                                 </div>
-
-                                                {puedeEditar && dentro && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setAsignando(clave)}
-                                                        aria-label={`Asignar turno el ${d.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}`}
-                                                        className="hover:bg-muted flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs"
-                                                    >
-                                                        <Plus className="size-3" /> Turno
-                                                    </button>
-                                                )}
                                             </div>
 
                                             {dentro &&
@@ -452,7 +481,7 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                         ))}
                     </div>
 
-                    {turnos.length === 0 && (
+                    {turnosVisibles.length === 0 && (
                         <p className="text-muted-foreground mt-3 text-sm">No hay turnos en el rango seleccionado.</p>
                     )}
                 </div>

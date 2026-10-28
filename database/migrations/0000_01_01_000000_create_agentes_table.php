@@ -8,7 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // El id es el número de legajo
         Schema::create('agentes', function (Blueprint $table) {
             $table->id();
             $table->string('nombre', 100);

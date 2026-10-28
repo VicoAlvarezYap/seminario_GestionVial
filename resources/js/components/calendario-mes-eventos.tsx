@@ -164,7 +164,7 @@ export default function CalendarioMesEventos({ desde, hasta, eventos, puedeEdita
         if (!window.confirm('¿Eliminar este evento?')) {
             return;
         }
-        router.delete(`/admin/eventos/${id}`, { preserveScroll: true });
+        router.delete(`/admin/eventos-operativos/${id}`, { preserveScroll: true });
     };
 
     const ordenados = useMemo(
@@ -403,16 +403,7 @@ export default function CalendarioMesEventos({ desde, hasta, eventos, puedeEdita
                                                         ? `${d.getDate()} ${d.toLocaleDateString('es-AR', { month: 'short' })}`
                                                         : d.getDate()}
                                                 </div>
-                                                {puedeEditar && dentro && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setCreando(clave)}
-                                                        aria-label={`Agregar evento el ${d.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}`}
-                                                        className="hover:bg-muted flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs"
-                                                    >
-                                                        <Plus className="size-3" /> Evento
-                                                    </button>
-                                                )}
+                                        
                                             </div>
 
                                             {dentro &&

@@ -11,8 +11,8 @@ export type TipoRecorrido = 'estatico' | 'movil_itinerante';
 // Punto de paso de un evento móvil (tabla evento_puntos_recorrido)
 export type PuntoEvento = {
     descripcion_referencia: string | null;
-    latitud: string | number;
-    longitud: string | number;
+    latitud?: string | number | null;
+    longitud?: string | number | null;
 };
 
 // Datos de un evento que ya existe (modo edición)
@@ -36,7 +36,7 @@ export type EventoEditable = {
     puntos?: PuntoEvento[];
 };
 
-type PuntoForm = { descripcion_referencia: string; latitud: string; longitud: string };
+type PuntoForm = { descripcion_referencia: string };
 
 type DatosFormulario = {
     titulo: string;
@@ -51,8 +51,6 @@ type DatosFormulario = {
     solicitante_nombre: string;
     solicitante_celular: string;
     tipo_recorrido: TipoRecorrido;
-    latitud_inicio: string;
-    longitud_inicio: string;
     puntos: PuntoForm[];
 };
 
@@ -69,11 +67,7 @@ const TIPOS: { valor: TipoRecorrido; etiqueta: string; ayuda: string }[] = [
     { valor: 'movil_itinerante', etiqueta: 'Móvil / itinerante', ayuda: 'Con recorrido (procesión, desfile)' },
 ];
 
-// "-24.78210000" -> "-24.7821"; vacío si no hay valor
-const numero = (v: string | number | null | undefined): string =>
-    v === null || v === undefined || v === '' ? '' : String(Number(v));
-
-const puntoVacio = (): PuntoForm => ({ descripcion_referencia: '', latitud: '', longitud: '' });
+const puntoVacio = (): PuntoForm => ({ descripcion_referencia: '' });
 
 type Props = {
     fecha: string; // fecha sugerida para un evento nuevo (YYYY-MM-DD)
@@ -96,16 +90,12 @@ export default function FormEvento({ fecha, lugares, evento = null, onCerrar }: 
         solicitante_nombre: evento?.solicitante_nombre ?? '',
         solicitante_celular: evento?.solicitante_celular ?? '',
         tipo_recorrido: evento?.tipo_recorrido ?? 'estatico',
-        latitud_inicio: numero(evento?.latitud_inicio),
-        longitud_inicio: numero(evento?.longitud_inicio),
         puntos: (evento?.puntos ?? []).map((p) => ({
             descripcion_referencia: p.descripcion_referencia ?? '',
-            latitud: numero(p.latitud),
-            longitud: numero(p.longitud),
         })),
     });
 
-    // Los errores de los puntos llegan como "puntos.0.latitud", "puntos.1.longitud", etc.
+    // Los errores de los puntos llegan como "puntos.0.descripcion_referencia", etc.
     const errores = form.errors as Record<string, string | undefined>;
     const esMovil = form.data.tipo_recorrido === 'movil_itinerante';
     const puntos = form.data.puntos;
@@ -118,10 +108,10 @@ export default function FormEvento({ fecha, lugares, evento = null, onCerrar }: 
         }
     };
 
-    const cambiarPunto = (indice: number, campo: keyof PuntoForm, valor: string) => {
+    const cambiarPunto = (indice: number, valor: string) => {
         form.setData(
             'puntos',
-            puntos.map((p, i) => (i === indice ? { ...p, [campo]: valor } : p)),
+            puntos.map((p, i) => (i === indice ? { ...p, descripcion_referencia: valor } : p)),
         );
     };
 
@@ -159,9 +149,9 @@ export default function FormEvento({ fecha, lugares, evento = null, onCerrar }: 
         };
 
         if (evento) {
-            form.put(`/admin/eventos/${evento.id}`, opciones);
+            form.put(`/admin/eventos-operativos/${evento.id}`, opciones);
         } else {
-            form.post('/admin/eventos', opciones);
+            form.post('/admin/eventos-operativos', opciones);
         }
     };
 
@@ -290,41 +280,7 @@ export default function FormEvento({ fecha, lugares, evento = null, onCerrar }: 
                     </div>
                     {errores.tipo_recorrido && <span className="text-sm text-red-600">{errores.tipo_recorrido}</span>}
 
-                    {/* Estático: una ubicación */}
-                    {!esMovil && (
-                        <>
-                            <p className="text-muted-foreground text-xs">
-                                Opcional. Para copiar las coordenadas: en Google Maps, clic derecho sobre el lugar y
-                                tocá los números que aparecen.
-                            </p>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <Campo etiqueta="Latitud" error={form.errors.latitud_inicio}>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        min={-90}
-                                        max={90}
-                                        className={CLASE_CAMPO}
-                                        value={form.data.latitud_inicio}
-                                        onChange={(e) => form.setData('latitud_inicio', e.target.value)}
-                                    />
-                                </Campo>
-                                <Campo etiqueta="Longitud" error={form.errors.longitud_inicio}>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        min={-180}
-                                        max={180}
-                                        className={CLASE_CAMPO}
-                                        value={form.data.longitud_inicio}
-                                        onChange={(e) => form.setData('longitud_inicio', e.target.value)}
-                                    />
-                                </Campo>
-                            </div>
-                        </>
-                    )}
-
-                    {/* Móvil: puntos de paso */}
+                    {/* Móvil: puntos de paso (solo referencia) */}
                     {esMovil && (
                         <div className="flex flex-col gap-2">
                             <p className="text-muted-foreground text-xs">
@@ -375,40 +331,11 @@ export default function FormEvento({ fecha, lugares, evento = null, onCerrar }: 
                                         aria-label={`Referencia del punto ${i + 1}`}
                                         className={CLASE_CAMPO}
                                         value={p.descripcion_referencia}
-                                        onChange={(e) => cambiarPunto(i, 'descripcion_referencia', e.target.value)}
+                                        onChange={(e) => cambiarPunto(i, e.target.value)}
                                     />
-                                    <div className="mt-2 grid grid-cols-2 gap-2">
-                                        <input
-                                            type="number"
-                                            step="any"
-                                            min={-90}
-                                            max={90}
-                                            placeholder="Latitud"
-                                            aria-label={`Latitud del punto ${i + 1}`}
-                                            className={CLASE_CAMPO}
-                                            value={p.latitud}
-                                            onChange={(e) => cambiarPunto(i, 'latitud', e.target.value)}
-                                        />
-                                        <input
-                                            type="number"
-                                            step="any"
-                                            min={-180}
-                                            max={180}
-                                            placeholder="Longitud"
-                                            aria-label={`Longitud del punto ${i + 1}`}
-                                            className={CLASE_CAMPO}
-                                            value={p.longitud}
-                                            onChange={(e) => cambiarPunto(i, 'longitud', e.target.value)}
-                                        />
-                                    </div>
-                                    {errores[`puntos.${i}.latitud`] && (
+                                    {errores[`puntos.${i}.descripcion_referencia`] && (
                                         <span className="block text-sm text-red-600">
-                                            {errores[`puntos.${i}.latitud`]}
-                                        </span>
-                                    )}
-                                    {errores[`puntos.${i}.longitud`] && (
-                                        <span className="block text-sm text-red-600">
-                                            {errores[`puntos.${i}.longitud`]}
+                                            {errores[`puntos.${i}.descripcion_referencia`]}
                                         </span>
                                     )}
                                 </div>

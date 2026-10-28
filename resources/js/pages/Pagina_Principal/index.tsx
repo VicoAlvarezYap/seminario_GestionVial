@@ -62,7 +62,7 @@ export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, me
                             ),
                         },
                         {
-                            titulo: 'Eventos operativos del mes',
+                            titulo: 'Eventos del mes',
                             contenido: (
                                 <CalendarioMesEventos {...mes}
                                     puedeEditar={puedeEditar}
