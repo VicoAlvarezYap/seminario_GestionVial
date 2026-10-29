@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class IntervencionesDeEmergencias extends Model
 {
     protected $table = 'intervenciones_emergencias';
-
+   public $timestamps = false;
     protected $fillable = [
         'tipo_evento',
         'nivel_urgencia',
@@ -28,13 +28,12 @@ class IntervencionesDeEmergencias extends Model
         ];
     }
 
-    // El agente que registró la emergencia
+    // eel agente que registro la emergencia
     public function agenteReporta(): BelongsTo
     {
         return $this->belongsTo(Agente::class, 'agente_reporta_id');
     }
 
-    // Relación Many-to-Many con los agentes asignados a la intervención
     public function agentes(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -45,7 +44,7 @@ class IntervencionesDeEmergencias extends Model
         )->withPivot('rol_en_intervencion');
     }
 
-    // Relación con la tabla intervencion de agente
+
     public function participaciones(): HasMany
     {
         return $this->hasMany(IntervencionDeAgente::class, 'intervencion_id');
