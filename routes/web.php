@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\LugarController;
 use App\Http\Controllers\LicenciaController;
 use App\Http\Controllers\RelevoController;
 use App\Http\Controllers\IntervencionController;
+use App\Http\Controllers\Admin\LicenciaAdminController;
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -26,7 +27,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/turnos', [TurnoTrabajoController::class, 'store'])->name('admin.turnos.store');
     Route::put('/admin/turnos/{turno}', [TurnoTrabajoController::class, 'update'])->name('admin.turnos.update');
     Route::delete('/admin/turnos/{turno}', [TurnoTrabajoController::class, 'destroy'])->name('admin.turnos.destroy');
+    
     });
+    ///rutas de admin
+    Route::middleware('role:admin|super-admin|Administrador')->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');
+    Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf');
+    Route::patch('/licencias/{licencia}/resolver', [LicenciaAdminController::class, 'resolver'])->name('licencias.resolver');
+    Route::get('/licencias/{licencia}/justificante', [LicenciaAdminController::class, 'justificante'])->name('licencias.justificante');
+});
     //Ruta al perfil
     Route::middleware(['auth'])->group(function () {
         // Vista principal del perfil del agente
