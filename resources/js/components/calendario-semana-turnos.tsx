@@ -424,7 +424,7 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
             {/* ===== VISTA CALENDARIO (una fila por semana, solo visualización) ===== */}
             {vista === 'calendario' && (
                 <div className="overflow-x-auto">
-                    <div className="min-w-[700px] overflow-hidden rounded-lg border">
+                    <div className="min-w-700px overflow-hidden rounded-lg border">
                         {/* Encabezado con los días */}
                         <div className="bg-muted/50 grid grid-cols-7 border-b">
                             {DIAS_CORTOS.map((d, i) => (

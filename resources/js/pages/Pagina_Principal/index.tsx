@@ -8,15 +8,18 @@ import type { AgenteOpcion } from '@/components/form-turno';
 import NavbarAgente from '@/components/navbar-agente';
 import type { LugarOpcion } from '@/components/selector-lugar';
 import TarjetaBienvenida from '@/components/tarjeta-bienvenida';
+import type { MiTurno } from '@/components/tarjeta-bienvenida';
+
 type Props = {
-    puedeEditar: boolean; // true solo para el Administrador
-    agentes: AgenteOpcion[]; // lista para el selector de "asignar turno"
-    lugares: LugarOpcion[]; // lista para el selector de lugar (turnos y eventos)
+    puedeEditar: boolean;
+    agentes: AgenteOpcion[];
+    lugares: LugarOpcion[];
+    miTurno: MiTurno | null; // turno de hoy del agente (null si no tiene o es administrador)
     semana: DatosSemana;
     mes: DatosMes;
 };
 
-export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, mes }: Props) {
+export default function PaginaAgente({ puedeEditar, agentes, lugares, miTurno, semana, mes }: Props)  {
     // Cada calendario cambia solo su fecha y mantiene la del otro
     const { auth } = usePage<{ auth: { user: { name: string } } }>().props;
 
@@ -36,9 +39,6 @@ export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, me
         );
     };
 
-    const iniciar = () => {
-        console.log('Iniciar Jornada');
-    };
 
     return (
         <>
@@ -47,7 +47,7 @@ export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, me
 
             <main className="p-4">
                 <div className="mb-4">
-                    <TarjetaBienvenida nombre={auth.user.name} onIniciar={iniciar} />
+                    <TarjetaBienvenida nombre={auth.user.name} turno={miTurno} />
                 </div>
                 <Carrusel
                     slides={[

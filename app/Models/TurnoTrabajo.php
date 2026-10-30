@@ -12,7 +12,6 @@ class TurnoTrabajo extends Model
 
     protected $table = 'turnos_trabajo';
 
-    // 👇 Agrega esta línea para evitar que Eloquent busque created_at / updated_at
     public $timestamps = false;
 
     protected $fillable = [
@@ -29,6 +28,8 @@ class TurnoTrabajo extends Model
 
     protected $casts = [
         'fecha' => 'date',
+        'inicio_real' => 'datetime', //hora de entrada real al turno
+        'fin_real' => 'datetime',  //hora de finalizacion, esto puede ser despues o antes
     ];
 
     public function lugar(): BelongsTo

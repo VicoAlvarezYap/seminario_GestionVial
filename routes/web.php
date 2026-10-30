@@ -10,6 +10,9 @@ use App\Http\Controllers\Admin\LugarController;
 use App\Http\Controllers\LicenciaController;
 use App\Http\Controllers\RelevoController;
 use App\Http\Controllers\IntervencionController;
+use App\Http\Controllers\FichadaController;
+use App\Http\Controllers\Admin\PerfilController;
+use App\Http\Controllers\Admin\LicenciaAdminController;
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -22,29 +25,43 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/admin/eventos-operativos/{evento}', [EventoOperativoController::class, 'update'])->name('admin.eventos-operativos.update');
         Route::delete('/admin/eventos-operativos/{evento}', [EventoOperativoController::class, 'destroy'])->name('admin.eventos-operativos.destroy');
     });
-    Route::middleware(['auth'])->group(function () { 
-    Route::post('/admin/turnos', [TurnoTrabajoController::class, 'store'])->name('admin.turnos.store');
-    Route::put('/admin/turnos/{turno}', [TurnoTrabajoController::class, 'update'])->name('admin.turnos.update');
-    Route::delete('/admin/turnos/{turno}', [TurnoTrabajoController::class, 'destroy'])->name('admin.turnos.destroy');
+
+    Route::middleware(['auth'])->group(function () {
+        Route::post('/admin/turnos', [TurnoTrabajoController::class, 'store'])->name('admin.turnos.store');
+        Route::put('/admin/turnos/{turno}', [TurnoTrabajoController::class, 'update'])->name('admin.turnos.update');
+        Route::delete('/admin/turnos/{turno}', [TurnoTrabajoController::class, 'destroy'])->name('admin.turnos.destroy');
+        Route::post('turnos/{turno}/iniciar', [FichadaController::class, 'iniciar'])->name('turnos.iniciar');
+        Route::post('turnos/{turno}/finalizar', [FichadaController::class, 'finalizar'])->name('turnos.finalizar'); //Fichaje de los turnos
+
+    });
+    ///rutas de admin
+    ///rutas de admin
+    Route::middleware('role:admin|super-admin|Administrador')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/perfiles', [PerfilController::class, 'index'])->name('perfiles.index');
+
+        Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');
+        Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf');
+        Route::patch('/licencias/{licencia}/resolver', [LicenciaAdminController::class, 'resolver'])->name('licencias.resolver');
+        Route::get('/licencias/{licencia}/justificante', [LicenciaAdminController::class, 'justificante'])->name('licencias.justificante');
     });
     //Ruta al perfil
     Route::middleware(['auth'])->group(function () {
         // Vista principal del perfil del agente
         Route::get('/mi-perfil', [AgenteController::class, 'show'])->name('mi-perfil');
-       
+
         //licencias
         Route::get('/licencias', [LicenciaController::class, 'index'])->name('licencias.index');
         Route::post('/licencias', [LicenciaController::class, 'store'])->name('licencias.store');
         Route::put('/licencias/{licencia}', [LicenciaController::class, 'update'])->name('licencias.update');
         Route::patch('/licencias/{licencia}/cancelar', [LicenciaController::class, 'cancelar'])->name('licencias.cancelar');
         Route::get('/licencias/{licencia}/justificante', [LicenciaController::class, 'justificante'])->name('licencias.justificante');
-       
+
         //relevos
         Route::get('/relevos', [RelevoController::class, 'index'])->name('relevos.index');
         Route::post('/relevos', [RelevoController::class, 'store'])->name('relevos.store');
         Route::put('/relevos/{relevo}', [RelevoController::class, 'update'])->name('relevos.update');
         Route::delete('/relevos/{relevo}', [RelevoController::class, 'destroy'])->name('relevos.destroy');
-       
+
         //intervencion de emergencia
         Route::get('/intervenciones', [IntervencionController::class, 'index'])->name('intervenciones.index');
         Route::post('/intervenciones', [IntervencionController::class, 'store'])->name('intervenciones.store');
@@ -56,6 +73,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/mi-perfil/contactos/{contacto}', [ContactoEmergenciaController::class, 'destroy'])->name('contactos.destroy');
     });
     Route::post('lugares', [LugarController::class, 'store'])->name('lugares.store');
+
 });
 
 require __DIR__ . '/settings.php';
