@@ -1,11 +1,14 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { LayoutGrid, LogOut, Menu, UserRound, X } from 'lucide-react';
+import { LayoutGrid, LogOut, Menu, UserRound, X,FileText,AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
 // Para agregar más opciones al menú, sumá una línea acá
 const enlaces = [
-    { titulo: 'Inicio', href: '/pagina-agente', icono: LayoutGrid },
+    { titulo: 'Inicio', href: '/pagina_principal', icono: LayoutGrid },
     { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound },
+    {titulo: 'Licencias',href:'/licencias', icono:FileText},
+    {titulo:'Relevos', href:'/relevos',icono:FileText},
+    {titulo:'Intervencion de emergencias', href:'/intervenciones',icono:AlertTriangle}
 ];
 
 export default function NavbarAgente() {
@@ -28,13 +31,11 @@ export default function NavbarAgente() {
                         <Menu className="size-5" />
                     )}
                 </button>
-
-                {/* Centro: nombre del sistema */}
                 <span className="absolute left-1/2 -translate-x-1/2 text-lg font-semibold">
                     Gestion Vial
                 </span>
 
-                {/* Derecha: cerrar sesión */}
+                {/* Cerrar sesion */}
                 <button
                     type="button"
                     onClick={() => router.post('/logout')}

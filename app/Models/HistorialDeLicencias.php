@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class HistorialDeLicencias extends Model
 {
     protected $table = 'historial_licencias';
-
+    public $timestamps = false; 
     protected $fillable = [
         'agente_id',
         'tipo_licencia',
@@ -17,6 +17,13 @@ class HistorialDeLicencias extends Model
         'pendiente',
         'observaciones'
     ];
+    protected function casts(): array
+    {
+        return [
+            'fecha_inicio' => 'date',
+            'fecha_fin' => 'date',
+        ];
+    }
     public function agente(): BelongsTo
     {
         return $this->belongsTo(Agente::class, 'agente_id');

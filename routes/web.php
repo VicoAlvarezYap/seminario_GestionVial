@@ -7,7 +7,9 @@ use App\Http\Controllers\ContactoEmergenciaController;
 use App\Http\Controllers\AgenteController;
 use App\Http\Controllers\Admin\TurnoTrabajoController;
 use App\Http\Controllers\Admin\LugarController;
-
+use App\Http\Controllers\LicenciaController;
+use App\Http\Controllers\RelevoController;
+use App\Http\Controllers\IntervencionController;
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -29,8 +31,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['auth'])->group(function () {
         // Vista principal del perfil del agente
         Route::get('/mi-perfil', [AgenteController::class, 'show'])->name('mi-perfil');
+       
+        //licencias
+        Route::get('/licencias', [LicenciaController::class, 'index'])->name('licencias.index');
+        Route::post('/licencias', [LicenciaController::class, 'store'])->name('licencias.store');
+        Route::put('/licencias/{licencia}', [LicenciaController::class, 'update'])->name('licencias.update');
+        Route::patch('/licencias/{licencia}/cancelar', [LicenciaController::class, 'cancelar'])->name('licencias.cancelar');
+        Route::get('/licencias/{licencia}/justificante', [LicenciaController::class, 'justificante'])->name('licencias.justificante');
+       
+        //relevos
+        Route::get('/relevos', [RelevoController::class, 'index'])->name('relevos.index');
+        Route::post('/relevos', [RelevoController::class, 'store'])->name('relevos.store');
+        Route::put('/relevos/{relevo}', [RelevoController::class, 'update'])->name('relevos.update');
+        Route::delete('/relevos/{relevo}', [RelevoController::class, 'destroy'])->name('relevos.destroy');
+       
+        //intervencion de emergencia
+        Route::get('/intervenciones', [IntervencionController::class, 'index'])->name('intervenciones.index');
+        Route::post('/intervenciones', [IntervencionController::class, 'store'])->name('intervenciones.store');
+        Route::put('/intervenciones/{intervencion}', [IntervencionController::class, 'update'])->name('intervenciones.update');
+        Route::patch('/intervenciones/{intervencion}/cancelar', [IntervencionController::class, 'cancelar'])->name('intervenciones.cancelar');
 
-        // Gestión de contactos de emergencia
+        // ggestion de contactos de emergencia
         Route::post('/mi-perfil/contactos', [ContactoEmergenciaController::class, 'store'])->name('contactos.store');
         Route::delete('/mi-perfil/contactos/{contacto}', [ContactoEmergenciaController::class, 'destroy'])->name('contactos.destroy');
     });
