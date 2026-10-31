@@ -2,7 +2,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { icon } from 'leaflet';
 import { LayoutGrid, LogOut, Menu, UserRound, X,FileText,AlertTriangle,ClipboardList,ClipboardCheck } from 'lucide-react';
 import { useState } from 'react';
-// Para agregar más opciones al menú, sumá una línea acá
+// Para agregar más opciones al menu
 const enlaces = [
     { titulo: 'Inicio', href: '/pagina_principal', icono: LayoutGrid, soloAgente: false },
     { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound, soloAgente: false },
@@ -11,6 +11,7 @@ const enlaces = [
     {titulo: 'Intervenciones de emergencia',href: '/intervenciones',icono: AlertTriangle,soloAgente: true },
     { titulo: 'Licencias', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
     { titulo: 'Relevos', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
+    { titulo: 'Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle, soloAdmin: true },    
 ];
 
 export default function NavbarAgente() {

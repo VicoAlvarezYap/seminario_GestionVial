@@ -11,7 +11,7 @@ use Inertia\Response;
 
 class RelevoController extends Controller
 {
-    private const INFRACCIONES = [
+    public const INFRACCIONES = [
         'Alcohol',
         'Documentación',
         'Condición de licencia',
@@ -35,6 +35,7 @@ class RelevoController extends Controller
                     'id' => $r->id,
                     'nombre_completo' => $r->tercero_nombre_apellido,
                     'dni' => $r->tercero_dni,
+                    'celular'=>$r->tercero_celular,
                     'domicilio' => $r->tercero_domicilio,
                     'tipo_vehiculo' => $r->vehiculo_tipo,
                     'placa_vehiculo' => $r->vehiculo_placa,
@@ -103,6 +104,7 @@ class RelevoController extends Controller
         return [
             'nombre_completo' => ['required', 'string', 'max:200'],
             'dni' => ['required', 'string', 'max:20'],
+            'celular'=>['required','string','max:30'],
             'domicilio' => ['required', 'string', 'max:255'],
             'tipo_vehiculo' => ['required', 'string', 'max:50'],
             'placa_vehiculo' => ['required', 'string', 'max:15'],
@@ -118,6 +120,7 @@ class RelevoController extends Controller
         return [
             'tercero_nombre_apellido' => $v['nombre_completo'],
             'tercero_dni' => $v['dni'],
+            'tercero_celular'=>$v['celular'],
             'tercero_domicilio' => $v['domicilio'],
             'vehiculo_tipo' => $v['tipo_vehiculo'],
             'vehiculo_placa' => strtoupper($v['placa_vehiculo']),
