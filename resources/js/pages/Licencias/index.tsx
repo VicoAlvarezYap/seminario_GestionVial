@@ -167,7 +167,11 @@ export default function LicenciasIndex({
 
         router.patch(`/licencias/${l.id}/cancelar`, {}, { preserveScroll: true });
     };
-
+//limite en las fechas 
+    const hoy = new Date().toISOString().split('T')[0];
+    const unAnioDespuesObj = new Date();
+    unAnioDespuesObj.setFullYear(unAnioDespuesObj.getFullYear() + 1);
+    const unAnioDespues = unAnioDespuesObj.toISOString().split('T')[0];
     return (
         <>
             <Head title="Mis licencias" />
@@ -372,6 +376,8 @@ export default function LicenciasIndex({
                                 <label className={claseEtiqueta}>Desde</label>
                                 <input
                                     type="date"
+                                    min={hoy}
+                                    max={unAnioDespues}                                   
                                     value={datos.fecha_inicio}
                                     onChange={(e) => formulario.setData('fecha_inicio', e.target.value)}
                                     className={claseInput}
@@ -382,7 +388,8 @@ export default function LicenciasIndex({
                                 <label className={claseEtiqueta}>Hasta</label>
                                 <input
                                     type="date"
-                                    min={datos.fecha_inicio}
+                                    min={datos.fecha_inicio || hoy}
+                                    max={unAnioDespues}
                                     value={datos.fecha_fin}
                                     onChange={(e) => formulario.setData('fecha_fin', e.target.value)}
                                     className={claseInput}

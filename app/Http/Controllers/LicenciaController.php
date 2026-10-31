@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use Carbon\Carbon;
 use App\Models\HistorialDeLicencias;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -140,14 +140,15 @@ class LicenciaController extends Controller
         $motivo = $request->input('motivo');
         $esFamiliar = $motivo === 'Familiar enfermo';
         $exigePdf = $motivo === 'Médico' && ! $tieneJustificante;
-
+        $hoy = Carbon::today()->toDateString();
+        $unAnioDespues = Carbon::today()->addYear()->toDateString();
         return [
             'domicilio_calle' => ['required', 'string', 'max:120'],
             'domicilio_numero' => ['required', 'string', 'max:10'],
             'domicilio_localidad' => ['required', Rule::in(self::LOCALIDADES)],
             'motivo' => ['required', Rule::in(self::MOTIVOS)],
-            'fecha_inicio' => ['required', 'date'],
-            'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio'],
+            'fecha_inicio' => ['required', 'date',"after_or_equal:{$hoy}","before_or_equal:{$unAnioDespues}"],
+            'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio',"before_or_equal:{$unAnioDespues}"],
             'dj_a_cargo' => [Rule::requiredIf($esFamiliar), 'nullable', 'string', 'max:150'],
             'dj_parentesco' => [Rule::requiredIf($esFamiliar), 'nullable', Rule::in(self::PARENTESCOS)],
             'dj_conformidad' => $esFamiliar ? ['accepted'] : ['nullable'],
