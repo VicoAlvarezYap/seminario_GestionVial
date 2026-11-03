@@ -41,9 +41,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/relevos/{relevo}/pdf', [RelevoAdminController::class, 'pdf'])->name('relevos.pdf');
     Route::get('/intervenciones', [IntervencionAdminController::class, 'index'])->name('intervenciones.index');
     Route::get('/intervenciones/{intervencion}/pdf', [IntervencionAdminController::class, 'pdf'])->name('intervenciones.pdf');
-    Route::patch('/intervenciones/{intervencion}/estado', [IntervencionAdminController::class, 'estado'])->name('intervenciones.estado');
-    Route::post('/intervenciones/{intervencion}/agentes', [IntervencionAdminController::class, 'agregarAgente'])->name('intervenciones.agentes.store');
-    Route::delete('/intervenciones/{intervencion}/agentes/{agente}', [IntervencionAdminController::class, 'quitarAgente'])->name('intervenciones.agentes.destroy');
+
+   
 
 
 });

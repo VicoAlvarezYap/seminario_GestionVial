@@ -187,6 +187,8 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
                         <label className={claseEtiqueta}>Desde</label>
                         <input
                             type="date"
+                           // min={hoy}
+                           // max={unAnioDespues}
                             value={borrador.desde}
                             onChange={(e) => setBorrador({ ...borrador, desde: e.target.value })}
                             className={claseInput}
@@ -197,7 +199,8 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
                         <label className={claseEtiqueta}>Hasta</label>
                         <input
                             type="date"
-                            min={borrador.desde}
+                            //min={borrador.desde || hoy}
+                           // max={unAnioDespues}
                             value={borrador.hasta}
                             onChange={(e) => setBorrador({ ...borrador, hasta: e.target.value })}
                             className={claseInput}

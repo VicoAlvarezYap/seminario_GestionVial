@@ -33,6 +33,7 @@ type Intervencion = {
     fecha_hora: string;
     es_reportante: boolean;
     editable: boolean;
+    siguientes: string[];
 };
 
 type Props = {
@@ -40,7 +41,11 @@ type Props = {
     agente: { nombre: string; apellido: string } | null;
     tipos: string[];
 };
-
+const ETIQUETA_ESTADO: Record<string, string> = {
+    en_curso: 'En curso',
+    resuelta: 'Resuelta',
+    derivada: 'Derivada',
+};
 type DatosFormulario = {
     tipo_seleccion: string;
     tipo_otros: string;
@@ -98,7 +103,7 @@ export default function IntervencionesIndex({ intervenciones, agente, tipos }: P
     const datos = formulario.data;
     const errores = formulario.errors;
 
-    // Reloj de referencia mientras se completa un reporte nuevo
+    //reloj de referencia mientras se completa un reporte nuevo
     useEffect(() => {
         if (!abierto || editando) {
             return;
@@ -159,7 +164,20 @@ export default function IntervencionesIndex({ intervenciones, agente, tipos }: P
 
         router.patch(`/intervenciones/${i.id}/cancelar`, {}, { preserveScroll: true });
     };
+const cambiarEstado = (i: Intervencion, nuevo: string) => {
+    if (!nuevo) {
+        return;
+    }
 
+    const esFinal = nuevo !== 'en_curso';
+    const pregunta = `¿Marcar esta intervención como "${ETIQUETA_ESTADO[nuevo] ?? nuevo}"?`;
+
+    if (!window.confirm(esFinal ? `${pregunta} Ya no se podrá modificar.` : pregunta)) {
+        return;
+    }
+
+    router.patch(`/intervenciones/${i.id}/estado`, { estado: nuevo }, { preserveScroll: true });
+};
     return (
         <>
             <Head title="Intervenciones de emergencia" />
@@ -261,6 +279,20 @@ export default function IntervencionesIndex({ intervenciones, agente, tipos }: P
                                                     >
                                                         Cancelar
                                                     </button>
+                                                    {i.siguientes.length > 0 && (
+                                                        <select
+                                                            value=""
+                                                            onChange={(e) => cambiarEstado(i, e.target.value)}
+                                                            className={claseAccion}
+                                                                                    >
+                                                             <option value="">Cambiar estado</option>
+                                                             {i.siguientes.map((s) => (
+                                                                 <option key={s} value={s}>
+                                                                         {ETIQUETA_ESTADO[s] ?? s}
+                                                            </option>
+                                                            ))}
+                                                         </select>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

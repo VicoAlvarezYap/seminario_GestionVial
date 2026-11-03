@@ -11,16 +11,16 @@ use Inertia\Response;
 
 class IntervencionController extends Controller
 {
-    private const TIPOS = [
+    public const TIPOS = [
         'Accidente de tránsito',
         'Inundación',
         'Caída de árbol',
         'Desmoronamiento',
     ];
 
-    private const OTROS = 'Otros';
+    public const OTROS = 'Otros';
 
-    private const URGENCIAS = ['baja', 'media', 'alta', 'critica'];
+    public const URGENCIAS = ['baja', 'media', 'alta', 'critica'];
 
     public function index(Request $request): Response
     {

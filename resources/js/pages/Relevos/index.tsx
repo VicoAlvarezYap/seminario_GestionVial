@@ -18,6 +18,7 @@ type Relevo = {
     id: number;
     nombre_completo: string;
     dni: string;
+    celular:string;
     domicilio: string | null;
     tipo_vehiculo: string;
     placa_vehiculo: string;
@@ -38,6 +39,7 @@ type Props = {
 type DatosFormulario = {
     nombre_completo: string;
     dni: string;
+    celular:string;
     domicilio: string;
     tipo_vehiculo: string;
     placa_vehiculo: string;
@@ -49,6 +51,7 @@ type DatosFormulario = {
 const vacio: DatosFormulario = {
     nombre_completo: '',
     dni: '',
+    celular:'',
     domicilio: '',
     tipo_vehiculo: '',
     placa_vehiculo: '',
@@ -111,6 +114,7 @@ export default function RelevosIndex({ relevos, agente, infracciones }: Props) {
         formulario.setData({
             nombre_completo: r.nombre_completo ?? '',
             dni: r.dni ?? '',
+            celular:r.celular ?? '',
             domicilio: r.domicilio ?? '',
             tipo_vehiculo: r.tipo_vehiculo ?? '',
             placa_vehiculo: r.placa_vehiculo ?? '',
@@ -130,7 +134,7 @@ export default function RelevosIndex({ relevos, agente, infracciones }: Props) {
                 infracciones: marcada
                     ? previo.infracciones.filter((i) => i !== nombre)
                     : [...previo.infracciones, nombre],
-                // Si se desmarca "Otros", se limpia el texto
+                // si se desmarca "Otros", se limpia el texto
                 infraccion_otros: marcada && nombre === OTROS ? '' : previo.infraccion_otros,
             };
         });
@@ -303,7 +307,7 @@ export default function RelevosIndex({ relevos, agente, infracciones }: Props) {
                                 />
                                 <MensajeError mensaje={errores.nombre_completo} />
                             </div>
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="grid grid-cols-1 gap-3 ">
                                 <div>
                                     <label className={claseEtiqueta}>DNI</label>
                                     <input
@@ -313,6 +317,12 @@ export default function RelevosIndex({ relevos, agente, infracciones }: Props) {
                                         className={claseInput}
                                     />
                                     <MensajeError mensaje={errores.dni} />
+                                </div>
+                                <div>
+                                    <label  className={claseEtiqueta}>Celular/Telefono</label>
+                                    <input type="text" value={datos.celular} onChange={(e)=>formulario.setData('celular',e.target.value)}
+                                    className={claseInput}/>
+                                    <MensajeError mensaje={errores.celular} />
                                 </div>
                                 <div>
                                     <label className={claseEtiqueta}>Domicilio</label>
