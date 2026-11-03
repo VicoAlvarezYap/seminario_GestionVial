@@ -14,15 +14,26 @@ type Props = {
     puedeEditar: boolean;
     agentes: AgenteOpcion[];
     lugares: LugarOpcion[];
-    miTurno: MiTurno | null; // turno de hoy del agente (null si no tiene o es administrador)
+    titulosSugeridos: string[];     // sugerencias para el título de la tarea (solo admin)
+    turnosDisponibles: string[];    // ['manana', 'tarde', 'noche', 'especial']
+    miTurno: MiTurno | null;
     semana: DatosSemana;
     mes: DatosMes;
 };
 
-export default function PaginaAgente({ puedeEditar, agentes, lugares, miTurno, semana, mes }: Props)  {
-    // Cada calendario cambia solo su fecha y mantiene la del otro
+export default function PaginaAgente({
+    puedeEditar,
+    agentes,
+    lugares,
+    titulosSugeridos,
+    turnosDisponibles,
+    miTurno,
+    semana,
+    mes,
+}: Props) {
     const { auth } = usePage<{ auth: { user: { name: string } } }>().props;
 
+    // Cada calendario cambia solo su rango y mantiene el del otro
     const navegarSemana = (desde: string, hasta: string) => {
         router.get(
             '/pagina_principal',
@@ -39,7 +50,6 @@ export default function PaginaAgente({ puedeEditar, agentes, lugares, miTurno, s
         );
     };
 
-
     return (
         <>
             <Head title="Página principal" />
@@ -54,20 +64,27 @@ export default function PaginaAgente({ puedeEditar, agentes, lugares, miTurno, s
                         {
                             titulo: puedeEditar ? 'Asignación de turnos de la semana' : 'Mis turnos de la semana',
                             contenido: (
-                                <CalendarioSemanaTurnos {...semana}
+                                <CalendarioSemanaTurnos
+                                    {...semana}
                                     puedeEditar={puedeEditar}
                                     agentes={agentes}
                                     lugares={lugares}
-                                    onCambiar={navegarSemana} />
+                                    turnosDisponibles={turnosDisponibles}
+                                    titulosSugeridos={titulosSugeridos}
+                                    eventos={mes.eventos}
+                                    onCambiar={navegarSemana}
+                                />
                             ),
                         },
                         {
                             titulo: 'Eventos del mes',
                             contenido: (
-                                <CalendarioMesEventos {...mes}
+                                <CalendarioMesEventos
+                                    {...mes}
                                     puedeEditar={puedeEditar}
                                     lugares={lugares}
-                                    onCambiar={navegarEventos} />
+                                    onCambiar={navegarEventos}
+                                />
                             ),
                         },
                     ]}

@@ -14,12 +14,6 @@ class IntervencionDeAgente extends Model
         'agente_id',
         'rol_en_intervencion',
     ];
-
-    public function intervencionEmergencia(): BelongsTo
-    {
-        return $this->belongsTo(IntervencionesDeEmergencias::class, 'intervencion_id');
-    }
-
     public function agente(): BelongsTo
     {
         return $this->belongsTo(Agente::class, 'agente_id');

@@ -9,15 +9,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('turnos_trabajo', function (Blueprint $table) {
-            // Lugar donde trabaja el agente (sale del catálogo "lugares")
-            $table->foreignId('lugar_id')->nullable()->after('hora_fin')
-                ->constrained('lugares')->nullOnDelete()->cascadeOnUpdate();
-
-            // Identifica los turnos que se crearon juntos en una misma asignación
-            // (cada agente sigue teniendo su propia fila). Sirve para editar o borrar el grupo.
-            $table->uuid('asignacion_id')->nullable()->after('lugar_id')->index();
-        });
 
         Schema::table('eventos_operativos', function (Blueprint $table) {
             // Lugar donde se realiza el evento (si es estático)
@@ -25,8 +16,7 @@ return new class extends Migration
                 ->constrained('lugares')->nullOnDelete()->cascadeOnUpdate();
         });
 
-        // Los textos que ya estaban cargados pasan al catálogo, para no perder datos
-        $this->pasarTextoALugares('turnos_trabajo', 'direccion_asignada');
+        // Las direcciones de texto ya cargadas en eventos pasan al catálogo
         $this->pasarTextoALugares('eventos_operativos', 'direccion');
     }
 
@@ -36,11 +26,6 @@ return new class extends Migration
             $table->dropConstrainedForeignId('lugar_id');
         });
 
-        Schema::table('turnos_trabajo', function (Blueprint $table) {
-            $table->dropIndex(['asignacion_id']);
-            $table->dropColumn('asignacion_id');
-            $table->dropConstrainedForeignId('lugar_id');
-        });
     }
 
     /** Crea un lugar por cada texto distinto y lo vincula a las filas que lo usaban. */

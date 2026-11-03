@@ -2,23 +2,56 @@ import { router, usePage } from '@inertiajs/react';
 import { Play, Square } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+export type TareaMiTurno = {
+    id: number;
+    titulo: string | null;
+    lugar: string | null;
+    hora_inicio: string | null;
+    hora_fin: string | null;
+    estado: string;
+    detalle: string | null;
+};
+
 export type MiTurno = {
     id: number;
-    lugar: string | null;
-    hora_inicio: string; // horario programado (HH:mm)
-    hora_fin: string;
-    inicio_real: string | null; // ISO, null si todavía no empezó
-    fin_real: string | null; // ISO, null si todavía no terminó
-    inicia_desde: string; // ISO: desde cuándo se puede iniciar
-    termina_hasta: string; // ISO: hasta cuándo se puede iniciar
-    ahora: string; // hora del servidor (ISO), para que el contador no dependa del reloj del celular
+    turno: string;
+    inicio_prog: string;
+    fin_prog: string;
+    inicio_real: string | null;
+    fin_real: string | null;
+    inicia_desde: string;
+    termina_hasta: string;
+    ahora: string;
+    tiene_reporte: boolean;
+    tareas: Array<{
+        id: number;
+        titulo: string | null;
+        lugar: string | null;
+        hora_inicio: string | null;
+        hora_fin: string | null;
+        estado: string;
+        detalle: string | null;
+    }>;
 };
 
 type Props = {
     nombre: string;
     turno: MiTurno | null; // null si no hay turno hoy o si es administrador
+    onTerminar?: (turno: MiTurno) => void; // abre el formulario del reporte
 };
 
+const NOMBRE_TURNO: Record<string, string> = {
+    manana: 'Mañana',
+    tarde: 'Tarde',
+    noche: 'Noche',
+    especial: 'Especial',
+};
+const ETIQUETA_ESTADO: Record<string, string> = {
+    programado: 'Programado',
+    iniciado: 'Iniciado',
+    en_proceso: 'En proceso',
+    finalizado: 'Finalizado',
+};
 const pad = (n: number) => String(n).padStart(2, '0');
 
 const duracion = (ms: number) => {
@@ -29,7 +62,7 @@ const duracion = (ms: number) => {
 const hora = (iso: string) =>
     new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-export default function TarjetaBienvenida({ nombre, turno }: Props) {
+export default function TarjetaBienvenida({ nombre, turno, onTerminar }: Props) {
     const inicial = nombre.trim().charAt(0).toUpperCase();
 
     const { errors } = usePage().props as unknown as { errors: Record<string, string | undefined> };
@@ -41,14 +74,12 @@ export default function TarjetaBienvenida({ nombre, turno }: Props) {
     const horaServidor = turno?.ahora;
     const enCurso = !!turno?.inicio_real && !turno?.fin_real;
 
-    // Corrige la diferencia entre el reloj del dispositivo y el del servidor
     useEffect(() => {
         if (horaServidor) {
             setDesfase(Date.parse(horaServidor) - Date.now());
         }
     }, [horaServidor]);
 
-    // El reloj corre mientras el turno no haya terminado (para el contador y para habilitar el botón a su hora)
     const reloj = !!turno && !turno.fin_real;
 
     useEffect(() => {
@@ -60,56 +91,87 @@ export default function TarjetaBienvenida({ nombre, turno }: Props) {
         return () => window.clearInterval(id);
     }, [reloj]);
 
-    // ¿Estamos dentro del horario en que se puede iniciar?
     const ahoraServidor = ahora + desfase;
     const antesDeHora = !!turno && ahoraServidor < Date.parse(turno.inicia_desde);
     const pasadoDeHora = !!turno && ahoraServidor > Date.parse(turno.termina_hasta);
     const puedeIniciar = !antesDeHora && !pasadoDeHora;
 
-    const enviar = (accion: 'iniciar' | 'finalizar') => {
+    const iniciar = () => {
         if (!turno) {
             return;
         }
-        if (accion === 'finalizar' && !window.confirm('¿Terminar el turno ahora?')) {
+        setProcesando(true);
+        router.post(`/turnos/${turno.id}/iniciar`, {}, {
+            preserveScroll: true,
+            onFinish: () => setProcesando(false),
+        });
+    };
+
+    const terminar = () => {
+        if (!turno) {
+            return;
+        }
+        // Si el reporte aún no existe, se abre su formulario: reporte y salida se guardan juntos
+        if (!turno.tiene_reporte && onTerminar) {
+            onTerminar(turno);
+            return;
+        }
+        if (!window.confirm('¿Terminar el turno ahora?')) {
             return;
         }
         setProcesando(true);
-        router.post(`/turnos/${turno.id}/${accion}`, {}, { preserveScroll: true, onFinish: () => setProcesando(false) });
+        router.post(`/turnos/${turno.id}/finalizar`, {}, {
+            preserveScroll: true,
+            onFinish: () => setProcesando(false),
+        });
     };
 
     return (
         <div className="flex flex-wrap items-center gap-4 rounded-xl border bg-white p-4 shadow-sm dark:bg-neutral-900">
-            {/* Círculo con la inicial */}
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white">
                 {inicial}
             </div>
 
-            {/* Texto de bienvenida */}
             <p className="min-w-0 flex-1 text-base font-medium">
                 BIENVENIDO <span className="font-bold">{nombre}</span>
             </p>
 
-            {/* Fichada: solo si hay turno hoy (el administrador nunca lo recibe) */}
             {turno && (
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-64">
                     <div className="text-sm">
-                        <span className="font-medium">Turno de hoy:</span> {turno.hora_inicio} – {turno.hora_fin}
-                        {turno.lugar ? ` · ${turno.lugar}` : ''}
+                        <span className="font-medium">Turno de hoy:</span> {NOMBRE_TURNO[turno.turno] ?? turno.turno} ·{' '}
+                        {hora(turno.inicio_prog)} – {hora(turno.fin_prog)}
                     </div>
 
-                    {/* Todavía no empezó */}
+                    {/* Tareas del turno */}
+                    {turno.tareas.length > 0 && (
+                        <ul className="space-y-1 rounded-lg border p-2 text-sm">
+                            {turno.tareas.map((t) => (
+                                <li key={t.id} className="flex flex-wrap items-baseline justify-between gap-x-2">
+                                    <span className="font-medium">{t.titulo ?? 'Sin título'}</span>
+                                    <span className="text-muted-foreground text-xs">
+                                        {[t.lugar, t.hora_inicio && `${t.hora_inicio}${t.hora_fin ? `–${t.hora_fin}` : ''}`]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                        {' · '}
+                                        {ETIQUETA_ESTADO[t.estado] ?? t.estado}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
                     {!turno.inicio_real && (
                         <button
                             type="button"
                             disabled={procesando || !puedeIniciar}
-                            onClick={() => enviar('iniciar')}
+                            onClick={iniciar}
                             className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <Play className="size-4" /> Iniciar turno
                         </button>
                     )}
 
-                    {/* En curso: contador + botón para terminar */}
                     {enCurso && turno.inicio_real && (
                         <>
                             <div className="text-muted-foreground text-sm">
@@ -121,7 +183,7 @@ export default function TarjetaBienvenida({ nombre, turno }: Props) {
                             <button
                                 type="button"
                                 disabled={procesando}
-                                onClick={() => enviar('finalizar')}
+                                onClick={terminar}
                                 className="flex items-center justify-center gap-2 rounded-lg bg-red-600 px-5 py-2 font-semibold text-white transition hover:bg-red-800 disabled:opacity-50"
                             >
                                 <Square className="size-4" /> Terminar turno
@@ -129,7 +191,6 @@ export default function TarjetaBienvenida({ nombre, turno }: Props) {
                         </>
                     )}
 
-                    {/* Ya terminó */}
                     {turno.inicio_real && turno.fin_real && (
                         <div className="text-sm">
                             Turno finalizado: {hora(turno.inicio_real)} – {hora(turno.fin_real)} (

@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ReporteTurno;
 use App\Models\TurnoTrabajo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class FichadaController extends Controller
 {
@@ -15,16 +16,10 @@ class FichadaController extends Controller
     /** Ventana en la que se puede iniciar un turno: [desde, hasta]. */
     public static function ventana(TurnoTrabajo $turno): array
     {
-        $dia = $turno->fecha->toDateString();
-        $inicio = Carbon::parse("{$dia} {$turno->hora_inicio}");
-        $fin = Carbon::parse("{$dia} {$turno->hora_fin}");
-
-        // Turno que cruza la medianoche: termina al día siguiente
-        if ($fin->lessThanOrEqualTo($inicio)) {
-            $fin->addDay();
-        }
-
-        return [$inicio->copy()->subMinutes(self::MARGEN_ANTES_MIN), $fin];
+        return [
+            $turno->inicioProgramado()->subMinutes(self::MARGEN_ANTES_MIN),
+            $turno->finProgramado(),
+        ];
     }
 
     public function iniciar(Request $request, TurnoTrabajo $turno): RedirectResponse
@@ -35,17 +30,12 @@ class FichadaController extends Controller
             return $this->error('Este turno ya fue iniciado.');
         }
 
-        // Solo un turno "programado" se puede iniciar (no ausente, cancelado ni reasignado)
         if ($turno->estado_turno !== 'programado') {
             return $this->error('Este turno no se puede iniciar (estado: ' . $turno->estado_turno . ').');
         }
 
-        // Solo se puede iniciar el turno del día de hoy
-        if ($turno->fecha->toDateString() !== now()->toDateString()) {
-            return $this->error('Solo podés iniciar un turno el día que corresponde.');
-        }
-
-        // Solo dentro del horario del turno (con el margen de antes)
+        // Sin chequeo de "fecha == hoy": la ventana ya lo cubre y, además,
+        // un turno noche iniciado después de medianoche tiene la fecha de ayer.
         [$desde, $hasta] = self::ventana($turno);
 
         if (now()->lt($desde)) {
@@ -56,7 +46,6 @@ class FichadaController extends Controller
             return $this->error('El horario de este turno ya terminó.');
         }
 
-        // No se puede tener dos turnos en curso a la vez
         $enCurso = TurnoTrabajo::where('agente_id', $turno->agente_id)
             ->whereNotNull('inicio_real')
             ->whereNull('fin_real')
@@ -72,11 +61,12 @@ class FichadaController extends Controller
         return back();
     }
 
+    /** Termina el turno y guarda el reporte en una sola operación. */
     public function finalizar(Request $request, TurnoTrabajo $turno): RedirectResponse
     {
         $this->autorizar($request, $turno);
 
-        if (! $turno->inicio_real) {
+        if (!$turno->inicio_real) {
             return $this->error('Este turno todavía no fue iniciado.');
         }
 
@@ -84,11 +74,28 @@ class FichadaController extends Controller
             return $this->error('Este turno ya fue terminado.');
         }
 
-        $turno->fin_real = now();
-        $turno->estado_turno = 'cumplido';
-        $turno->save();
+        $datos = $request->validate([
+            'vehiculo_oficial' => ['sometimes', 'boolean'],
+            'placa' => ['nullable', 'required_if:vehiculo_oficial,true', 'string', 'max:15'],
+            'radio' => ['sometimes', 'boolean'],
+            'otros_equipos' => ['nullable', 'string', 'max:255'],
+            'novedades' => ['nullable', 'string'],
+            'resultados' => ['nullable', 'string'],
+            'observaciones' => ['nullable', 'string'],
+        ]);
 
-        return back();
+        DB::transaction(function () use ($turno, $datos) {
+            // Un solo reporte por turno (turno_trabajo_id es único)
+            if (!$turno->reporte()->exists()) {
+                $turno->reporte()->create($datos);
+            }
+
+            $turno->fin_real = now();
+            $turno->estado_turno = 'cumplido';
+            $turno->save();
+        });
+
+        return back()->with('success', 'Turno finalizado y reporte entregado.');
     }
 
     /** Solo el agente dueño del turno puede iniciarlo o terminarlo. */
