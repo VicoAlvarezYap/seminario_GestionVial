@@ -11,7 +11,7 @@ const enlaces = [
     { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound, soloAgente: false },
     { titulo: 'Licencias', href: '/licencias', icono: FileText, soloAgente: true },
     { titulo: 'Relevos', href: '/relevos', icono: ClipboardList, soloAgente: true },
-    { titulo: 'Intervenciones de emergencia', href: '/intervenciones', icono: AlertTriangle, soloAgente: true },
+    { titulo: 'Intervenciones', href: '/intervenciones', icono: AlertTriangle, soloAgente: true },
     { titulo: 'Licencias', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
     { titulo: 'Relevos', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
     { titulo: 'Perfiles', href: '/admin/perfiles', icono: UserRound, soloAdmin: true }, // <-- ¡Agregado aquí!

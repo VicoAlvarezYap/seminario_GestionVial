@@ -12,6 +12,7 @@ use App\Http\Controllers\LicenciaController;
 use App\Http\Controllers\RelevoController;
 use App\Http\Controllers\IntervencionController;
 use App\Http\Controllers\FichadaController;
+use App\Http\Controllers\ReportesTurnoController;
 use App\Http\Controllers\Admin\PerfilController;
 use App\Http\Controllers\Admin\LicenciaAdminController;
 
@@ -64,7 +65,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->name('store');
         Route::put('/{intervencion}', 'update')->name('update');
-          Route::delete('/{intervencion}', 'destroy')->name('destroy');
+        Route::delete('/{intervencion}', 'destroy')->name('destroy');
+    });
+
+    Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/{reporte}', 'show')->name('show');
     });
 
     Route::post('lugares', [LugarController::class, 'store'])->name('lugares.store');

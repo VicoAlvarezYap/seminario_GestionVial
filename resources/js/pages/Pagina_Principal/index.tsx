@@ -1,4 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import CalendarioMesEventos from '@/components/calendario-mes-eventos';
 import type { DatosMes } from '@/components/calendario-mes-eventos';
 import CalendarioSemanaTurnos from '@/components/calendario-semana-turnos';
@@ -7,6 +8,7 @@ import Carrusel from '@/components/carrusel';
 import type { AgenteOpcion } from '@/components/form-turno';
 import NavbarAgente from '@/components/navbar-agente';
 import type { LugarOpcion } from '@/components/selector-lugar';
+import FormReporte from '@/components/form-reporte';
 import TarjetaBienvenida from '@/components/tarjeta-bienvenida';
 import type { MiTurno } from '@/components/tarjeta-bienvenida';
 
@@ -32,6 +34,7 @@ export default function PaginaAgente({
     mes,
 }: Props) {
     const { auth } = usePage<{ auth: { user: { name: string } } }>().props;
+    const [cerrando, setCerrando] = useState<MiTurno | null>(null);
 
     // Cada calendario cambia solo su rango y mantiene el del otro
     const navegarSemana = (desde: string, hasta: string) => {
@@ -49,15 +52,15 @@ export default function PaginaAgente({
             { only: ['semana', 'mes'], preserveState: true, preserveScroll: true, replace: true },
         );
     };
-
+  
     return (
         <>
             <Head title="Página principal" />
             <NavbarAgente />
 
             <main className="p-4">
-                <div className="mb-4">
-                    <TarjetaBienvenida nombre={auth.user.name} turno={miTurno} />
+                <div className="mb-4"><TarjetaBienvenida nombre={auth.user.name} turno={miTurno} onTerminar={setCerrando} />
+
                 </div>
                 <Carrusel
                     slides={[
@@ -89,6 +92,7 @@ export default function PaginaAgente({
                         },
                     ]}
                 />
+                {cerrando && <FormReporte turno={cerrando} onCerrar={() => setCerrando(null)} />}
             </main>
         </>
     );

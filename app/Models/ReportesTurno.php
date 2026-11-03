@@ -16,8 +16,6 @@ class ReportesTurno extends Model
         'radio',
         'otros_equipos',
         'novedades',
-        'resultados',
-        'observaciones',
     ];
 
     protected $casts = [

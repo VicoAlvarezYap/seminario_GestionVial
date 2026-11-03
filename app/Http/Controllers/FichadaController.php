@@ -80,8 +80,6 @@ class FichadaController extends Controller
             'radio' => ['sometimes', 'boolean'],
             'otros_equipos' => ['nullable', 'string', 'max:255'],
             'novedades' => ['nullable', 'string'],
-            'resultados' => ['nullable', 'string'],
-            'observaciones' => ['nullable', 'string'],
         ]);
 
         DB::transaction(function () use ($turno, $datos) {
