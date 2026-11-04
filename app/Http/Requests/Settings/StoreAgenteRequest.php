@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreAgenteRequest extends FormRequest
 {
@@ -21,6 +22,7 @@ class StoreAgenteRequest extends FormRequest
             'numero_documento' => ['required', 'string', 'max:20', 'unique:agentes,numero_documento'],
             'celular' => ['nullable', 'string', 'max:30'],
             'correo' => ['nullable', 'email', 'max:150'],
+            'rango' => ['required', Rule::in(['inspector', 'instructor_examinador', 'director'])],
 
             // Máximo 2 contactos de emergencia por agente
             'contactos' => ['nullable', 'array', 'max:2'],

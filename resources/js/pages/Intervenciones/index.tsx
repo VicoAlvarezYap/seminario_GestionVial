@@ -36,7 +36,12 @@ type Intervencion = {
 };
 
 type Props = {
-    intervenciones: Intervencion[];
+    intervenciones: {
+        data: Intervencion[];
+        current_page: number;
+        last_page: number;
+        // puedes agregar más propiedades de paginación si las necesitas mostrar después
+    };
     agente: { nombre: string; apellido: string } | null;
     tipos: string[];
 };
@@ -187,7 +192,7 @@ export default function IntervencionesIndex({ intervenciones, agente, tipos }: P
                 )}
 
                 <div className="rounded-lg border bg-white p-6 shadow-sm dark:bg-zinc-900">
-                    {intervenciones.length === 0 ? (
+                    {intervenciones.data.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                             Todavía no tenés intervenciones registradas.
                         </p>
@@ -206,7 +211,7 @@ export default function IntervencionesIndex({ intervenciones, agente, tipos }: P
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {intervenciones.map((i) => (
+                                    {intervenciones.data.map((i) => (
                                         <tr key={i.id} className="border-b last:border-0">
                                             <td className="p-3">{i.fecha_hora}</td>
                                             <td className="p-3">

@@ -90,7 +90,7 @@ class PaginaAgenteController extends Controller
     /** Turno de hoy para el botón Iniciar / Terminar (solo agentes; el admin no ficha). */
     private function miTurno($usuario, bool $puedeEditar): ?array
     {
-        if (!$usuario->agente_id || $puedeEditar) {
+        if (!$usuario->agente_id) {
             return null;
         }
 

@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         Schema::create('agentes', function (Blueprint $table) {
@@ -13,6 +12,8 @@ return new class extends Migration
             $table->string('nombre', 100);
             $table->string('apellido', 100);
             $table->string('numero_documento', 20)->unique();
+            $table->enum('rango', ['inspector', 'instructor_examinador', 'director'])
+                ->default('inspector');
             $table->string('celular', 30)->nullable();
             $table->string('correo', 150)->nullable();
             $table->timestamps();

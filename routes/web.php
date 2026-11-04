@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PaginaAgenteController;
 use App\Http\Controllers\Admin\EventoOperativoController;
 use App\Http\Controllers\ContactoEmergenciaController;
-use App\Http\Controllers\AgenteController;
+use App\Http\Controllers\Admin\AgenteController;
 use App\Http\Controllers\Admin\TareaController;
 use App\Http\Controllers\Admin\TurnoTrabajoController;
 use App\Http\Controllers\Admin\LugarController;
@@ -30,6 +30,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf');
         Route::patch('/licencias/{licencia}/resolver', [LicenciaAdminController::class, 'resolver'])->name('licencias.resolver');
         Route::get('/licencias/{licencia}/justificante', [LicenciaAdminController::class, 'justificante'])->name('licencias.justificante');
+
+        Route::post('agentes', [AgenteController::class, 'store'])->name('agentes.store');
 
         // CRUDs de administración (Store, Update, Destroy) reducidos con resource
         Route::resource('eventos-operativos', EventoOperativoController::class)->only(['store', 'update', 'destroy']);
