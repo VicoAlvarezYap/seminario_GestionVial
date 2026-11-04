@@ -14,7 +14,8 @@ const enlaces = [
     { titulo: 'Intervenciones', href: '/intervenciones', icono: AlertTriangle, soloAgente: true },
     { titulo: 'Licencias', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
     { titulo: 'Relevos', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
-    { titulo: 'Perfiles', href: '/admin/perfiles', icono: UserRound, soloAdmin: true }, // <-- ¡Agregado aquí!
+    { titulo: 'Perfiles', href: '/admin/perfiles', icono: UserRound, soloAdmin: true }, 
+    { titulo: 'Reportes', href: '/reportes', icono: AlertTriangle, soloAgente: true },
 ];
 
 

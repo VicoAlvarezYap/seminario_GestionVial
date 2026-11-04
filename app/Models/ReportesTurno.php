@@ -33,4 +33,6 @@ class ReportesTurno extends Model
         return $this->belongsTo(TurnoTrabajo::class, 'turno_trabajo_id');
     }
 
+    
+
 }

@@ -70,10 +70,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/{intervencion}', 'destroy')->name('destroy');
     });
 
-    Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('/{reporte}', 'show')->name('show');
-    });
+     Route::get('/reportes', [ReportesTurnoController::class, 'index'])->name('reportes.index');
 
     Route::post('lugares', [LugarController::class, 'store'])->name('lugares.store');
 });
