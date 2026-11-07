@@ -24,7 +24,7 @@ type Props = {
 
 export default function Perfil({ agente }: Props) {
     const iniciales = `${agente.nombre?.[0] ?? ''}${agente.apellido?.[0] ?? ''}`.toUpperCase();
-
+    
     return (
         <>
             <Head title="Mi Perfil" />

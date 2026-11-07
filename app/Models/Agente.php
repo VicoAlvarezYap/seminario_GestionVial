@@ -10,6 +10,8 @@ class Agente extends Model
 {
     protected $table = 'agentes';
 
+    public const RANGOS = ['inspector', 'instructor_examinador', 'director'];
+
     protected $fillable = [
         'nombre',
         'apellido',

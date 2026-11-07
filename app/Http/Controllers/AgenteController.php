@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreAgenteRequest;
 use App\Http\Requests\UpdateAgenteRequest;
 use App\Models\Agente;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -45,17 +47,33 @@ class AgenteController extends Controller
 
     public function store(StoreAgenteRequest $request): RedirectResponse
     {
-        $datos = $request->validated();
-        $contactos = $datos['contactos'] ?? [];
-        unset($datos['contactos']);
+        $d = $request->validated();
 
-        DB::transaction(function () use ($datos, $contactos) {
-            $agente = Agente::create($datos);
-            $agente->contactosEmergencia()->createMany($contactos);
+        DB::transaction(function () use ($d) {
+            $agente = Agente::create([
+                'nombre'           => $d['nombre'],
+                'apellido'         => $d['apellido'],
+                'numero_documento' => $d['numero_documento'],
+                'rango'            => $d['rango'],
+                'celular'          => $d['celular'] ?? null,
+                'correo'           => $d['email'],
+            ]);
+
+            $usuario = new User([
+                'name'      => "{$agente->nombre} {$agente->apellido}",
+                'email'     => $d['email'],
+                'password'  => Hash::make($d['password']),
+                'agente_id' => $agente->id,
+                'activo'    => true,
+            ]);
+    
+            $usuario->email_verified_at = now();
+            $usuario->save();
+
+            $usuario->assignRole($d['rango'] === 'director' ? 'Administrador' : 'Agente');
         });
 
-        return redirect()->route('agentes.index')
-            ->with('success', 'Agente creado correctamente.');
+        return back()->with('success', 'Agente creado correctamente.');
     }
 
     public function edit(Agente $agente): Response
