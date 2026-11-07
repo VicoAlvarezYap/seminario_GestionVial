@@ -35,7 +35,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('eventos-operativos', EventoOperativoController::class)->only(['store', 'update', 'destroy']);
         Route::resource('turnos', TurnoTrabajoController::class)->only(['store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
+
+        Route::post('agentes', [AgenteController::class, 'store'])->name('agentes.store'); 
     });
+
 
     // Fichajes de turnos (
     Route::prefix('turnos/{turno}')->name('turnos.')->group(function () {
