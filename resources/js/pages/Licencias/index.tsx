@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Plus , Download} from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 import NavbarAgente from '@/components/navbar-agente';
 import {
@@ -168,6 +168,12 @@ export default function LicenciasIndex({
         router.patch(`/licencias/${l.id}/cancelar`, {}, { preserveScroll: true });
     };
 
+    // Límite en las fechas
+    const hoy = new Date().toISOString().split('T')[0];
+    const unAnioDespuesObj = new Date();
+    unAnioDespuesObj.setFullYear(unAnioDespuesObj.getFullYear() + 1);
+    const unAnioDespues = unAnioDespuesObj.toISOString().split('T')[0];
+
     return (
         <>
             <Head title="Mis licencias" />
@@ -242,7 +248,7 @@ export default function LicenciasIndex({
                                                 )}
                                             </td>
                                             <td className="p-3">
-                                                <div className="flex gap-2">
+                                                <div className="flex flex-wrap gap-2">
                                                     <button
                                                         type="button"
                                                         disabled={!l.editable}
@@ -269,6 +275,14 @@ export default function LicenciasIndex({
                                                     >
                                                         Cancelar licencia
                                                     </button>
+                                                    <a href={`/licencias/${l.id}/pdf`}
+                                                        title="Descargar la solicitud en PDF"
+                                                        className={`${claseAccion} inline-flex items-center gap-1`}
+                                                    >
+                                                    <Download className="size-3" />
+                                                        Descargar PDF
+                                                    </a>
+
                                                 </div>
                                             </td>
                                         </tr>
@@ -372,6 +386,8 @@ export default function LicenciasIndex({
                                 <label className={claseEtiqueta}>Desde</label>
                                 <input
                                     type="date"
+                                    min={hoy}
+                                    max={unAnioDespues}
                                     value={datos.fecha_inicio}
                                     onChange={(e) => formulario.setData('fecha_inicio', e.target.value)}
                                     className={claseInput}
@@ -382,7 +398,8 @@ export default function LicenciasIndex({
                                 <label className={claseEtiqueta}>Hasta</label>
                                 <input
                                     type="date"
-                                    min={datos.fecha_inicio}
+                                    min={datos.fecha_inicio || hoy}
+                                    max={unAnioDespues}
                                     value={datos.fecha_fin}
                                     onChange={(e) => formulario.setData('fecha_fin', e.target.value)}
                                     className={claseInput}

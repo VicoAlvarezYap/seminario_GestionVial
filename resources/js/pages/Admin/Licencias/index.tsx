@@ -131,7 +131,6 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
         });
     };
 
-
     const hayFiltros = Object.values(filtros).some((v) => v !== '');
 
     return (
@@ -148,8 +147,6 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
                             más reciente a la más antigua.
                         </p>
                     </div>
-
-                    
                 </div>
 
                 <form
@@ -262,23 +259,23 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
                                                 </span>
                                             </td>
                                             <td className="p-3">
-                                               <div className="flex flex-wrap gap-2">
-        <button
-            type="button"
-            onClick={() => abrir(l)}
-            className={claseAccion}
-        >
-            {l.resoluble ? 'Revisar' : 'Ver detalle'}
-        </button>
-        <a
-            href={`/admin/licencias/${l.id}/pdf`}
-            title="Descargar la solicitud en PDF"
-            className={`${claseAccion} inline-flex items-center gap-1`}
-        >
-            <Download className="size-3" />
-            Descargar PDF
-        </a>
-    </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => abrir(l)}
+                                                        className={claseAccion}
+                                                    >
+                                                        {l.resoluble ? 'Revisar' : 'Ver detalle'}
+                                                    </button>
+                                                    <a
+                                                        href={`/admin/licencias/${l.id}/pdf`}
+                                                        title="Descargar la solicitud en PDF"
+                                                        className={`${claseAccion} inline-flex items-center gap-1`}
+                                                    >
+                                                        <Download className="size-3" />
+                                                        Descargar PDF
+                                                    </a>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

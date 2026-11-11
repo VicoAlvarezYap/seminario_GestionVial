@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Plus} from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import NavbarAgente from '@/components/navbar-agente';
 import {
