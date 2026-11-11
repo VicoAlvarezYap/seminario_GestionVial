@@ -1,8 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import type { SyntheticEvent } from 'react';
 import ModalSimple, { CLASE_CAMPO, Campo } from '@/components/modal-simple';
-import SelectorLugar from '@/components/selector-lugar';
-import type { LugarOpcion } from '@/components/selector-lugar';
 import { Button } from '@/components/ui/button';
 import {
     Combobox,
@@ -19,18 +17,20 @@ import {
 
 export type AgenteOpcion = { id: number; nombre: string };
 
-// Datos de un turno que ya existe (modo edición)
+// Datos de un turno que ya existe (modo edición). TurnoSemana es compatible con este tipo.
 export type TurnoEditable = {
     id: number;
     agente_id: number;
     fecha: string;
-    hora_inicio: string;
-    hora_fin: string;
-    lugar_id?: number | null;
-    lugar?: string | null;
-    direccion: string | null;
-    observaciones: string | null;
+    turno: string;
     estado: string | null;
+};
+
+const NOMBRE_TURNO: Record<string, string> = {
+    manana: 'Mañana',
+    tarde: 'Tarde',
+    noche: 'Noche',
+    especial: 'Especial',
 };
 
 const ESTADOS = [
@@ -44,37 +44,34 @@ const ESTADOS = [
 type Props = {
     fecha: string; // día sobre el que se hizo clic (YYYY-MM-DD)
     agentes: AgenteOpcion[];
-    lugares: LugarOpcion[];
-    turno?: TurnoEditable | null; // si viene, el formulario edita ese turno; si no, crea uno nuevo
+    turnosDisponibles: string[]; // ['manana', 'tarde', 'noche', 'especial']
+    turno?: TurnoEditable | null; // si viene, edita ese turno; si no, crea uno nuevo
     onCerrar: () => void;
 };
 
-export default function FormTurno({ fecha, agentes, lugares, turno = null, onCerrar }: Props) {
-    // Punto de anclaje del desplegable del combobox (el hook va siempre, aunque no se use al editar)
+export default function FormTurno({ fecha, agentes, turnosDisponibles, turno = null, onCerrar }: Props) {
     const anclaje = useComboboxAnchor();
+
+    // "en_curso" se calcula en el servidor y no existe como estado guardado: se muestra como "programado"
+    const estadoInicial = ESTADOS.some((s) => s.valor === turno?.estado) ? (turno?.estado as string) : 'programado';
 
     const form = useForm({
         agente_id: turno ? String(turno.agente_id) : '', // al editar: un solo agente
         agente_ids: [] as number[], // al crear: uno o varios agentes
         fecha: turno?.fecha ?? fecha,
-        hora_inicio: turno?.hora_inicio ?? '08:00',
-        hora_fin: turno?.hora_fin ?? '14:00',
-        lugar_id: turno?.lugar_id ? String(turno.lugar_id) : '',
-        direccion_asignada: turno?.direccion ?? '',
-        observaciones: turno?.observaciones ?? '',
-        estado_turno: turno?.estado ?? 'programado',
+        turno: turno?.turno ?? turnosDisponibles[0] ?? 'manana',
+        estado_turno: estadoInicial,
     });
 
-    // El combobox trabaja con los objetos completos; el formulario guarda solo los ids
     const seleccionados = agentes.filter((a) => form.data.agente_ids.includes(a.id));
     const errorAgentes = form.errors.agente_ids ?? form.errors.agente_id;
 
     const enviar = (e: SyntheticEvent) => {
         e.preventDefault();
 
-        // Se envía solo lo que corresponde: un agente al editar, la lista al crear
-        form.transform(({ agente_id, agente_ids, ...resto }) =>
-            turno ? { ...resto, agente_id } : { ...resto, agente_ids },
+        // Al editar: un agente + estado. Al crear: la lista de agentes (el estado arranca "programado").
+        form.transform(({ agente_id, agente_ids, estado_turno, ...resto }) =>
+            turno ? { ...resto, agente_id, estado_turno } : { ...resto, agente_ids },
         );
 
         const opciones = {
@@ -94,7 +91,6 @@ export default function FormTurno({ fecha, agentes, lugares, turno = null, onCer
         <ModalSimple titulo={turno ? 'Editar turno' : 'Asignar turno'} onCerrar={onCerrar}>
             <form onSubmit={enviar} className="flex flex-col gap-3">
                 {turno ? (
-                    /* Al editar, un turno pertenece a un solo agente */
                     <Campo etiqueta="Agente" error={form.errors.agente_id}>
                         <select
                             className={CLASE_CAMPO}
@@ -110,8 +106,6 @@ export default function FormTurno({ fecha, agentes, lugares, turno = null, onCer
                         </select>
                     </Campo>
                 ) : (
-                    /* Al crear, se pueden elegir varios agentes de una vez.
-                       No se usa <Campo> porque es un <label>: tocar un chip activaría otro control. */
                     <div className="flex flex-col gap-1 text-sm">
                         <div className="flex items-center justify-between">
                             <span className="font-medium">Agentes</span>
@@ -185,60 +179,30 @@ export default function FormTurno({ fecha, agentes, lugares, turno = null, onCer
                     </div>
                 )}
 
-                <Campo etiqueta="Fecha" error={form.errors.fecha}>
-                    <input
-                        type="date"
-                        className={CLASE_CAMPO}
-                        value={form.data.fecha}
-                        onChange={(e) => form.setData('fecha', e.target.value)}
-                    />
-                </Campo>
-
                 <div className="grid grid-cols-2 gap-3">
-                    <Campo etiqueta="Desde" error={form.errors.hora_inicio}>
+                    <Campo etiqueta="Fecha" error={form.errors.fecha}>
                         <input
-                            type="time"
+                            type="date"
                             className={CLASE_CAMPO}
-                            value={form.data.hora_inicio}
-                            onChange={(e) => form.setData('hora_inicio', e.target.value)}
+                            value={form.data.fecha}
+                            onChange={(e) => form.setData('fecha', e.target.value)}
                         />
                     </Campo>
-                    <Campo etiqueta="Hasta" error={form.errors.hora_fin}>
-                        <input
-                            type="time"
+
+                    <Campo etiqueta="Turno" error={form.errors.turno}>
+                        <select
                             className={CLASE_CAMPO}
-                            value={form.data.hora_fin}
-                            onChange={(e) => form.setData('hora_fin', e.target.value)}
-                        />
+                            value={form.data.turno}
+                            onChange={(e) => form.setData('turno', e.target.value)}
+                        >
+                            {turnosDisponibles.map((t) => (
+                                <option key={t} value={t}>
+                                    {NOMBRE_TURNO[t] ?? t}
+                                </option>
+                            ))}
+                        </select>
                     </Campo>
                 </div>
-
-                <SelectorLugar
-                    lugares={lugares}
-                    valor={form.data.lugar_id}
-                    onCambiar={(id) => form.setData('lugar_id', id)}
-                    error={form.errors.lugar_id}
-                    actual={turno?.lugar_id ? { id: turno.lugar_id, nombre: turno.lugar ?? 'Lugar actual' } : null}
-                />
-
-                <Campo etiqueta="Detalle del lugar (opcional)" error={form.errors.direccion_asignada}>
-                    <input
-                        type="text"
-                        placeholder="Ej: esquina norte, puerta 2"
-                        className={CLASE_CAMPO}
-                        value={form.data.direccion_asignada}
-                        onChange={(e) => form.setData('direccion_asignada', e.target.value)}
-                    />
-                </Campo>
-
-                <Campo etiqueta="Tarea / observaciones" error={form.errors.observaciones}>
-                    <textarea
-                        rows={3}
-                        className={CLASE_CAMPO}
-                        value={form.data.observaciones}
-                        onChange={(e) => form.setData('observaciones', e.target.value)}
-                    />
-                </Campo>
 
                 {/* El estado solo se cambia al editar; un turno nuevo arranca "programado" */}
                 {turno && (

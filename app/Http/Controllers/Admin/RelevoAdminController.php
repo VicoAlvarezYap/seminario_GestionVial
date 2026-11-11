@@ -26,7 +26,7 @@ class RelevoAdminController extends Controller
         return Inertia::render('Admin/Relevos/index', [
             'relevos' => $relevos,
             'filtros' => $filtros,
-            'infracciones' => RelevoController::INFRACCIONES,
+            'infracciones' => array_values(RelevoController::INFRACCIONES),
         ]);
     }
 
@@ -36,10 +36,12 @@ class RelevoAdminController extends Controller
 
         return Pdf::loadView('pdf.relevo', [
             'd' => $this->aArreglo($relevo),
+            'infracciones' => RelevoController::INFRACCIONES,
+            'alcoholemia' => RelevoController::ALCOHOLEMIA,
             'generado' => now()->format('d/m/Y H:i'),
         ])
             ->setPaper('a4')
-            ->download('relevo-'.$relevo->id.'.pdf');
+            ->download('acta-'.$relevo->id.'.pdf');
     }
 
     private function filtros(Request $request): array
@@ -47,7 +49,7 @@ class RelevoAdminController extends Controller
         $validos = $request->validate([
             'buscar' => ['nullable', 'string', 'max:100'],
             'policial' => ['nullable', Rule::in(['si', 'no'])],
-            'infraccion' => ['nullable', Rule::in(RelevoController::INFRACCIONES)],
+            'infraccion' => ['nullable', Rule::in(array_values(RelevoController::INFRACCIONES))],
             'desde' => ['nullable', 'date'],
             'hasta' => $request->filled('desde')
                 ? ['nullable', 'date', 'after_or_equal:desde']
@@ -67,12 +69,13 @@ class RelevoAdminController extends Controller
     {
         $consulta = Relevos::query()->with('agente');
 
-        // Cada palabra tiene que aparecer en el agente, la persona o la placa
+        // Cada palabra tiene que aparecer en el acta, la persona, la patente o el agente
         foreach (preg_split('/\s+/', $f['buscar'], -1, PREG_SPLIT_NO_EMPTY) as $palabra) {
             $like = '%'.addcslashes($palabra, '%_\\').'%';
 
             $consulta->where(function (Builder $c) use ($like) {
-                $c->where('tercero_nombre_apellido', 'like', $like)
+                $c->where('numero_acta', 'like', $like)
+                    ->orWhere('tercero_nombre_apellido', 'like', $like)
                     ->orWhere('tercero_dni', 'like', $like)
                     ->orWhere('vehiculo_placa', 'like', $like)
                     ->orWhereHas('agente', function (Builder $a) use ($like) {
@@ -90,14 +93,10 @@ class RelevoAdminController extends Controller
                 $f['policial'] !== '',
                 fn (Builder $c) => $c->where('necesito_atencion_policial', $f['policial'] === 'si')
             )
-            ->when($f['infraccion'] !== '', function (Builder $c) use ($f) {
-                // "Otros" se guarda como "Otros: texto"
-                $patron = $f['infraccion'] === 'Otros'
-                    ? '%Otros: %'
-                    : '%'.addcslashes($f['infraccion'], '%_\\').'%';
-
-                $c->where('motivo_detencion', 'like', $patron);
-            })
+            ->when(
+                $f['infraccion'] !== '',
+                fn (Builder $c) => $c->where('motivo_detencion', 'like', '%'.addcslashes($f['infraccion'], '%_\\').'%')
+            )
             ->when($f['desde'] !== '', fn (Builder $c) => $c->whereDate('fecha_hora', '>=', $f['desde']))
             ->when($f['hasta'] !== '', fn (Builder $c) => $c->whereDate('fecha_hora', '<=', $f['hasta']));
 
@@ -106,13 +105,13 @@ class RelevoAdminController extends Controller
 
     private function aArreglo(Relevos $r): array
     {
-        return [
-            'id' => $r->id,
-            'fecha_hora' => $r->fecha_hora->format('d/m/Y H:i'),
+        return $r->paraVista() + [
             'agente' => $r->agente
                 ? trim($r->agente->apellido.', '.$r->agente->nombre)
                 : 'Sin agente',
             'agente_dni' => $r->agente?->numero_documento,
+            'alcoholemia_texto' => RelevoController::ALCOHOLEMIA[$r->alcoholemia_nivel] ?? null,
+            // Nombres que ya usa la página del admin
             'persona' => $r->tercero_nombre_apellido,
             'dni' => $r->tercero_dni,
             'domicilio' => $r->tercero_domicilio,

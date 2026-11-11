@@ -131,7 +131,6 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
         });
     };
 
-
     const hayFiltros = Object.values(filtros).some((v) => v !== '');
 
     return (
@@ -148,8 +147,6 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
                             más reciente a la más antigua.
                         </p>
                     </div>
-
-                    
                 </div>
 
                 <form
@@ -187,8 +184,6 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
                         <label className={claseEtiqueta}>Desde</label>
                         <input
                             type="date"
-                           // min={hoy}
-                           // max={unAnioDespues}
                             value={borrador.desde}
                             onChange={(e) => setBorrador({ ...borrador, desde: e.target.value })}
                             className={claseInput}
@@ -199,8 +194,7 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
                         <label className={claseEtiqueta}>Hasta</label>
                         <input
                             type="date"
-                            //min={borrador.desde || hoy}
-                           // max={unAnioDespues}
+                            min={borrador.desde}
                             value={borrador.hasta}
                             onChange={(e) => setBorrador({ ...borrador, hasta: e.target.value })}
                             className={claseInput}
@@ -265,23 +259,23 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
                                                 </span>
                                             </td>
                                             <td className="p-3">
-                                               <div className="flex flex-wrap gap-2">
-        <button
-            type="button"
-            onClick={() => abrir(l)}
-            className={claseAccion}
-        >
-            {l.resoluble ? 'Revisar' : 'Ver detalle'}
-        </button>
-        <a
-            href={`/admin/licencias/${l.id}/pdf`}
-            title="Descargar la solicitud en PDF"
-            className={`${claseAccion} inline-flex items-center gap-1`}
-        >
-            <Download className="size-3" />
-            Descargar PDF
-        </a>
-    </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => abrir(l)}
+                                                        className={claseAccion}
+                                                    >
+                                                        {l.resoluble ? 'Revisar' : 'Ver detalle'}
+                                                    </button>
+                                                    <a
+                                                        href={`/admin/licencias/${l.id}/pdf`}
+                                                        title="Descargar la solicitud en PDF"
+                                                        className={`${claseAccion} inline-flex items-center gap-1`}
+                                                    >
+                                                        <Download className="size-3" />
+                                                        Descargar PDF
+                                                    </a>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

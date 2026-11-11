@@ -1,57 +1,144 @@
 import { router } from '@inertiajs/react';
 import { Calendar, ChevronLeft, ChevronRight, List, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import FormTarea from '@/components/form-tarea';
+import type { EventoOpcion } from '@/components/form-tarea';
 import FormTurno from '@/components/form-turno';
 import type { AgenteOpcion } from '@/components/form-turno';
 import type { LugarOpcion } from '@/components/selector-lugar';
 import { DIAS_CORTOS, formatoFecha, hoyISO, parseFecha, sumarDias } from '@/lib/fechas';
 
-export type TurnoCalendario = {
+export type TareaSemana = {
     id: number;
-    agente_id: number;
-    fecha: string;
-    hora_inicio: string;
-    hora_fin: string;
-    agente: string | null;
+    titulo: string | null;
+    evento_operativo_id: number | null;
     lugar_id: number | null;
     lugar: string | null;
-    direccion: string | null;
-    observaciones: string | null;
-    estado: string | null;
+    hora_inicio: string | null;
+    hora_fin: string | null;
+    estado: 'programado' | 'iniciado' | 'en_proceso' | 'finalizado';
+    detalle: string | null;
+};
+
+export type TurnoSemana = {
+    id: number;
+    fecha: string;
+    turno: 'manana' | 'tarde' | 'noche' | 'especial';
+    asignacion_id: string | null;
+    agente_id: number;
+    agente: string | null;
+    estado: string;
+    tareas: TareaSemana[];
 };
 
 export type DatosSemana = {
-    desde: string; // inicio del rango filtrado (YYYY-MM-DD)
-    hasta: string; // fin del rango filtrado (YYYY-MM-DD)
-    turnos: TurnoCalendario[];
+    desde: string; // YYYY-MM-DD
+    hasta: string; // YYYY-MM-DD
+    turnos: TurnoSemana[];
 };
 
 type Props = DatosSemana & {
     puedeEditar: boolean;
     agentes: AgenteOpcion[];
     lugares: LugarOpcion[];
+    turnosDisponibles: string[];
+    titulosSugeridos: string[];
+    eventos: EventoOpcion[];
     onCambiar: (desde: string, hasta: string) => void;
 };
 
 const MS_DIA = 86_400_000;
 const MAX_DIAS = 366;
 
+const NOMBRE_TURNO: Record<string, string> = { manana: 'Mañana', tarde: 'Tarde', noche: 'Noche', especial: 'Especial' };
+const ORDEN_TURNO: Record<string, number> = { manana: 0, tarde: 1, noche: 2, especial: 3 };
+const ETIQUETA_ESTADO: Record<string, string> = {
+    programado: 'Programado',
+    iniciado: 'Iniciado',
+    en_proceso: 'En proceso',
+    finalizado: 'Finalizado',
+};
+
 const diasEntre = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / MS_DIA) + 1;
 const lunesDe = (d: Date) => sumarDias(d, -((d.getDay() + 6) % 7));
 const ultimoDiaMes = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
 const corto = (d: Date) => d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 
-/* ---------- Tarjeta de un turno (se reutiliza en la grilla) ---------- */
-function TarjetaTurno({
+const btnIcono = 'rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10';
+
+/* ---------- Lista de tareas de un turno ---------- */
+function ListaTareas({
     t,
     puedeEditar,
     onEditar,
     onEliminar,
 }: {
-    t: TurnoCalendario;
+    t: TurnoSemana;
+    puedeEditar: boolean;
+    onEditar: (tarea: TareaSemana) => void;
+    onEliminar: (tarea: TareaSemana) => void;
+}) {
+    if (t.tareas.length === 0) {
+        return <div className="italic opacity-70">Sin tareas</div>;
+    }
+
+    return (
+        <ul className="space-y-1">
+            {t.tareas.map((tarea) => (
+                <li key={tarea.id} className="flex items-start justify-between gap-1">
+                    <div className="min-w-0">
+                        <div className="truncate font-medium" title={tarea.titulo ?? ''}>
+                            {tarea.titulo ?? 'Sin título'}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-1.5 opacity-80">
+                            {tarea.lugar && (
+                                <span className="flex items-center gap-0.5">
+                                    <MapPin className="size-3 shrink-0" />
+                                    {tarea.lugar}
+                                </span>
+                            )}
+                            {tarea.hora_inicio && (
+                                <span>
+                                    {tarea.hora_inicio}
+                                    {tarea.hora_fin ? `–${tarea.hora_fin}` : ''}
+                                </span>
+                            )}
+                            {tarea.estado !== 'programado' && <span>· {ETIQUETA_ESTADO[tarea.estado]}</span>}
+                        </div>
+                    </div>
+                    {puedeEditar && (
+                        <div className="flex shrink-0">
+                            <button type="button" onClick={() => onEditar(tarea)} aria-label="Editar tarea" className={btnIcono}>
+                                <Pencil className="size-3" />
+                            </button>
+                            <button type="button" onClick={() => onEliminar(tarea)} aria-label="Eliminar tarea" className={btnIcono}>
+                                <Trash2 className="size-3" />
+                            </button>
+                        </div>
+                    )}
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+/* ---------- Tarjeta de un turno (grilla) ---------- */
+function TarjetaTurno({
+    t,
+    puedeEditar,
+    onEditar,
+    onEliminar,
+    onNuevaTarea,
+    onEditarTarea,
+    onEliminarTarea,
+}: {
+    t: TurnoSemana;
     puedeEditar: boolean;
     onEditar: () => void;
     onEliminar: () => void;
+    onNuevaTarea: () => void;
+    onEditarTarea: (tarea: TareaSemana) => void;
+    onEliminarTarea: (tarea: TareaSemana) => void;
 }) {
     return (
         <div
@@ -61,61 +148,57 @@ function TarjetaTurno({
         >
             {puedeEditar && (
                 <div className="absolute top-1 right-1 flex">
-                    <button type="button" onClick={onEditar} aria-label="Editar turno" className="rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10">
+                    <button type="button" onClick={onEditar} aria-label="Editar turno" className={btnIcono}>
                         <Pencil className="size-3" />
                     </button>
-                    <button type="button" onClick={onEliminar} aria-label="Eliminar turno" className="rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10">
+                    <button type="button" onClick={onEliminar} aria-label="Eliminar turno" className={btnIcono}>
                         <Trash2 className="size-3" />
                     </button>
                 </div>
             )}
 
             {puedeEditar && t.agente && <div className="pr-12 font-semibold">{t.agente}</div>}
-            <div className="font-medium">
-                {t.hora_inicio} – {t.hora_fin}
-            </div>
-            {t.lugar && (
-                <div className="flex items-center gap-1 font-medium" title={t.lugar}>
-                    <MapPin className="size-3 shrink-0" />
-                    <span className="truncate">{t.lugar}</span>
-                </div>
+            <div className="mb-1 font-medium uppercase">{NOMBRE_TURNO[t.turno]}</div>
+
+            <ListaTareas t={t} puedeEditar={puedeEditar} onEditar={onEditarTarea} onEliminar={onEliminarTarea} />
+
+            {puedeEditar && (
+                <button type="button" onClick={onNuevaTarea} className="mt-1 flex items-center gap-1 font-medium hover:underline">
+                    <Plus className="size-3" /> Tarea
+                </button>
             )}
-            {t.direccion && (
-                <div className="truncate opacity-80" title={t.direccion}>
-                    {t.direccion}
-                </div>
-            )}
-            {t.observaciones && (
-                <div className="truncate opacity-80" title={t.observaciones}>
-                    {t.observaciones}
-                </div>
-            )}
-            {t.estado && t.estado !== 'programado' && <div className="capitalize opacity-75">{t.estado}</div>}
         </div>
     );
 }
 
 /* ---------- Componente principal ---------- */
-export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEditar, agentes, lugares, onCambiar }: Props) {
+export default function CalendarioSemanaTurnos({
+    desde,
+    hasta,
+    turnos,
+    puedeEditar,
+    agentes,
+    lugares,
+    turnosDisponibles,
+    titulosSugeridos,
+    eventos,
+    onCambiar,
+}: Props) {
     const hoy = hoyISO();
     const dDesde = parseFecha(desde);
     const dHasta = parseFecha(hasta);
     const totalDias = diasEntre(dDesde, dHasta);
 
-    // La lista es la vista inicial
     const [vista, setVista] = useState<'lista' | 'calendario'>('lista');
     const [asignando, setAsignando] = useState<string | null>(null);
-    const [editando, setEditando] = useState<TurnoCalendario | null>(null);
-
-    // 'todos' o el id del agente (como string, porque viene de un <select>)
+    const [editando, setEditando] = useState<TurnoSemana | null>(null);
+    const [tareaForm, setTareaForm] = useState<{ turno: TurnoSemana; tarea: TareaSemana | null } | null>(null);
     const [agenteFiltro, setAgenteFiltro] = useState<string>('todos');
 
-    // Valores de los inputs (se aplican con el botón, para no recargar en cada tecla)
     const [desdeInput, setDesdeInput] = useState(desde);
     const [hastaInput, setHastaInput] = useState(hasta);
     const [error, setError] = useState<string | null>(null);
 
-    // Si el rango cambia desde afuera (flechas, atajos), sincroniza los inputs
     useEffect(() => {
         setDesdeInput(desde);
         setHastaInput(hasta);
@@ -130,10 +213,9 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
         dDesde.getMonth() === dHasta.getMonth() &&
         dDesde.getFullYear() === dHasta.getFullYear();
 
-    // Fecha por defecto para "Agregar turno": hoy si está dentro del rango; si no, el primer día
     const fechaNueva = hoy >= desde && hoy <= hasta ? hoy : desde;
 
-    /* ---- Acciones del filtro ---- */
+    /* ---- Acciones ---- */
     const aplicar = () => {
         if (!desdeInput || !hastaInput) {
             setError('Completá ambas fechas.');
@@ -161,7 +243,6 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
         onCambiar(formatoFecha(new Date(h.getFullYear(), h.getMonth(), 1)), formatoFecha(ultimoDiaMes(h)));
     };
 
-    // Mueve el rango: un mes entero si es mes completo; si no, la misma cantidad de días
     const mover = (dir: 1 | -1) => {
         if (esMesCompleto) {
             const nuevo = new Date(dDesde.getFullYear(), dDesde.getMonth() + dir, 1);
@@ -171,11 +252,20 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
         onCambiar(formatoFecha(sumarDias(dDesde, dir * totalDias)), formatoFecha(sumarDias(dHasta, dir * totalDias)));
     };
 
-    const eliminar = (id: number) => {
-        if (!window.confirm('¿Eliminar este turno?')) {
-            return;
+    const eliminarTurno = (t: TurnoSemana) => {
+        const aviso =
+            t.tareas.length > 0
+                ? `Este turno tiene ${t.tareas.length} tarea(s), que se eliminarán también. ¿Continuar?`
+                : '¿Eliminar este turno?';
+        if (window.confirm(aviso)) {
+            router.delete(`/admin/turnos/${t.id}`, { preserveScroll: true });
         }
-        router.delete(`/admin/turnos/${id}`, { preserveScroll: true });
+    };
+
+    const eliminarTarea = (tarea: TareaSemana) => {
+        if (window.confirm('¿Eliminar esta tarea?')) {
+            router.delete(`/admin/tareas/${tarea.id}`, { preserveScroll: true });
+        }
     };
 
     /* ---- Datos derivados ---- */
@@ -185,17 +275,22 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
     );
 
     const ordenados = useMemo(
-        () => [...turnosVisibles].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio)),
+        () =>
+            [...turnosVisibles].sort(
+                (a, b) =>
+                    a.fecha.localeCompare(b.fecha) ||
+                    ORDEN_TURNO[a.turno] - ORDEN_TURNO[b.turno] ||
+                    (a.agente ?? '').localeCompare(b.agente ?? ''),
+            ),
         [turnosVisibles],
     );
 
     const porDia = useMemo(() => {
-        const mapa = new Map<string, TurnoCalendario[]>();
+        const mapa = new Map<string, TurnoSemana[]>();
         ordenados.forEach((t) => mapa.set(t.fecha, [...(mapa.get(t.fecha) ?? []), t]));
         return mapa;
     }, [ordenados]);
 
-    // Semanas (filas de 7 días, lunes a domingo) que cubren el rango
     const semanas = useMemo(() => {
         const res: Date[][] = [];
         const fin = parseFecha(hasta);
@@ -246,7 +341,6 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                     Filtrar
                 </button>
 
-                {/* Filtro por agente (solo quien puede editar; el resto ya ve solo sus turnos) */}
                 {puedeEditar && (
                     <label className="flex flex-col gap-1 text-xs font-medium">
                         Agente
@@ -290,20 +384,10 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
             {/* ===== Navegación + selector de vista ===== */}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => mover(-1)}
-                        aria-label="Rango anterior"
-                        className="hover:bg-muted rounded-md border p-2"
-                    >
+                    <button type="button" onClick={() => mover(-1)} aria-label="Rango anterior" className="hover:bg-muted rounded-md border p-2">
                         <ChevronLeft className="size-4" />
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => mover(1)}
-                        aria-label="Rango siguiente"
-                        className="hover:bg-muted rounded-md border p-2"
-                    >
+                    <button type="button" onClick={() => mover(1)} aria-label="Rango siguiente" className="hover:bg-muted rounded-md border p-2">
                         <ChevronRight className="size-4" />
                     </button>
                     <span className="ml-2 font-medium">{titulo}</span>
@@ -344,19 +428,16 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                             <thead className="bg-muted/50 border-b text-xs uppercase">
                                 <tr>
                                     <th className="p-3">Fecha</th>
-                                    <th className="p-3">Horario</th>
+                                    <th className="p-3">Turno</th>
                                     {puedeEditar && <th className="p-3">Agente</th>}
-                                    <th className="p-3">Lugar / Dirección</th>
+                                    <th className="p-3">Tareas</th>
                                     <th className="p-3">Estado</th>
                                     {puedeEditar && <th className="p-3 text-right">Acciones</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
                                 {ordenados.map((t) => (
-                                    <tr
-                                        key={t.id}
-                                        className={`hover:bg-muted/50 ${t.estado === 'cancelado' ? 'line-through opacity-60' : ''}`}
-                                    >
+                                    <tr key={t.id} className={`hover:bg-muted/50 align-top ${t.estado === 'cancelado' ? 'line-through opacity-60' : ''}`}>
                                         <td className="p-3 font-medium whitespace-nowrap">
                                             {parseFecha(t.fecha).toLocaleDateString('es-AR', {
                                                 weekday: 'short',
@@ -364,19 +445,27 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                                                 month: 'short',
                                             })}
                                         </td>
-                                        <td className="p-3 whitespace-nowrap">
-                                            {t.hora_inicio} – {t.hora_fin}
-                                        </td>
+                                        <td className="p-3 whitespace-nowrap">{NOMBRE_TURNO[t.turno]}</td>
                                         {puedeEditar && (
                                             <td className="p-3 font-semibold">
                                                 {t.agente || <span className="text-muted-foreground font-normal italic">Sin asignar</span>}
                                             </td>
                                         )}
-                                        <td className="p-3">
-                                            <div className="font-medium">{t.lugar}</div>
-                                            {t.direccion && <div className="text-muted-foreground text-xs">{t.direccion}</div>}
-                                            {t.observaciones && (
-                                                <div className="text-muted-foreground text-xs italic">{t.observaciones}</div>
+                                        <td className="p-3 text-xs">
+                                            <ListaTareas
+                                                t={t}
+                                                puedeEditar={puedeEditar}
+                                                onEditar={(tarea) => setTareaForm({ turno: t, tarea })}
+                                                onEliminar={eliminarTarea}
+                                            />
+                                            {puedeEditar && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTareaForm({ turno: t, tarea: null })}
+                                                    className="mt-1 flex items-center gap-1 font-medium hover:underline"
+                                                >
+                                                    <Plus className="size-3" /> Agregar tarea
+                                                </button>
                                             )}
                                         </td>
                                         <td className="p-3 capitalize">
@@ -387,26 +476,16 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                                                         : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
                                                 }`}
                                             >
-                                                {t.estado || 'programado'}
+                                                {t.estado.replace('_', ' ') || 'programado'}
                                             </span>
                                         </td>
                                         {puedeEditar && (
                                             <td className="p-3 text-right whitespace-nowrap">
                                                 <div className="flex justify-end gap-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setEditando(t)}
-                                                        aria-label="Editar turno"
-                                                        className="hover:bg-muted rounded-md border p-1.5"
-                                                    >
+                                                    <button type="button" onClick={() => setEditando(t)} aria-label="Editar turno" className="hover:bg-muted rounded-md border p-1.5">
                                                         <Pencil className="size-3.5" />
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => eliminar(t.id)}
-                                                        aria-label="Eliminar turno"
-                                                        className="hover:bg-muted rounded-md border p-1.5 text-red-600"
-                                                    >
+                                                    <button type="button" onClick={() => eliminarTurno(t)} aria-label="Eliminar turno" className="hover:bg-muted rounded-md border p-1.5 text-red-600">
                                                         <Trash2 className="size-3.5" />
                                                     </button>
                                                 </div>
@@ -421,17 +500,13 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                     <p className="text-muted-foreground text-sm">No hay turnos en el rango seleccionado.</p>
                 ))}
 
-            {/* ===== VISTA CALENDARIO (una fila por semana, solo visualización) ===== */}
+            {/* ===== VISTA CALENDARIO ===== */}
             {vista === 'calendario' && (
                 <div className="overflow-x-auto">
-                    <div className="min-w-[700px] overflow-hidden rounded-lg border">
-                        {/* Encabezado con los días */}
+                    <div className="min-w-700px overflow-hidden rounded-lg border">
                         <div className="bg-muted/50 grid grid-cols-7 border-b">
                             {DIAS_CORTOS.map((d, i) => (
-                                <div
-                                    key={d}
-                                    className={`text-muted-foreground p-2 text-center text-xs ${i > 0 ? 'border-l' : ''}`}
-                                >
+                                <div key={d} className={`text-muted-foreground p-2 text-center text-xs ${i > 0 ? 'border-l' : ''}`}>
                                     {d}
                                 </div>
                             ))}
@@ -471,7 +546,10 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                                                         t={t}
                                                         puedeEditar={puedeEditar}
                                                         onEditar={() => setEditando(t)}
-                                                        onEliminar={() => eliminar(t.id)}
+                                                        onEliminar={() => eliminarTurno(t)}
+                                                        onNuevaTarea={() => setTareaForm({ turno: t, tarea: null })}
+                                                        onEditarTarea={(tarea) => setTareaForm({ turno: t, tarea })}
+                                                        onEliminarTarea={eliminarTarea}
                                                     />
                                                 ))}
                                         </div>
@@ -487,15 +565,34 @@ export default function CalendarioSemanaTurnos({ desde, hasta, turnos, puedeEdit
                 </div>
             )}
 
-            {asignando && <FormTurno fecha={asignando} agentes={agentes} lugares={lugares} onCerrar={() => setAsignando(null)} />}
+            {/* ===== Modales ===== */}
+            {asignando && (
+                <FormTurno
+                    fecha={asignando}
+                    agentes={agentes}
+                    turnosDisponibles={turnosDisponibles}
+                    onCerrar={() => setAsignando(null)}
+                />
+            )}
 
             {editando && (
                 <FormTurno
                     fecha={editando.fecha}
                     turno={editando}
                     agentes={agentes}
-                    lugares={lugares}
+                    turnosDisponibles={turnosDisponibles}
                     onCerrar={() => setEditando(null)}
+                />
+            )}
+
+            {tareaForm && (
+                <FormTarea
+                    turno={tareaForm.turno}
+                    tarea={tareaForm.tarea}
+                    lugares={lugares}
+                    titulosSugeridos={titulosSugeridos}
+                    eventos={eventos}
+                    onCerrar={() => setTareaForm(null)}
                 />
             )}
         </div>

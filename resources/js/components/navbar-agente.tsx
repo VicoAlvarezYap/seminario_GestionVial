@@ -1,32 +1,34 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { icon } from 'leaflet';
-import { LayoutGrid, LogOut, Menu, UserRound, X,FileText,AlertTriangle,ClipboardList,ClipboardCheck } from 'lucide-react';
+import { LayoutGrid, LogOut, Menu, UserRound, X, FileText, AlertTriangle, ClipboardList, ClipboardCheck } from 'lucide-react';
 import { useState } from 'react';
-// Para agregar más opciones al menu
+
+// Lista de enlaces organizada y sin duplicados
 const enlaces = [
     { titulo: 'Inicio', href: '/pagina_principal', icono: LayoutGrid, soloAgente: false },
     { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound, soloAgente: false },
     { titulo: 'Licencias', href: '/licencias', icono: FileText, soloAgente: true },
-    { titulo: 'Relevos', href: '/relevos', icono: ClipboardList, soloAgente: true },
-    {titulo: 'Intervenciones de emergencia',href: '/intervenciones',icono: AlertTriangle,soloAgente: true },
-    { titulo: 'Licencias', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
-    { titulo: 'Relevos', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
-    { titulo: 'Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle, soloAdmin: true },    
+    { titulo: 'Infracciones', href: '/relevos', icono: ClipboardList, soloAgente: true },
+    { titulo: 'Intervenciones', href: '/intervenciones', icono: AlertTriangle, soloAgente: true },
+    { titulo: 'Perfiles', href: '/admin/perfiles', icono: UserRound, soloAdmin: true },
+    { titulo: 'Licencias ', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
+    { titulo: 'Infracciones ', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
+    { titulo: 'Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle, soloAdmin: true },
+    
 ];
 
 export default function NavbarAgente() {
     const [abierto, setAbierto] = useState(false);
-    //para restringir paginas segun el user
-    const { url , props} = usePage();
+    const { url, props } = usePage();
     const roles = (props as unknown as { auth?: { roles?: string[] } }).auth?.roles ?? [];
+    
     const tieneRol = (nombres: string[]) =>
-    roles.some((r) => nombres.includes(r.toLowerCase()));
+        roles.some((r) => nombres.includes(r.toLowerCase()));
 
     const esAgente = tieneRol(['agente']);
     const esAdmin = tieneRol(['admin', 'super-admin', 'administrador']);
 
-    const visibles = enlaces.filter((e) => (!e.soloAgente || esAgente) && (!e.soloAdmin || esAdmin),);
-    
+    const visibles = enlaces.filter((e) => (!e.soloAgente || esAgente) && (!e.soloAdmin || esAdmin));
+
     return (
         <header className="sticky top-0 z-40 border-b bg-background">
             <div className="relative flex h-14 items-center justify-between px-4">
@@ -79,13 +81,13 @@ export default function NavbarAgente() {
                         </Link>
                     ))}
                     <button
-    type="button"
-    onClick={() => router.post('/logout')}
-    className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-red-600 hover:bg-muted"
->
-    <LogOut className="size-4" />
-    Cerrar sesión
-</button>
+                        type="button"
+                        onClick={() => router.post('/logout')}
+                        className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-red-600 hover:bg-muted"
+                    >
+                        <LogOut className="size-4" />
+                        Cerrar sesión
+                    </button>
                 </nav>
             )}
         </header>

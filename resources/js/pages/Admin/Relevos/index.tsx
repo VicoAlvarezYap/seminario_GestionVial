@@ -25,6 +25,7 @@ type Relevo = {
     motivo: string;
     personas_implicadas: string | null;
     policial: boolean;
+    [campo: string]: string | number | boolean | string[] | null;
 };
 
 type Paginador = {
@@ -57,7 +58,7 @@ const claseAccion =
     'rounded-md border px-3 py-1 text-xs font-medium hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-zinc-800';
 
 const sinFiltros: Filtros = { buscar: '', policial: '', infraccion: '', desde: '', hasta: '' };
-
+const texto = (v: unknown): string | null => (v === undefined || v === null || v === '' ? null : String(v));
 function limpiar(f: Filtros): Record<string, string> {
     return Object.fromEntries(Object.entries(f).filter(([, valor]) => valor !== ''));
 }
@@ -72,6 +73,7 @@ function Dato({ titulo, valor }: { titulo: string; valor: string | null }) {
 }
 
 export default function AdminRelevosIndex({ relevos, filtros, infracciones }: Props) {
+    
     const [borrador, setBorrador] = useState<Filtros>(filtros);
     const [seleccion, setSeleccion] = useState<Relevo | null>(null);
 
@@ -108,7 +110,7 @@ export default function AdminRelevosIndex({ relevos, filtros, infracciones }: Pr
 
             <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
                 <div>
-                    <h1 className="text-2xl font-bold">Historial de relevos</h1>
+                    <h1 className="text-2xl font-bold">Historial de infracciones</h1>
                     <p className="text-sm text-muted-foreground">
                         {relevos.total} {relevos.total === 1 ? 'resultado' : 'resultados'}, del más reciente al
                         más antiguo.
@@ -314,7 +316,19 @@ export default function AdminRelevosIndex({ relevos, filtros, infracciones }: Pr
                                     <Dato titulo="Celular" valor={seleccion.celular} />
                                     <Dato titulo="Tipo de vehículo" valor={seleccion.tipo_vehiculo} />
                                     <Dato titulo="Placa" valor={seleccion.placa} />
-                                </dl>
+                                    <Dato titulo="N.º de acta" valor={texto(seleccion.numero_acta)} />
+                                    <Dato titulo="Tipo de documento" valor={texto(seleccion.tercero_tipo_documento)} />
+                                    <Dato titulo="N.º de licencia" valor={texto(seleccion.licencia_numero)} />
+                                    <Dato titulo="Clase de licencia" valor={texto(seleccion.licencia_clase)} />
+                                    <Dato titulo="Marca" valor={texto(seleccion.vehiculo_marca)} />
+                                    <Dato titulo="Modelo" valor={texto(seleccion.vehiculo_modelo)} />
+                                    <Dato titulo="Titular del vehículo" valor={texto(seleccion.vehiculo_propietario)} />
+                                    <Dato titulo="Lugar de la infracción" valor={texto(seleccion.lugar_infraccion)} />
+                                    <Dato titulo="Alcoholemia" valor={texto(seleccion.alcoholemia_texto)} />
+                                    <Dato titulo="Retuvo licencia" valor={seleccion.retuvo_licencia ? 'Sí' : 'No'} />
+                                    <Dato titulo="Retuvo vehículo" valor={seleccion.retuvo_vehiculo ? 'Sí' : 'No'} />
+                                    <Dato titulo="Conductor alternativo" valor={seleccion.conductor_alternativo ? 'Sí' : 'No'} />
+                                    </dl>
 
                                 <div>
                                     <p className="text-xs text-muted-foreground">Infracción constatada</p>

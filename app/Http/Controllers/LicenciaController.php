@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use Carbon\Carbon;
 use App\Models\HistorialDeLicencias;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +17,6 @@ class LicenciaController extends Controller
 
     private const PARENTESCOS = ['Cónyuge', 'Hijo', 'Padre', 'Hermano'];
 
-    // Lista de referencia: conviene completarla con la oficial de la provincia
     private const LOCALIDADES = [
         'Aguaray', 'Angastaco', 'Animaná', 'Apolinario Saravia', 'Cachi',
         'Cafayate', 'Campo Quijano', 'Campo Santo', 'Cerrillos', 'Chicoana',
@@ -142,13 +142,14 @@ class LicenciaController extends Controller
         $exigePdf = $motivo === 'Médico' && ! $tieneJustificante;
         $hoy = Carbon::today()->toDateString();
         $unAnioDespues = Carbon::today()->addYear()->toDateString();
+
         return [
             'domicilio_calle' => ['required', 'string', 'max:120'],
             'domicilio_numero' => ['required', 'string', 'max:10'],
             'domicilio_localidad' => ['required', Rule::in(self::LOCALIDADES)],
             'motivo' => ['required', Rule::in(self::MOTIVOS)],
-            'fecha_inicio' => ['required', 'date',"after_or_equal:{$hoy}","before_or_equal:{$unAnioDespues}"],
-            'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio',"before_or_equal:{$unAnioDespues}"],
+            'fecha_inicio' => ['required', 'date', "after_or_equal:{$hoy}", "before_or_equal:{$unAnioDespues}"],
+            'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio', "before_or_equal:{$unAnioDespues}"],
             'dj_a_cargo' => [Rule::requiredIf($esFamiliar), 'nullable', 'string', 'max:150'],
             'dj_parentesco' => [Rule::requiredIf($esFamiliar), 'nullable', Rule::in(self::PARENTESCOS)],
             'dj_conformidad' => $esFamiliar ? ['accepted'] : ['nullable'],
@@ -191,4 +192,13 @@ class LicenciaController extends Controller
             'Solo se pueden modificar licencias pendientes.'
         );
     }
+    public function pdf(Request $request, HistorialDeLicencias $licencia)
+{
+    abort_unless(
+        (int) $licencia->agente_id === (int) $request->user()->agente_id,
+        403
+    );
+
+    return app(\App\Http\Controllers\Admin\LicenciaAdminController::class)->pdf($licencia);
+}
 }

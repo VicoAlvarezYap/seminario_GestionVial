@@ -1,4 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import CalendarioMesEventos from '@/components/calendario-mes-eventos';
 import type { DatosMes } from '@/components/calendario-mes-eventos';
 import CalendarioSemanaTurnos from '@/components/calendario-semana-turnos';
@@ -7,19 +8,35 @@ import Carrusel from '@/components/carrusel';
 import type { AgenteOpcion } from '@/components/form-turno';
 import NavbarAgente from '@/components/navbar-agente';
 import type { LugarOpcion } from '@/components/selector-lugar';
+import FormReporte from '@/components/form-reporte';
 import TarjetaBienvenida from '@/components/tarjeta-bienvenida';
+import type { MiTurno } from '@/components/tarjeta-bienvenida';
+
 type Props = {
-    puedeEditar: boolean; // true solo para el Administrador
-    agentes: AgenteOpcion[]; // lista para el selector de "asignar turno"
-    lugares: LugarOpcion[]; // lista para el selector de lugar (turnos y eventos)
+    puedeEditar: boolean;
+    agentes: AgenteOpcion[];
+    lugares: LugarOpcion[];
+    titulosSugeridos: string[];     // sugerencias para el título de la tarea (solo admin)
+    turnosDisponibles: string[];    // ['manana', 'tarde', 'noche', 'especial']
+    miTurno: MiTurno | null;
     semana: DatosSemana;
     mes: DatosMes;
 };
 
-export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, mes }: Props) {
-    // Cada calendario cambia solo su fecha y mantiene la del otro
+export default function PaginaAgente({
+    puedeEditar,
+    agentes,
+    lugares,
+    titulosSugeridos,
+    turnosDisponibles,
+    miTurno,
+    semana,
+    mes,
+}: Props) {
     const { auth } = usePage<{ auth: { user: { name: string } } }>().props;
+    const [cerrando, setCerrando] = useState<MiTurno | null>(null);
 
+    // Cada calendario cambia solo su rango y mantiene el del otro
     const navegarSemana = (desde: string, hasta: string) => {
         router.get(
             '/pagina_principal',
@@ -35,43 +52,47 @@ export default function PaginaAgente({ puedeEditar, agentes, lugares, semana, me
             { only: ['semana', 'mes'], preserveState: true, preserveScroll: true, replace: true },
         );
     };
-
-    const iniciar = () => {
-        console.log('Iniciar Jornada');
-    };
-
+  
     return (
         <>
             <Head title="Página principal" />
             <NavbarAgente />
 
             <main className="p-4">
-                <div className="mb-4">
-                    <TarjetaBienvenida nombre={auth.user.name} onIniciar={iniciar} />
+                <div className="mb-4"><TarjetaBienvenida nombre={auth.user.name} turno={miTurno} onTerminar={setCerrando} />
+
                 </div>
                 <Carrusel
                     slides={[
                         {
                             titulo: puedeEditar ? 'Asignación de turnos de la semana' : 'Mis turnos de la semana',
                             contenido: (
-                                <CalendarioSemanaTurnos {...semana}
+                                <CalendarioSemanaTurnos
+                                    {...semana}
                                     puedeEditar={puedeEditar}
                                     agentes={agentes}
                                     lugares={lugares}
-                                    onCambiar={navegarSemana} />
+                                    turnosDisponibles={turnosDisponibles}
+                                    titulosSugeridos={titulosSugeridos}
+                                    eventos={mes.eventos}
+                                    onCambiar={navegarSemana}
+                                />
                             ),
                         },
                         {
                             titulo: 'Eventos del mes',
                             contenido: (
-                                <CalendarioMesEventos {...mes}
+                                <CalendarioMesEventos
+                                    {...mes}
                                     puedeEditar={puedeEditar}
                                     lugares={lugares}
-                                    onCambiar={navegarEventos} />
+                                    onCambiar={navegarEventos}
+                                />
                             ),
                         },
                     ]}
                 />
+                {cerrando && <FormReporte turno={cerrando} onCerrar={() => setCerrando(null)} />}
             </main>
         </>
     );

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\IntervencionController;
 use App\Models\Agente;
-use App\Models\IntervencionesDeEmergencias;
+use App\Models\Intervencion;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -17,8 +17,8 @@ use Inertia\Response;
 class IntervencionAdminController extends Controller
 {
     private const ESTADOS = ['reportada', 'en_curso', 'resuelta', 'derivada', 'cancelada'];
-   
-
+    private const URGENCIAS=['baja', 'media', 'alta', 'critica'];
+    private const TIPOS = ['accidente', 'infraccion', 'emergencia', 'otro'];
     public function index(Request $request): Response
     {
         $filtros = $this->filtros($request);
@@ -26,32 +26,32 @@ class IntervencionAdminController extends Controller
         $intervenciones = $this->consulta($filtros)
             ->paginate(15)
             ->withQueryString()
-            ->through(fn (IntervencionesDeEmergencias $i) => $this->aArreglo($i));
+            ->through(fn (Intervencion $i) => $this->aArreglo($i));
 
-        $agentes = Agente::query()
+       /*  $agentes = Agente::query()
             ->orderBy('apellido')
             ->orderBy('nombre')
             ->get(['id', 'nombre', 'apellido'])
             ->map(fn (Agente $a) => ['id' => $a->id, 'nombre' => "{$a->apellido}, {$a->nombre}"])
             ->values()
             ->all();
-
+*/
         return Inertia::render('Admin/Intervenciones/index', [
             'intervenciones' => $intervenciones,
             'filtros' => $filtros,
             'estados' => self::ESTADOS,
-            'urgencias' => IntervencionController::URGENCIAS,
-            'tipos' => [...IntervencionController::TIPOS, IntervencionController::OTROS],
-            'agentes' => $agentes,
+            'urgencias' => self::URGENCIAS,
+            'tipos' => self::TIPOS,
+            //'agentes' => $agentes,
             
         ]);
     }
 
   
 
-    public function pdf(IntervencionesDeEmergencias $intervencion)
+    public function pdf(Intervencion $intervencion)
     {
-        $intervencion->load(['agenteReporta', 'agentes']);
+        $intervencion->load(['lugar','agenteReporta', 'agentes']);
 
         return Pdf::loadView('pdf.intervencion', [
             'd' => $this->aArreglo($intervencion),
@@ -66,8 +66,8 @@ class IntervencionAdminController extends Controller
         $validos = $request->validate([
             'buscar' => ['nullable', 'string', 'max:100'],
             'estado' => ['nullable', Rule::in(self::ESTADOS)],
-            'urgencia' => ['nullable', Rule::in(IntervencionController::URGENCIAS)],
-            'tipo' => ['nullable', Rule::in([...IntervencionController::TIPOS, IntervencionController::OTROS])],
+            'urgencia' => ['nullable', Rule::in(self::URGENCIAS)],
+            'tipo' => ['nullable', Rule::in(self::TIPOS)],
             'desde' => ['nullable', 'date'],
             'hasta' => $request->filled('desde')
                 ? ['nullable', 'date', 'after_or_equal:desde']
@@ -86,7 +86,7 @@ class IntervencionAdminController extends Controller
 
     private function consulta(array $f): Builder
     {
-        $consulta = IntervencionesDeEmergencias::query()->with(['agenteReporta', 'agentes']);
+        $consulta = Intervencion::query()->with(['lugar','agenteReporta', 'agentes']);
 
         // cada palabra tiene que aparecer en la ubic, el reportante o algun participante
         foreach (preg_split('/\s+/', $f['buscar'], -1, PREG_SPLIT_NO_EMPTY) as $palabra) {
@@ -94,26 +94,21 @@ class IntervencionAdminController extends Controller
 
             $consulta->where(function (Builder $c) use ($like) {
                 $c->where('ubicacion_direccion', 'like', $like)
-                    ->orWhereHas('agenteReporta', fn (Builder $a) => $this->coincideAgente($a, $like))
-                    ->orWhereHas('agentes', fn (Builder $a) => $this->coincideAgente($a, $like));
+                ->orWhere('tipo_evento', 'like', $like)
+                ->orWhereHas('lugar', fn (Builder $l) => $l->where('nombre', 'like', $like))    
+                ->orWhereHas('agenteReporta', fn (Builder $a) => $this->coincideAgente($a, $like))
+                ->orWhereHas('agentes', fn (Builder $a) => $this->coincideAgente($a, $like));
             });
         }
 
         $consulta
             ->when($f['estado'] !== '', fn (Builder $c) => $c->where('estado_resolucion', $f['estado']))
             ->when($f['urgencia'] !== '', fn (Builder $c) => $c->where('nivel_urgencia', $f['urgencia']))
-            ->when($f['tipo'] !== '', function (Builder $c) use ($f) {
-                // "Otros" son los tipos que no están en la lista fija
-                if ($f['tipo'] === IntervencionController::OTROS) {
-                    $c->whereNotIn('tipo_evento', IntervencionController::TIPOS);
-                } else {
-                    $c->where('tipo_evento', $f['tipo']);
-                }
-            })
-            ->when($f['desde'] !== '', fn (Builder $c) => $c->whereDate('fecha_hora_reporte', '>=', $f['desde']))
-            ->when($f['hasta'] !== '', fn (Builder $c) => $c->whereDate('fecha_hora_reporte', '<=', $f['hasta']));
+            ->when($f['tipo'] !== '', fn (Builder $c) => $c->where('tipo', $f['tipo']))
+            ->when($f['desde'] !== '', fn (Builder $c) => $c->whereDate('fecha_hora', '>=', $f['desde']))
+            ->when($f['hasta'] !== '', fn (Builder $c) => $c->whereDate('fecha_hora', '<=', $f['hasta']));
 
-        return $consulta->orderByDesc('fecha_hora_reporte')->orderByDesc('id');
+        return $consulta->orderByDesc('fecha_hora')->orderByDesc('id');
     }
 
     private function coincideAgente(Builder $agente, string $like): void
@@ -125,22 +120,17 @@ class IntervencionAdminController extends Controller
         });
     }
 
-    private function aArreglo(IntervencionesDeEmergencias $i): array
+    private function aArreglo(Intervencion $i): array
     {
-        $tiempo = null;
 
-        if ($i->resuelta_en) {
-            $minutos = max(0, intdiv($i->resuelta_en->timestamp - $i->fecha_hora_reporte->timestamp, 60));
-            $tiempo = $this->duracion($minutos);
-        }
 
         return [
             'id' => $i->id,
-            'fecha_hora' => $i->fecha_hora_reporte->format('d/m/Y H:i'),
+            'fecha_hora' => $i->fecha_hora->format('d/m/Y H:i'),
             'tipo_evento' => $i->tipo_evento,
             'nivel_urgencia' => $i->nivel_urgencia,
             'ubicacion_direccion' => $i->ubicacion_direccion,
-            'descripcion_situacion' => $i->descripcion_situacion,
+            'descripcion_situacion' => $i->descripcion,
             'estado_resolucion' => $i->estado_resolucion,
             'reportante' => $i->agenteReporta
                 ? trim($i->agenteReporta->apellido.', '.$i->agenteReporta->nombre)
@@ -154,8 +144,7 @@ class IntervencionAdminController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'resuelta_en' => $i->resuelta_en?->format('d/m/Y H:i'),
-            'tiempo_respuesta' => $tiempo,
+         
             
         ];
     }
