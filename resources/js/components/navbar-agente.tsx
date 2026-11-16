@@ -2,32 +2,25 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { LayoutGrid, LogOut, Menu, UserRound, X, FileText, AlertTriangle, ClipboardList, ClipboardCheck } from 'lucide-react';
 import { useState } from 'react';
 
-// Lista de enlaces organizada y sin duplicados
+
 const enlaces = [
     { titulo: 'Inicio', href: '/pagina_principal', icono: LayoutGrid, soloAgente: false },
     { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound, soloAgente: false },
     { titulo: 'Licencias', href: '/licencias', icono: FileText, soloAgente: true },
     { titulo: 'Infracciones', href: '/relevos', icono: ClipboardList, soloAgente: true },
     { titulo: 'Intervenciones', href: '/intervenciones', icono: AlertTriangle, soloAgente: true },
-<<<<<<< HEAD
-    { titulo: 'Perfiles', href: '/admin/perfiles', icono: UserRound, soloAdmin: true },
-    { titulo: 'Licencias ', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
-    { titulo: 'Infracciones ', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
-    { titulo: 'Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle, soloAdmin: true },
-    
-=======
-    { titulo: 'Licencias', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
-    { titulo: 'Relevos', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
-    { titulo: 'Perfiles', href: '/admin/perfiles', icono: UserRound, soloAdmin: true }, 
     { titulo: 'Reportes', href: '/reportes', icono: AlertTriangle, soloAgente: true },
->>>>>>> 3558c4aae40d54af468d8c42bafb84fdb28045ca
+    { titulo: 'Perfiles', href: '/admin/perfiles', icono: UserRound, soloAdmin: true },
+    { titulo: 'Licencias', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
+    { titulo: 'Infracciones', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
+    { titulo: 'Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle, soloAdmin: true },
 ];
 
 export default function NavbarAgente() {
     const [abierto, setAbierto] = useState(false);
     const { url, props } = usePage();
     const roles = (props as unknown as { auth?: { roles?: string[] } }).auth?.roles ?? [];
-    
+
     const tieneRol = (nombres: string[]) =>
         roles.some((r) => nombres.includes(r.toLowerCase()));
 
@@ -39,26 +32,19 @@ export default function NavbarAgente() {
     return (
         <header className="sticky top-0 z-40 border-b bg-background">
             <div className="relative flex h-14 items-center justify-between px-4">
-                {/* Izquierda: botón de menú */}
                 <button
                     type="button"
                     onClick={() => setAbierto(!abierto)}
                     aria-label="Abrir menú"
                     className="rounded-md p-2 hover:bg-muted"
                 >
-                    {abierto ? (
-                        <X className="size-5" />
-                    ) : (
-                        <Menu className="size-5" />
-                    )}
+                    {abierto ? <X className="size-5" /> : <Menu className="size-5" />}
                 </button>
 
-                {/* Centro: nombre del sistema */}
                 <span className="absolute left-1/2 -translate-x-1/2 text-lg font-semibold">
                     Gestion Vial
                 </span>
 
-                {/* Derecha: cerrar sesión */}
                 <button
                     type="button"
                     onClick={() => router.post('/logout')}
@@ -69,7 +55,6 @@ export default function NavbarAgente() {
                 </button>
             </div>
 
-            {/* Menú desplegable */}
             {abierto && (
                 <nav className="flex flex-col gap-1 border-t p-2">
                     {visibles.map((e) => (
@@ -78,9 +63,7 @@ export default function NavbarAgente() {
                             href={e.href}
                             onClick={() => setAbierto(false)}
                             className={`flex items-center gap-2 rounded-md px-3 py-2 hover:bg-muted ${
-                                url.startsWith(e.href)
-                                    ? 'bg-muted font-medium'
-                                    : ''
+                                url.split('?')[0] === e.href ? 'bg-muted font-medium' : ''
                             }`}
                         >
                             <e.icono className="size-4" />
