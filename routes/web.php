@@ -29,9 +29,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Licencias de Admin
         Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');
-        Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf');
+        Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf') ->withTrashed();
         Route::patch('/licencias/{licencia}/resolver', [LicenciaAdminController::class, 'resolver'])->name('licencias.resolver');
         Route::get('/licencias/{licencia}/justificante', [LicenciaAdminController::class, 'justificante'])->name('licencias.justificante');
+        Route::get('/admin/licencias/{licencia}/justificante/descargar', [LicenciaAdminController::class, 'descargarJustificante'])->name('admin.licencias.justificante.descargar');
 
         // Relevos e Intervenciones de Admin
         Route::get('/relevos', [RelevoAdminController::class, 'index'])->name('relevos.index');

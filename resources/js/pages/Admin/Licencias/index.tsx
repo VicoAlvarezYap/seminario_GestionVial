@@ -343,16 +343,25 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
                                 )}
                             </dl>
 
-                            {seleccion.tiene_justificante && (
-                                <a
-                                    href={`/admin/licencias/${seleccion.id}/justificante`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-sm text-primary underline"
-                                >
-                                    Ver justificante (PDF)
-                                </a>
-                            )}
+                           {seleccion.tiene_justificante && (
+                                    <div className="flex flex-wrap gap-3">
+                                            <a
+                                                href={`/admin/licencias/${seleccion.id}/justificante`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-sm text-primary underline"
+                                            >
+                                                Ver justificante (PDF)
+                                            </a>
+                                            <a
+                                                href={`/admin/licencias/${seleccion.id}/justificante/descargar`}
+                                                className="inline-flex items-center gap-1 text-sm text-primary underline"
+                                            >
+                                                <Download className="size-3" />
+                                                Descargar justificante
+                                            </a>
+                                        </div>
+                                )}
 
                             {seleccion.resoluble ? (
                                 <div className="space-y-2">

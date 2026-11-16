@@ -25,6 +25,7 @@ type Relevo = {
     motivo: string;
     personas_implicadas: string | null;
     policial: boolean;
+    eliminado_en: string | null;
     [campo: string]: string | number | boolean | string[] | null;
 };
 
@@ -41,6 +42,7 @@ type Filtros = {
     buscar: string;
     policial: string;
     infraccion: string;
+    estado: string;
     desde: string;
     hasta: string;
 };
@@ -57,7 +59,7 @@ const claseEtiqueta = 'mb-1 block text-sm font-medium';
 const claseAccion =
     'rounded-md border px-3 py-1 text-xs font-medium hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-zinc-800';
 
-const sinFiltros: Filtros = { buscar: '', policial: '', infraccion: '', desde: '', hasta: '' };
+const sinFiltros: Filtros = { buscar: '', policial: '', infraccion: '', estado: '', desde: '', hasta: '' };
 const texto = (v: unknown): string | null => (v === undefined || v === null || v === '' ? null : String(v));
 function limpiar(f: Filtros): Record<string, string> {
     return Object.fromEntries(Object.entries(f).filter(([, valor]) => valor !== ''));
@@ -119,9 +121,9 @@ export default function AdminRelevosIndex({ relevos, filtros, infracciones }: Pr
 
                 <form
                     onSubmit={buscar}
-                    className="grid grid-cols-1 gap-3 rounded-lg border bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4 dark:bg-zinc-900"
+                    className="grid grid-cols-1 gap-3 rounded-lg border bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-5 dark:bg-zinc-900"
                 >
-                    <div className="sm:col-span-2 lg:col-span-4">
+                    <div className="sm:col-span-2 lg:col-span-5">
                         <label className={claseEtiqueta}>Buscar</label>
                         <input
                             type="text"
@@ -181,8 +183,20 @@ export default function AdminRelevosIndex({ relevos, filtros, infracciones }: Pr
                             className={claseInput}
                         />
                     </div>
+                    <div>
+                        <label className={claseEtiqueta}>Estado</label>
+                                <select
+                                    value={borrador.estado}
+                                    onChange={(e) => setBorrador({ ...borrador, estado: e.target.value })}
+                                    className={claseInput}
+                                >
+                                    <option value="">Todas</option>
+                                    <option value="activas">Vigentes</option>
+                                    <option value="eliminadas">Eliminadas</option>
+                                </select>
+                    </div>
 
-                    <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
+                    <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-5">
                         <button
                             type="submit"
                             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
@@ -223,7 +237,20 @@ export default function AdminRelevosIndex({ relevos, filtros, infracciones }: Pr
                                 </thead>
                                 <tbody>
                                     {relevos.data.map((r) => (
-                                        <tr key={r.id} className="border-b last:border-0">
+                                        <tr key={r.id} className="border-b last:border-0 ${r.eliminado ? 'opacity-60' : ''}">
+                                            <td className="p-3">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                    <span>{r.fecha_hora}</span>
+                                                    {r.eliminado && (
+                                                        <span
+                                                            title={`Eliminada el ${r.eliminado_en}`}
+                                                            className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                                                        >
+                                                            Eliminado
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="p-3">{r.fecha_hora}</td>
                                             <td className="p-3">{r.agente}</td>
                                             <td className="p-3">
@@ -328,6 +355,7 @@ export default function AdminRelevosIndex({ relevos, filtros, infracciones }: Pr
                                     <Dato titulo="Retuvo licencia" valor={seleccion.retuvo_licencia ? 'Sí' : 'No'} />
                                     <Dato titulo="Retuvo vehículo" valor={seleccion.retuvo_vehiculo ? 'Sí' : 'No'} />
                                     <Dato titulo="Conductor alternativo" valor={seleccion.conductor_alternativo ? 'Sí' : 'No'} />
+                                    <Dato titulo="Estado" valor={seleccion.eliminado ? `Eliminada el ${seleccion.eliminado_en}` : 'Vigente'}/>
                                     </dl>
 
                                 <div>

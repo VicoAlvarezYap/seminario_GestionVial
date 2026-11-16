@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Download, Plus } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
 import NavbarAgente from '@/components/navbar-agente';
 import {
     Dialog,
@@ -21,12 +21,19 @@ type Acta = {
     tercero_tipo_documento: string;
     tercero_dni: string;
     vehiculo_placa: string;
-    vehiculo_tipo: string;
+    vehiculo_tipo: string; 
     motivo_detencion: string;
     editable: boolean;
     [campo: string]: string | number | boolean | string[];
 };
-
+type Ubicacion = {
+    domicilio: string;
+    codigoPostal: string;
+    localidad: string;
+    provincia: string;
+    pais: string;
+    partido?: string; // solo conductor
+};
 type Props = {
     relevos: Acta[];
     agente: { nombre: string; apellido: string } | null;
@@ -34,6 +41,7 @@ type Props = {
     infracciones: Opcion[];
     alcoholemia: Opcion[];
     tiposDocumento: string[];
+    tiposVehiculo: string[]; 
 };
 
 type Datos = {
@@ -52,7 +60,7 @@ type Campo = {
     e: string;
     tipo?: 'text' | 'date' | 'datetime-local' | 'number' | 'select' | 'textarea';
     ancho?: 1 | 2;
-    opciones?: string[] | 'documentos';
+    opciones?: string[] | 'documentos' | 'vehiculos';
     req?: boolean;
 };
 
@@ -60,6 +68,7 @@ type Seccion = {
     titulo: string;
     abierta?: boolean;
     extra?: 'infracciones' | 'alcoholemia' | 'boleta';
+    ubicacion?: Ubicacion;
     campos: Campo[];
 };
 
@@ -72,6 +81,14 @@ const SECCIONES: Seccion[] = [
     {
         titulo: 'Conductor',
         abierta: true,
+        ubicacion:{ 
+        domicilio: 'tercero_domicilio',
+        codigoPostal: 'conductor_codigo_postal',
+        localidad: 'conductor_localidad',
+        partido: 'conductor_partido',
+        provincia: 'conductor_provincia',
+        pais: 'conductor_pais',
+        },
         campos: [
             { n: 'tercero_nombre_apellido', e: 'Apellido y nombre', ancho: 2, req: true },
             { n: 'tercero_tipo_documento', e: 'Tipo de documento', tipo: 'select', opciones: 'documentos', req: true },
@@ -101,7 +118,7 @@ const SECCIONES: Seccion[] = [
         abierta: true,
         campos: [
             { n: 'vehiculo_placa', e: 'Dominio (patente)', req: true },
-            { n: 'vehiculo_tipo', e: 'Tipo' },
+            { n: 'vehiculo_tipo', e: 'Tipo', tipo: 'select', opciones: 'vehiculos', req: true },
             { n: 'vehiculo_marca', e: 'Marca' },
             { n: 'vehiculo_modelo', e: 'Modelo' },
             { n: 'vehiculo_anio', e: 'Año', tipo: 'number' },
@@ -112,6 +129,13 @@ const SECCIONES: Seccion[] = [
     },
     {
         titulo: 'Titular del vehículo',
+        ubicacion: { 
+        domicilio: 'propietario_domicilio',
+        codigoPostal: 'propietario_codigo_postal',
+        localidad: 'propietario_localidad',
+        provincia: 'propietario_provincia',
+        pais: 'propietario_pais',
+        },
         campos: [
             { n: 'vehiculo_propietario', e: 'Propiedad de (apellido y nombre o razón social)', ancho: 2 },
             { n: 'propietario_tipo_documento', e: 'Tipo de documento', tipo: 'select', opciones: 'documentos' },
@@ -173,6 +197,398 @@ const claseEtiqueta = 'mb-1 block text-sm font-medium';
 const claseAccion =
     'rounded-md border px-2 py-1 text-xs font-medium hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-zinc-800';
 
+const GEOREF = 'https://apis.datos.gob.ar/georef/api';
+const URL_PAISES = 'https://restcountries.com/v3.1/all?fields=name';
+
+type Item = { id: string; nombre: string };
+
+function ordenar(lista: Item[]): Item[] {
+    return [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+//si el valor guardado no esta en la lista lo mantiene visible
+function opcionesCon(lista: string[], actual: string): string[] {
+    if (!actual || lista.includes(actual)) {
+        return lista;
+    }
+
+    return [actual, ...lista];
+}
+const LIMITE_OPCIONES = 50;
+
+function quitarAcentos(texto: string): string {
+    return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+
+function Combobox({
+    valor,
+    opciones,
+    onChange,
+    disabled,
+    placeholder = 'Escribí para buscar',
+    error,
+}: {
+    valor: string;
+    opciones: string[];
+    onChange: (v: string) => void;
+    disabled?: boolean;
+    placeholder?: string;
+    error?: string;
+}) {
+    const [abierto, setAbierto] = useState(false);
+    const [busqueda, setBusqueda] = useState('');
+    const [resaltado, setResaltado] = useState(0);
+
+    
+    const filtradas = useMemo(() => {
+        const q = quitarAcentos(busqueda.trim());
+
+        if (q === '') {
+            return opciones;
+        }
+
+        const coinciden = opciones.filter((o) => quitarAcentos(o).includes(q));
+        const empiezan = coinciden.filter((o) => quitarAcentos(o).startsWith(q));
+        const contienen = coinciden.filter((o) => !quitarAcentos(o).startsWith(q));
+
+        return [...empiezan, ...contienen];
+    }, [busqueda, opciones]);
+
+    const visibles = filtradas.slice(0, LIMITE_OPCIONES);
+
+    const abrir = () => {
+        if (disabled) {
+            return;
+        }
+
+        setBusqueda('');
+        setResaltado(0);
+        setAbierto(true);
+    };
+
+    const cerrar = () => {
+        setAbierto(false);
+        setBusqueda('');
+    };
+
+    const elegir = (o: string) => {
+        onChange(o);
+        cerrar();
+    };
+
+    const teclado = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (!abierto) {
+            if (e.key === 'ArrowDown') {
+                abrir();
+            }
+
+            return;
+        }
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setResaltado((r) => Math.min(r + 1, visibles.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setResaltado((r) => Math.max(r - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+
+            if (visibles[resaltado]) {
+                elegir(visibles[resaltado]);
+            }
+        } else if (e.key === 'Escape') {
+            cerrar();
+        }
+    };
+
+    return (
+        <div className="relative">
+            <input
+                type="text"
+                role="combobox"
+                aria-expanded={abierto}
+                autoComplete="off"
+                disabled={disabled}
+                value={abierto ? busqueda : valor}
+                placeholder={abierto ? valor || placeholder : placeholder}
+                onFocus={abrir}
+                onChange={(e) => {
+                    setBusqueda(e.target.value);
+                    setResaltado(0);
+                    setAbierto(true);
+                }}
+                onBlur={cerrar}
+                onKeyDown={teclado}
+                className={claseInput}
+            />
+
+            {abierto && (
+                <ul className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-white text-sm shadow-md dark:bg-zinc-900">
+                    {visibles.length === 0 && (
+                        <li className="px-3 py-2 text-muted-foreground">Sin resultados</li>
+                    )}
+
+                    {visibles.map((o, i) => (
+                        <li
+                            key={o}
+                            
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                elegir(o);
+                            }}
+                            onMouseEnter={() => setResaltado(i)}
+                            className={`cursor-pointer px-3 py-2 ${
+                                i === resaltado ? 'bg-zinc-100 dark:bg-zinc-800' : ''
+                            }`}
+                        >
+                            {o}
+                        </li>
+                    ))}
+
+                    {filtradas.length > LIMITE_OPCIONES && (
+                        <li className="px-3 py-2 text-xs text-muted-foreground">
+                            Mostrando {LIMITE_OPCIONES} de {filtradas.length}. Escribí más letras para acotar.
+                        </li>
+                    )}
+                </ul>
+            )}
+
+            <MensajeError mensaje={error} />
+        </div>
+    );
+}
+
+function UbicacionFields({
+    campos,
+    valor,
+    onChange,
+    errores,
+}: {
+    campos: Ubicacion;
+    valor: (n: string) => string;
+    onChange: (n: string, v: string) => void;
+    errores: Record<string, string | undefined>;
+}) {
+    const [extranjero, setExtranjero] = useState(() => {
+        const pais = valor(campos.pais);
+
+        return pais !== '' && pais !== 'Argentina';
+    });
+    const [provincias, setProvincias] = useState<Item[]>([]);
+    const [localidades, setLocalidades] = useState<Item[]>([]);
+    const [departamentos, setDepartamentos] = useState<Item[]>([]);
+    const [paises, setPaises] = useState<string[]>([]);
+
+    const partido = campos.partido;
+    const provinciaNombre = valor(campos.provincia);
+    const idProvincia = provincias.find((p) => p.nombre === provinciaNombre)?.id;
+
+    useEffect(() => {
+        if (!extranjero && valor(campos.pais) !== 'Argentina') {
+            onChange(campos.pais, 'Argentina');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        fetch(`${GEOREF}/provincias?campos=id,nombre&max=100`)
+            .then((r) => r.json())
+            .then((d: { provincias: Item[] }) => setProvincias(ordenar(d.provincias)))
+            .catch(() => setProvincias([]));
+    }, []);
+
+    useEffect(() => {
+        if (!extranjero || paises.length > 0) {
+            return;
+        }
+
+        fetch(URL_PAISES)
+            .then((r) => r.json())
+            .then((d: { name: { common: string } }[]) =>
+                setPaises(d.map((p) => p.name.common).sort((a, b) => a.localeCompare(b, 'es'))),
+            )
+            .catch(() => setPaises([]));
+    }, [extranjero, paises.length]);
+
+    useEffect(() => {
+        if (extranjero || !idProvincia) {
+            setLocalidades([]);
+            setDepartamentos([]);
+
+            return;
+        }
+
+        fetch(`${GEOREF}/localidades?provincia=${idProvincia}&campos=id,nombre&max=5000`)
+            .then((r) => r.json())
+            .then((d: { localidades: Item[] }) => setLocalidades(ordenar(d.localidades)))
+            .catch(() => setLocalidades([]));
+
+        if (partido) {
+            fetch(`${GEOREF}/departamentos?provincia=${idProvincia}&campos=id,nombre&max=5000`)
+                .then((r) => r.json())
+                .then((d: { departamentos: Item[] }) => setDepartamentos(ordenar(d.departamentos)))
+                .catch(() => setDepartamentos([]));
+        }
+    }, [extranjero, idProvincia, partido]);
+
+    const cambiarExtranjero = (activo: boolean) => {
+        setExtranjero(activo);
+        onChange(campos.pais, activo ? '' : 'Argentina');
+        onChange(campos.provincia, '');
+        onChange(campos.localidad, '');
+
+        if (partido) {
+            onChange(partido, '');
+        }
+    };
+
+    const cambiarProvincia = (v: string) => {
+        onChange(campos.provincia, v);
+        onChange(campos.localidad, '');
+
+        if (partido) {
+            onChange(partido, '');
+        }
+    };
+
+    return (
+        <div className="space-y-3 rounded-md border border-dashed p-3">
+            <label className="flex items-center gap-2 text-sm">
+                <input
+                    type="checkbox"
+                    checked={extranjero}
+                    onChange={(e) => cambiarExtranjero(e.target.checked)}
+                />
+                El domicilio está fuera de Argentina
+            </label>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                    <label className={claseEtiqueta}>Domicilio</label>
+                    <input
+                        type="text"
+                        value={valor(campos.domicilio)}
+                        onChange={(e) => onChange(campos.domicilio, e.target.value)}
+                        className={claseInput}
+                    />
+                    <MensajeError mensaje={errores[campos.domicilio]} />
+                </div>
+
+                <div>
+                    <label className={claseEtiqueta}>País</label>
+                    {extranjero ? (
+                        <Combobox
+                            valor={valor(campos.pais)}
+                            opciones={opcionesCon(paises, valor(campos.pais))}
+                            onChange={(v) => onChange(campos.pais, v)}
+                            error={errores[campos.pais]}
+                        />
+                    ) : (
+                        <>
+                            <input type="text" value="Argentina" disabled readOnly className={claseInput} />
+                            <MensajeError mensaje={errores[campos.pais]} />
+                        </>
+                    )}
+                </div>
+
+                <div>
+                    <label className={claseEtiqueta}>Provincia</label>
+                    {extranjero ? (
+                        <>
+                            <input
+                                type="text"
+                                value={provinciaNombre}
+                                onChange={(e) => onChange(campos.provincia, e.target.value)}
+                                className={claseInput}
+                            />
+                            <MensajeError mensaje={errores[campos.provincia]} />
+                        </>
+                    ) : (
+                        <Combobox
+                            valor={provinciaNombre}
+                            opciones={opcionesCon(
+                                provincias.map((p) => p.nombre),
+                                provinciaNombre,
+                            )}
+                            onChange={cambiarProvincia}
+                            error={errores[campos.provincia]}
+                        />
+                    )}
+                </div>
+
+                <div>
+                    <label className={claseEtiqueta}>Localidad</label>
+                    {extranjero ? (
+                        <>
+                            <input
+                                type="text"
+                                value={valor(campos.localidad)}
+                                onChange={(e) => onChange(campos.localidad, e.target.value)}
+                                className={claseInput}
+                            />
+                            <MensajeError mensaje={errores[campos.localidad]} />
+                        </>
+                    ) : (
+                        <Combobox
+                            valor={valor(campos.localidad)}
+                            disabled={!provinciaNombre}
+                            placeholder={provinciaNombre ? 'Escribí para buscar' : 'Primero elegí la provincia'}
+                            opciones={opcionesCon(
+                                localidades.map((l) => l.nombre),
+                                valor(campos.localidad),
+                            )}
+                            onChange={(v) => onChange(campos.localidad, v)}
+                            error={errores[campos.localidad]}
+                        />
+                    )}
+                </div>
+
+                {partido && (
+                    <div>
+                        <label className={claseEtiqueta}>Partido</label>
+                        {extranjero ? (
+                            <>
+                                <input
+                                    type="text"
+                                    value={valor(partido)}
+                                    onChange={(e) => onChange(partido, e.target.value)}
+                                    className={claseInput}
+                                />
+                                <MensajeError mensaje={errores[partido]} />
+                            </>
+                        ) : (
+                            <Combobox
+                                valor={valor(partido)}
+                                disabled={!provinciaNombre}
+                                placeholder={provinciaNombre ? 'Escribí para buscar' : 'Primero elegí la provincia'}
+                                opciones={opcionesCon(
+                                    departamentos.map((d) => d.nombre),
+                                    valor(partido),
+                                )}
+                                onChange={(v) => onChange(partido, v)}
+                                error={errores[partido]}
+                            />
+                        )}
+                    </div>
+                )}
+
+                <div>
+                    <label className={claseEtiqueta}>Código postal</label>
+                    <input
+                        type="text"
+                        value={valor(campos.codigoPostal)}
+                        onChange={(e) => onChange(campos.codigoPostal, e.target.value)}
+                        className={claseInput}
+                    />
+                    <MensajeError mensaje={errores[campos.codigoPostal]} />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function MensajeError({ mensaje }: { mensaje?: string }) {
     if (!mensaje) {
         return null;
@@ -187,14 +603,22 @@ function CampoForm({
     error,
     onChange,
     documentos,
+    tiposVehiculo,
 }: {
     campo: Campo;
     valor: string;
     error?: string;
     onChange: (v: string) => void;
     documentos: string[];
+    tiposVehiculo: string[]; 
 }) {
-    const opciones = campo.opciones === 'documentos' ? documentos : campo.opciones;
+   
+    const opciones =
+        campo.opciones === 'documentos'
+            ? documentos
+            : campo.opciones === 'vehiculos'
+                ? tiposVehiculo
+                : campo.opciones;
 
     return (
         <div className={campo.ancho === 2 ? 'sm:col-span-2' : ''}>
@@ -228,7 +652,15 @@ function CampoForm({
     );
 }
 
-export default function ActasIndex({ relevos, agente, enTurno, infracciones, alcoholemia, tiposDocumento }: Props) {
+export default function ActasIndex({
+    relevos,
+    agente,
+    enTurno,
+    infracciones,
+    alcoholemia,
+    tiposDocumento,
+    tiposVehiculo,
+}: Props) {
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<Acta | null>(null);
     const [ahora, setAhora] = useState(() => new Date());
@@ -531,18 +963,30 @@ export default function ActasIndex({ relevos, agente, enTurno, infracciones, alc
                                         </div>
                                     )}
 
-                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        {s.campos.map((c) => (
-                                            <CampoForm
-                                                key={c.n}
-                                                campo={c}
-                                                valor={String(datos[c.n] ?? '')}
-                                                error={errores[c.n]}
-                                                onChange={(v) => formulario.setData(c.n, v)}
-                                                documentos={tiposDocumento}
-                                            />
-                                        ))}
-                                    </div>
+                                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            {s.campos
+                                            .filter((c) => !Object.values(s.ubicacion ?? {}).includes(c.n))
+                                            .map((c) => (
+                                                <CampoForm
+                                                    key={c.n}
+                                                    campo={c}
+                                                    valor={String(datos[c.n] ?? '')}
+                                                    error={errores[c.n]}
+                                                    onChange={(v) => formulario.setData(c.n, v)}
+                                                    documentos={tiposDocumento}
+                                                    tiposVehiculo={tiposVehiculo}
+                                                />
+                                            ))}
+                                        </div>
+
+                                        {s.ubicacion && (
+                                            <UbicacionFields
+                                            campos={s.ubicacion}
+                                            valor={(n) => String(datos[n] ?? '')}
+                                            onChange={(n, v) => formulario.setData(n, v)}
+                                            errores={errores}
+                                        />
+                                        )}
                                 </div>
                             </details>
                         ))}

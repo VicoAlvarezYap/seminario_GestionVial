@@ -9,20 +9,26 @@ class HistorialDeLicencias extends Model
     protected $table = 'historial_licencias';
     public $timestamps = false; 
     protected $fillable = [
-        'agente_id',
-        'tipo_licencia',
-        'fecha_inicio',
-        'fecha_fin',
-        'estado',
-        'pendiente',
-        'observaciones'
+    'agente_id',
+    'tipo_licencia',
+    'fecha_inicio',
+    'fecha_fin',
+    'estado',
+    'observaciones',
+    'domicilio_calle',
+    'domicilio_numero',
+    'domicilio_localidad',
+    'dj_a_cargo',
+    'dj_parentesco',
+    'dj_conformidad',
+    'justificante_path',
     ];
-    protected function casts(): array
-    {
-        return [
-            'fecha_inicio' => 'date',
-            'fecha_fin' => 'date',
-        ];
+    protected function casts(): array{
+    return [
+        'fecha_inicio' => 'date',
+        'fecha_fin' => 'date',
+        'dj_conformidad' => 'boolean',
+    ];
     }
     public function agente(): BelongsTo
     {

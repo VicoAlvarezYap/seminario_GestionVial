@@ -29,6 +29,7 @@ type Licencia = {
     dj_parentesco: string | null;
     tiene_justificante: boolean;
     editable: boolean;
+    puede_descargar_pdf: boolean;
 };
 
 type Props = {
@@ -275,13 +276,24 @@ export default function LicenciasIndex({
                                                     >
                                                         Cancelar licencia
                                                     </button>
-                                                    <a href={`/licencias/${l.id}/pdf`}
-                                                        title="Descargar la solicitud en PDF"
-                                                        className={`${claseAccion} inline-flex items-center gap-1`}
-                                                    >
-                                                    <Download className="size-3" />
-                                                        Descargar PDF
-                                                    </a>
+                                                    {l.puede_descargar_pdf ? (
+                                                            <a
+                                                                    href={`/licencias/${l.id}/pdf`}
+                                                                    title="Descargar la solicitud en PDF"
+                                                                    className={`${claseAccion} inline-flex items-center gap-1`}
+                                                                >
+                                                                    <Download className="size-3" />
+                                                                    Descargar PDF
+                                                                </a>
+                                                            ) : (
+                                                                <span
+                                                                    title="Una licencia cancelada no tiene PDF disponible"
+                                                                    className={`${claseAccion} inline-flex cursor-not-allowed items-center gap-1 opacity-40`}
+                                                                >
+                                                                    <Download className="size-3" />
+                                                                    Descargar PDF
+                                                                </span>
+                                                            )}
 
                                                 </div>
                                             </td>

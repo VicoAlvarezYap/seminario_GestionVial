@@ -12,7 +12,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 class RelevoController extends Controller
-{
+{   
     //anexo del decreto 437/11 del acta de infraccion
     public const INFRACCIONES = [
         'sin_luces' => 'Circular sin luces encendidas (Art. 66)',
@@ -35,7 +35,8 @@ class RelevoController extends Controller
     ];
 
     public const TIPOS_DOCUMENTO = ['DNI', 'LE', 'LC', 'CI', 'Pasaporte', 'CUIT', 'CUIL', 'Otro'];
-
+    public const TIPOS_VEHICULO = ['Automóvil','Camioneta / Pick-up', 'Motocicleta','Camión / Transporte de carga','Colectivo / Transporte de pasajeros',
+    'Utilitario','Otro',];
     public function index(Request $request): Response
     {
         $usuario = $request->user();
@@ -60,6 +61,7 @@ class RelevoController extends Controller
             'infracciones' => $this->comoLista(self::INFRACCIONES),
             'alcoholemia' => $this->comoLista(self::ALCOHOLEMIA),
             'tiposDocumento' => self::TIPOS_DOCUMENTO,
+            'tiposVehiculo'=> self::TIPOS_VEHICULO,
         ]);
     }
 
@@ -125,7 +127,7 @@ class RelevoController extends Controller
         return array_merge($reglas, [
             'numero_acta' => [
                 'nullable', 'string', 'max:20',
-                Rule::unique('relevos', 'numero_acta')->ignore($ignorarId),
+                Rule::unique('relevos', 'numero_acta')->ignore($ignorarId)->whereNull('deleted_at'),
             ],
             'tercero_nombre_apellido' => ['required', 'string', 'max:200'],
             'tercero_tipo_documento' => ['required', Rule::in(self::TIPOS_DOCUMENTO)],
@@ -133,6 +135,7 @@ class RelevoController extends Controller
             'conductor_sexo' => ['nullable', Rule::in(['M', 'F', 'X'])],
             'propietario_tipo_documento' => ['nullable', Rule::in(self::TIPOS_DOCUMENTO)],
             'vehiculo_placa' => ['required', 'string', 'max:15'],
+            'vehiculo_tipo'=>['required',Rule::in(self::TIPOS_VEHICULO)],
             'lugar_infraccion' => ['required', 'string', 'max:255'],
             'alcoholemia_nivel' => ['nullable', Rule::in(array_keys(self::ALCOHOLEMIA))],
             'licencia_vencimiento' => ['nullable', 'date'],
