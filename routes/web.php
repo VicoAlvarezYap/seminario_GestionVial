@@ -58,6 +58,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('turnos/{turno}')->name('turnos.')->group(function () {
             Route::post('iniciar', [FichadaController::class, 'iniciar'])->name('iniciar');
             Route::post('finalizar', [FichadaController::class, 'finalizar'])->name('finalizar');
+            
         });
 
         // Perfil y Contactos de emergencia
@@ -76,9 +77,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         // Reportes 
-        Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
+       Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
             Route::get('/', 'index')->name('index');
-            Route::get('/{reporte}', 'show')->name('show');
+            Route::get('/pdf', 'pdf')->name('pdf');
+            Route::get('/{reporte}', 'show')->name('show')->where('reporte', '[0-9]+');
         });
 
         Route::post('lugares', [LugarController::class, 'store'])->name('lugares.store');

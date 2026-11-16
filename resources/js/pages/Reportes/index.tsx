@@ -61,6 +61,25 @@ const NOMBRE_TIPO: Record<string, string> = {
     otro: 'Otro',
 };
 
+// Opciones de los filtros del PDF (a nivel de módulo: no usan estado)
+const TURNOS_OPC: [string, string][] = [
+    ['manana', 'Mañana'],
+    ['tarde', 'Tarde'],
+    ['noche', 'Noche'],
+    ['especial', 'Especial'],
+];
+
+const SECCIONES_OPC: [string, string][] = [
+    ['horario', 'Horario'],
+    ['tareas', 'Tareas'],
+    ['intervenciones', 'Intervenciones'],
+    ['recursos', 'Recursos'],
+    ['novedades', 'Novedades'],
+];
+
+const alternar = (lista: string[], valor: string, set: (v: string[]) => void) =>
+    set(lista.includes(valor) ? lista.filter((x) => x !== valor) : [...lista, valor]);
+
 const hora = (iso: string | null) =>
     iso ? new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
 
@@ -150,6 +169,18 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
     const [desdeInput, setDesdeInput] = useState(desde);
     const [hastaInput, setHastaInput] = useState(hasta);
 
+    // Filtros del PDF: estado dentro del componente
+    const [turnosPdf, setTurnosPdf] = useState<string[]>([]);
+    const [seccionesPdf, setSeccionesPdf] = useState<string[]>(['tareas', 'intervenciones']);
+
+    // Usa desdeInput y hastaInput, por eso va dentro del componente
+    const urlPdf = () => {
+        const p = new URLSearchParams({ desde: desdeInput, hasta: hastaInput });
+        turnosPdf.forEach((t) => p.append('turnos[]', t));
+        seccionesPdf.forEach((s) => p.append('secciones[]', s));
+        return `/reportes/pdf?${p.toString()}`;
+    };
+
     const filtrar = () => {
         if (!desdeInput || !hastaInput || desdeInput > hastaInput) {
             return;
@@ -168,6 +199,7 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
                     <h1 className="text-2xl font-bold">{veTodo ? 'Reportes de turno' : 'Mis reportes'}</h1>
                 </div>
 
+                {/* Filtro de fechas de la pantalla */}
                 <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
                     <label className="flex flex-col gap-1 text-xs font-medium">
                         Desde
@@ -202,6 +234,52 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
                     </span>
                 </div>
 
+                {/* Bloque nuevo: descarga del PDF con filtros */}
+                <div className="space-y-3 rounded-lg border p-3">
+                    <h2 className="text-sm font-semibold">Descargar PDF</h2>
+
+                    <fieldset className="space-y-2 text-sm">
+                        <legend className="text-xs font-medium">Turnos a incluir (sin selección = todos)</legend>
+                        <div className="flex flex-wrap gap-4">
+                            {TURNOS_OPC.map(([valor, etiqueta]) => (
+                                <label key={valor} className="flex items-center gap-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={turnosPdf.includes(valor)}
+                                        onChange={() => alternar(turnosPdf, valor, setTurnosPdf)}
+                                    />
+                                    {etiqueta}
+                                </label>
+                            ))}
+                        </div>
+                    </fieldset>
+
+                    <fieldset className="space-y-2 text-sm">
+                        <legend className="text-xs font-medium">Secciones a incluir</legend>
+                        <div className="flex flex-wrap gap-4">
+                            {SECCIONES_OPC.map(([valor, etiqueta]) => (
+                                <label key={valor} className="flex items-center gap-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={seccionesPdf.includes(valor)}
+                                        onChange={() => alternar(seccionesPdf, valor, setSeccionesPdf)}
+                                    />
+                                    {etiqueta}
+                                </label>
+                            ))}
+                        </div>
+                    </fieldset>
+
+                    <a
+                        href={urlPdf()}
+                        className={`inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                            seccionesPdf.length === 0 ? 'pointer-events-none opacity-50' : ''
+                        }`}
+                    >
+                        Descargar PDF
+                    </a>
+                </div>
+
                 {reportes.length === 0 ? (
                     <p className="text-muted-foreground text-sm">No hay reportes en el rango seleccionado.</p>
                 ) : (
@@ -227,7 +305,11 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
                                                     ` · ${r.intervenciones.length} ${r.intervenciones.length === 1 ? 'intervención' : 'intervenciones'}`}
                                             </div>
                                         </div>
-                                        {expandido ? <ChevronUp className="size-5 shrink-0" /> : <ChevronDown className="size-5 shrink-0" />}
+                                        {expandido ? (
+                                            <ChevronUp className="size-5 shrink-0" />
+                                        ) : (
+                                            <ChevronDown className="size-5 shrink-0" />
+                                        )}
                                     </button>
 
                                     {expandido && <Detalle r={r} />}
