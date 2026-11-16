@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\ReportesTurno;
 use Carbon\CarbonInterface;
+use App\Models\Intervencion;
 
 class TurnoTrabajo extends Model
 {
@@ -81,5 +82,22 @@ class TurnoTrabajo extends Model
         return ($this->estado_turno === 'programado' && $this->inicio_real && !$this->fin_real)
             ? 'en_curso'
             : $this->estado_turno;
+    }
+
+
+
+    public function intervencionesDelTurno()
+    {
+        $desde = $this->inicio_real ?? $this->inicioProgramado();
+        $hasta = $this->fin_real ?? $this->finProgramado();
+
+        return Intervencion::query()
+            ->where('estado_resolucion', '!=', 'cancelada')
+            ->where(function ($q) use ($desde, $hasta) {
+                $q->where(fn($q) => $q
+                    ->whereHas('agentes', fn($a) => $a->where('agentes.id', $this->agente_id))
+                    ->whereBetween('fecha_hora', [$desde, $hasta]))
+                    ->orWhereHas('tarea', fn($t) => $t->where('turno_trabajo_id', $this->id));
+            });
     }
 }

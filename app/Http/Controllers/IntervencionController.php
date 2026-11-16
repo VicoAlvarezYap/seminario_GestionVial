@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\IntervencionRequest;
+use App\Http\Requests\EmergenciaRequest;
 use App\Models\Intervencion;
-use App\Models\Tarea;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +13,7 @@ use Illuminate\Validation\Rule;
 
 
 class IntervencionController extends Controller
+<<<<<<< HEAD
 {     private const TRANSICIONES = [
     'reportada' => ['en_curso', 'resuelta', 'derivada'],
     'en_curso' => ['resuelta', 'derivada'],
@@ -28,25 +28,82 @@ class IntervencionController extends Controller
     if ($usuario->hasAnyRole(['Administrador', 'Supervisor', 'admin', 'super-admin'])) {
         $intervenciones = Intervencion::with(['lugar:id,nombre', 'agentes:id,nombre,apellido', 'agenteReporta:id,nombre,apellido'])
             ->emergencias()
+=======
+{
+    public const OTROS = 'Otros';
+
+    public const TIPOS = [
+        'Caída de árbol',
+        'Anegamiento',
+        'Accidente de tránsito',
+        'Semáforo fuera de servicio',
+        'Corte de energía',
+        self::OTROS,
+    ];
+
+    public function index(Request $request): Response
+    {
+        $usuario = $request->user();
+        $agenteId = $usuario->agente_id;
+        $veTodo = $usuario->hasAnyRole(['Administrador', 'Supervisor']);
+
+        $intervenciones = Intervencion::emergencias()
+            ->with(['lugar:id,nombre'])
+            ->when(! $veTodo, fn ($q) => $agenteId
+                ? $q->whereHas('agentes', fn ($a) => $a->where('agentes.id', $agenteId))
+                : $q->whereRaw('1 = 0'))
+>>>>>>> 3558c4aae40d54af468d8c42bafb84fdb28045ca
             ->orderByDesc('fecha_hora')
             ->paginate(20)
-            ->through(fn (Intervencion $i) => [
-                'id'                 => $i->id,
-                'tipo'               => $i->tipo,
-                'tipo_evento'        => $i->tipo_evento,
-                'nivel_urgencia'     => $i->nivel_urgencia,
-                'estado_resolucion'  => $i->estado_resolucion,
-                'fecha_hora'         => $i->fecha_hora->toIso8601String(),
-                'lugar'              => $i->lugar?->nombre ?? $i->ubicacion_direccion,
-                'descripcion'        => $i->descripcion,
-                'reporta'            => $i->agenteReporta ? "{$i->agenteReporta->apellido}, {$i->agenteReporta->nombre}" : null,
-                'agentes'            => $i->agentes->map(fn ($a) => [
-                    'id'     => $a->id,
-                    'nombre' => "{$a->apellido}, {$a->nombre}",
-                    'rol'    => $a->pivot->rol_en_intervencion,
-                ])->values()->all(),
+            ->withQueryString()
+            ->through(function (Intervencion $i) use ($agenteId, $veTodo) {
+                $esReportante = $agenteId && $i->agente_reporta_id === $agenteId;
+                $enTipos = in_array($i->tipo_evento, self::TIPOS, true);
+
+                return [
+                    'id'                    => $i->id,
+                    'tipo_evento'           => $i->tipo_evento,
+                    'tipo_seleccion'        => $enTipos ? $i->tipo_evento : self::OTROS,
+                    'tipo_otros'            => $enTipos ? '' : (string) $i->tipo_evento,
+                    'nivel_urgencia'        => $i->nivel_urgencia,
+                    'ubicacion_direccion'   => $i->ubicacion_direccion ?? $i->lugar?->nombre ?? '',
+                    'descripcion_situacion' => $i->descripcion,
+                    'estado_resolucion'     => $i->estado_resolucion,
+                    'fecha_hora'            => $i->fecha_hora->format('d/m/Y H:i'),
+                    'es_reportante'         => (bool) $esReportante,
+                    'editable'              => ($esReportante || $veTodo) && $i->estado_resolucion === 'reportada',
+                ];
+            });
+
+        $agente = $usuario->agente;
+
+        return Inertia::render('Intervenciones/index', [
+            'intervenciones' => $intervenciones,
+            'agente'         => $agente ? ['nombre' => $agente->nombre, 'apellido' => $agente->apellido] : null,
+            'tipos'          => self::TIPOS,
+        ]);
+    }
+
+    /** El agente reporta una emergencia: queda como reportante y participante. */
+    public function store(EmergenciaRequest $request): RedirectResponse
+    {
+        $agenteId = $request->user()->agente_id;
+        abort_unless($agenteId, 403);
+
+        $d = $request->validated();
+
+        DB::transaction(function () use ($d, $agenteId) {
+            $intervencion = Intervencion::create([
+                'tipo'                => 'emergencia',
+                'tipo_evento'         => $this->tipoEvento($d),
+                'nivel_urgencia'      => $d['nivel_urgencia'],
+                'ubicacion_direccion' => $d['ubicacion_direccion'],
+                'descripcion'         => $d['descripcion_situacion'] ?? null,
+                'agente_reporta_id'   => $agenteId,
+                'fecha_hora'          => now(),
             ]);
 
+<<<<<<< HEAD
         return Inertia::render('Intervenciones/index', ['intervenciones' => $intervenciones]);
     }
 
@@ -107,68 +164,51 @@ class IntervencionController extends Controller
         DB::transaction(function () use ($datos, $agentes) {
             $intervencion = Intervencion::create($datos);
             $intervencion->agentes()->sync($this->paraPivote($agentes));
+=======
+            $intervencion->agentes()->attach($agenteId, ['rol_en_intervencion' => 'Reportante']);
+>>>>>>> 3558c4aae40d54af468d8c42bafb84fdb28045ca
         });
 
-        return back()->with('success', 'Intervención registrada correctamente.');
+        return back()->with('success', 'Emergencia reportada correctamente.');
     }
 
-    public function update(IntervencionRequest $request, Intervencion $intervencion): RedirectResponse
+    public function update(EmergenciaRequest $request, Intervencion $intervencion): RedirectResponse
     {
-        $this->autorizarEdicion($request, $intervencion);
+        $this->autorizar($request, $intervencion);
+        $d = $request->validated();
 
-        $datos = $request->validated();
-        $agentes = collect($datos['agentes'] ?? []);
-        unset($datos['agentes'], $datos['tarea_id']); // no se cambia el origen
+        $intervencion->update([
+            'tipo_evento'         => $this->tipoEvento($d),
+            'nivel_urgencia'      => $d['nivel_urgencia'],
+            'ubicacion_direccion' => $d['ubicacion_direccion'],
+            'descripcion'         => $d['descripcion_situacion'] ?? null,
+        ]);
 
-        DB::transaction(function () use ($intervencion, $datos, $agentes) {
-            $intervencion->update($datos);
-
-            if ($agentes->isNotEmpty()) {
-                $intervencion->agentes()->sync($this->paraPivote($agentes));
-            }
-        });
-
-        return back()->with('success', 'Intervención actualizada correctamente.');
+        return back()->with('success', 'Reporte actualizado correctamente.');
     }
 
-    public function destroy(Request $request, Intervencion $intervencion): RedirectResponse
+    public function cancelar(Request $request, Intervencion $intervencion): RedirectResponse
     {
-        abort_unless($request->user()->hasAnyRole(['Administrador', 'Supervisor']), 403);
+        $this->autorizar($request, $intervencion);
+        $intervencion->update(['estado_resolucion' => 'cancelada']);
 
-        $intervencion->delete(); // el pivote se borra en cascada
-
-        return back()->with('success', 'Intervención eliminada correctamente.');
+        return back()->with('success', 'Reporte cancelado.');
     }
 
-    /** Convierte [{agente_id, rol_en_intervencion}] al formato de sync(). */
-    private function paraPivote($agentes): array
+    private function tipoEvento(array $d): string
     {
-        return $agentes->mapWithKeys(fn ($a) => [
-            $a['agente_id'] => ['rol_en_intervencion' => $a['rol_en_intervencion'] ?? null],
-        ])->all();
+        return $d['tipo_seleccion'] === self::OTROS ? $d['tipo_otros'] : $d['tipo_seleccion'];
     }
 
-    private function autorizarSobreTarea(Request $request, Tarea $tarea): void
+    /** Reportante o supervisor/admin, solo en emergencias y mientras esté "reportada". */
+    private function autorizar(Request $request, Intervencion $intervencion): void
     {
         $usuario = $request->user();
+        $permitido = $usuario->hasAnyRole(['Administrador', 'Supervisor'])
+            || ($usuario->agente_id && $usuario->agente_id === $intervencion->agente_reporta_id);
 
-        if ($usuario->hasAnyRole(['Administrador', 'Supervisor'])) {
-            return;
-        }
-
-        abort_unless($usuario->agente_id && $usuario->agente_id === $tarea->turno->agente_id, 403);
-    }
-
-    private function autorizarEdicion(Request $request, Intervencion $intervencion): void
-    {
-        $usuario = $request->user();
-
-        if ($usuario->hasAnyRole(['Administrador', 'Supervisor'])) {
-            return;
-        }
-
-        // El agente solo edita las que él reportó
-        abort_unless($usuario->agente_id && $usuario->agente_id === $intervencion->agente_reporta_id, 403);
+        abort_unless($permitido && $intervencion->tarea_id === null, 403);
+        abort_unless($intervencion->estado_resolucion === 'reportada', 403, 'Solo se puede modificar un reporte recién reportado.');
     }
     /** El agente informa cómo va (o cómo terminó) una intervención en la que participa. */
 public function informar(Request $request, Intervencion $intervencion): RedirectResponse

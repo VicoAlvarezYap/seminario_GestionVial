@@ -16,6 +16,7 @@ class Agente extends Model
         'numero_documento',
         'celular',
         'correo',
+        'rango',
     ];
 
    

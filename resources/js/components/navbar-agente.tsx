@@ -9,11 +9,18 @@ const enlaces = [
     { titulo: 'Licencias', href: '/licencias', icono: FileText, soloAgente: true },
     { titulo: 'Infracciones', href: '/relevos', icono: ClipboardList, soloAgente: true },
     { titulo: 'Intervenciones', href: '/intervenciones', icono: AlertTriangle, soloAgente: true },
+<<<<<<< HEAD
     { titulo: 'Perfiles', href: '/admin/perfiles', icono: UserRound, soloAdmin: true },
     { titulo: 'Licencias ', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
     { titulo: 'Infracciones ', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
     { titulo: 'Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle, soloAdmin: true },
     
+=======
+    { titulo: 'Licencias', href: '/admin/licencias', icono: ClipboardCheck, soloAdmin: true },
+    { titulo: 'Relevos', href: '/admin/relevos', icono: ClipboardList, soloAdmin: true },
+    { titulo: 'Perfiles', href: '/admin/perfiles', icono: UserRound, soloAdmin: true }, 
+    { titulo: 'Reportes', href: '/reportes', icono: AlertTriangle, soloAgente: true },
+>>>>>>> 3558c4aae40d54af468d8c42bafb84fdb28045ca
 ];
 
 export default function NavbarAgente() {

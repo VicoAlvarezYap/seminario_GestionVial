@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PaginaAgenteController;
 use App\Http\Controllers\Admin\EventoOperativoController;
 use App\Http\Controllers\ContactoEmergenciaController;
-use App\Http\Controllers\AgenteController;
+use App\Http\Controllers\Admin\AgenteController;
 use App\Http\Controllers\Admin\TareaController;
 use App\Http\Controllers\Admin\TurnoTrabajoController;
 use App\Http\Controllers\Admin\LugarController;
@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/licencias/{licencia}/justificante', [LicenciaAdminController::class, 'justificante'])->name('licencias.justificante');
         Route::get('/admin/licencias/{licencia}/justificante/descargar', [LicenciaAdminController::class, 'descargarJustificante'])->name('admin.licencias.justificante.descargar');
 
+<<<<<<< HEAD
         // Relevos e Intervenciones de Admin
         Route::get('/relevos', [RelevoAdminController::class, 'index'])->name('relevos.index');
         Route::get('/relevos/{relevo}/pdf', [RelevoAdminController::class, 'pdf'])->name('relevos.pdf');
@@ -41,6 +42,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/intervenciones/{intervencion}/pdf', [IntervencionAdminController::class, 'pdf'])->name('intervenciones.pdf');
 
         // CRUDs de administración
+=======
+        Route::post('agentes', [AgenteController::class, 'store'])->name('agentes.store');
+
+        // CRUDs de administración (Store, Update, Destroy) reducidos con resource
+>>>>>>> 3558c4aae40d54af468d8c42bafb84fdb28045ca
         Route::resource('eventos-operativos', EventoOperativoController::class)->only(['store', 'update', 'destroy']);
         Route::resource('turnos', TurnoTrabajoController::class)->only(['store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
@@ -68,10 +74,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{licencia}/justificante', 'justificante')->name('justificante');
         Route::get('/licencias/{licencia}/pdf','pdf')->name('licencias.pdf');
     });
+<<<<<<< HEAD
      Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/{reporte}', 'show')->name('show');
     });
+=======
+
+    // Relevos (CRUD simplificado)
+    Route::resource('relevos', RelevoController::class)->except(['create', 'edit', 'show']);
+
+    // Intervenciones 
+    Route::controller(IntervencionController::class)->prefix('intervenciones')->name('intervenciones.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::put('/{intervencion}', 'update')->name('update');
+        Route::delete('/{intervencion}', 'destroy')->name('destroy');
+    });
+
+     Route::get('/reportes', [ReportesTurnoController::class, 'index'])->name('reportes.index');
+>>>>>>> 3558c4aae40d54af468d8c42bafb84fdb28045ca
 
     Route::post('lugares', [LugarController::class, 'store'])->name('lugares.store');
      // Intervenciones 
