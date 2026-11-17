@@ -19,6 +19,7 @@ class PerfilController extends Controller
                 'documento' => $a->numero_documento,
                 'celular' => $a->celular,
                 'correo' => $a->correo,
+                'rango' => $a->rango,
             ])
             ->values()
             ->all();

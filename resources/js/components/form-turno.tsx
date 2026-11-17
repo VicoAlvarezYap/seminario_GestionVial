@@ -24,6 +24,8 @@ export type TurnoEditable = {
     fecha: string;
     turno: string;
     estado: string | null;
+    hora_inicio_prog?: string | null;
+    hora_fin_prog?: string | null;
 };
 
 const NOMBRE_TURNO: Record<string, string> = {
@@ -61,6 +63,8 @@ export default function FormTurno({ fecha, agentes, turnosDisponibles, turno = n
         fecha: turno?.fecha ?? fecha,
         turno: turno?.turno ?? turnosDisponibles[0] ?? 'manana',
         estado_turno: estadoInicial,
+        hora_inicio_prog: turno?.hora_inicio_prog?.slice(0, 5) ?? '08:00',
+        hora_fin_prog: turno?.hora_fin_prog?.slice(0, 5) ?? '16:00',
     });
 
     const seleccionados = agentes.filter((a) => form.data.agente_ids.includes(a.id));
@@ -86,6 +90,18 @@ export default function FormTurno({ fecha, agentes, turnosDisponibles, turno = n
             form.post('/admin/turnos', opciones);
         }
     };
+    const duracionMin = (() => {
+        const [hi, mi] = form.data.hora_inicio_prog.split(':').map(Number);
+        const [hf, mf] = form.data.hora_fin_prog.split(':').map(Number);
+        if ([hi, mi, hf, mf].some((n) => Number.isNaN(n))) {
+            return 0;
+        }
+        let m = hf * 60 + mf - (hi * 60 + mi);
+        if (m <= 0) {
+            m += 24 * 60;
+        }
+        return m;
+    })();
 
     return (
         <ModalSimple titulo={turno ? 'Editar turno' : 'Asignar turno'} onCerrar={onCerrar}>
@@ -203,6 +219,31 @@ export default function FormTurno({ fecha, agentes, turnosDisponibles, turno = n
                         </select>
                     </Campo>
                 </div>
+                {form.data.turno === 'especial' && (
+                    <div className="rounded-lg border p-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <Campo etiqueta="Desde" error={form.errors.hora_inicio_prog}>
+                                <input
+                                    type="time"
+                                    className={CLASE_CAMPO}
+                                    value={form.data.hora_inicio_prog}
+                                    onChange={(e) => form.setData('hora_inicio_prog', e.target.value)}
+                                />
+                            </Campo>
+                            <Campo etiqueta="Hasta" error={form.errors.hora_fin_prog}>
+                                <input
+                                    type="time"
+                                    className={CLASE_CAMPO}
+                                    value={form.data.hora_fin_prog}
+                                    onChange={(e) => form.setData('hora_fin_prog', e.target.value)}
+                                />
+                            </Campo>
+                        </div>
+                        <p className={`mt-2 text-xs ${duracionMin < 480 || duracionMin > 720 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                            Duración: {Math.floor(duracionMin / 60)} h {String(duracionMin % 60).padStart(2, '0')} min (debe ser de 8 a 12 h)
+                        </p>
+                    </div>
+                )}
 
                 {/* El estado solo se cambia al editar; un turno nuevo arranca "programado" */}
                 {turno && (

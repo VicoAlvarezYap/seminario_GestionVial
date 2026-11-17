@@ -15,6 +15,8 @@ return new class extends Migration {
             $table->enum('estado_turno', ['programado', 'cumplido', 'ausente', 'cancelado', 'reasignado'])
                 ->default('programado');
             $table->uuid('asignacion_id')->nullable()->index();
+            $table->time('hora_inicio_prog')->nullable();
+            $table->time('hora_fin_prog')->nullable();
             $table->timestamps();
 
             $table->unique(['agente_id', 'fecha', 'turno']);

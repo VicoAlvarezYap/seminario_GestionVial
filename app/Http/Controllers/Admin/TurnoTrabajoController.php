@@ -26,7 +26,7 @@ class TurnoTrabajoController extends Controller
 
         if ($ocupados->isNotEmpty()) {
             $nombres = Agente::whereIn('id', $ocupados)->get()
-                ->map(fn ($a) => "{$a->apellido}, {$a->nombre}")
+                ->map(fn($a) => "{$a->apellido}, {$a->nombre}")
                 ->implode('; ');
 
             throw ValidationException::withMessages([
@@ -39,9 +39,11 @@ class TurnoTrabajoController extends Controller
         DB::transaction(function () use ($agenteIds, $datos, $asignacionId) {
             foreach ($agenteIds as $agenteId) {
                 TurnoTrabajo::create([
-                    'agente_id'     => $agenteId,
-                    'fecha'         => $datos['fecha'],
-                    'turno'         => $datos['turno'],
+                    'agente_id' => $agenteId,
+                    'fecha' => $datos['fecha'],
+                    'turno' => $datos['turno'],
+                    'hora_inicio_prog' => $datos['turno'] === 'especial' ? $datos['hora_inicio_prog'] : null,
+                    'hora_fin_prog' => $datos['turno'] === 'especial' ? $datos['hora_fin_prog'] : null,
                     'asignacion_id' => $asignacionId,
                 ]);
             }
@@ -57,7 +59,13 @@ class TurnoTrabajoController extends Controller
 
     public function update(TurnoTrabajoRequest $request, TurnoTrabajo $turno): RedirectResponse
     {
-        $turno->update($request->validated());
+        $datos = $request->validated();
+
+        if ($datos['turno'] !== 'especial') {
+            [$datos['hora_inicio_prog'], $datos['hora_fin_prog']] = config('turnos.horarios')[$datos['turno']];
+        }
+
+        $turno->update($datos);
 
         return back()->with('success', 'Turno actualizado correctamente.');
     }

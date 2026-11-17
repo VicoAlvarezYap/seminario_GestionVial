@@ -46,12 +46,14 @@ const NOMBRE_TURNO: Record<string, string> = {
     noche: 'Noche',
     especial: 'Especial',
 };
+
 const ETIQUETA_ESTADO: Record<string, string> = {
     programado: 'Programado',
     iniciado: 'Iniciado',
     en_proceso: 'En proceso',
     finalizado: 'Finalizado',
 };
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 const duracion = (ms: number) => {
@@ -59,8 +61,21 @@ const duracion = (ms: number) => {
     return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
 };
 
-const hora = (iso: string) =>
-    new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+const hora = (iso: string) => {
+    if (!iso) return '';
+    
+    const fecha = new Date(iso);
+    if (isNaN(fecha.getTime())) {
+        const partes = iso.split('T');
+        return partes[1] ? partes[1].substring(0, 5) : iso;
+    }
+
+    return fecha.toLocaleTimeString('es-AR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+};
 
 export default function TarjetaBienvenida({ nombre, turno, onTerminar }: Props) {
     const inicial = nombre.trim().charAt(0).toUpperCase();
@@ -69,7 +84,7 @@ export default function TarjetaBienvenida({ nombre, turno, onTerminar }: Props) 
 
     const [procesando, setProcesando] = useState(false);
     const [ahora, setAhora] = useState(() => Date.now());
-    const [desfase, setDesfase] = useState(0); // servidor - dispositivo
+    const [desfase, setDesfase] = useState(0); 
 
     const horaServidor = turno?.ahora;
     const enCurso = !!turno?.inicio_real && !turno?.fin_real;
@@ -142,8 +157,6 @@ export default function TarjetaBienvenida({ nombre, turno, onTerminar }: Props) 
                         <span className="font-medium">Turno de hoy:</span> {NOMBRE_TURNO[turno.turno] ?? turno.turno} ·{' '}
                         {hora(turno.inicio_prog)} – {hora(turno.fin_prog)}
                     </div>
-
-                    {/* Tareas del turno */}
                     {turno.tareas.length > 0 && (
                         <ul className="space-y-1 rounded-lg border p-2 text-sm">
                             {turno.tareas.map((t) => (

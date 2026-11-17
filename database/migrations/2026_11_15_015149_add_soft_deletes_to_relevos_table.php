@@ -8,15 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('relevos', function (Blueprint $table) {
-            $table->softDeletes(); // CAMBIO: agrega la columna deleted_at
+        Schema::table('intervenciones', function (Blueprint $table) { 
+            $table->dateTime('resuelta_en')->nullable();
         });
     }
 
     public function down(): void
     {
-        Schema::table('relevos', function (Blueprint $table) {
-            $table->dropSoftDeletes();
+        Schema::table('intervenciones', function (Blueprint $table) { 
+            $table->dropColumn('resuelta_en');
         });
     }
 };

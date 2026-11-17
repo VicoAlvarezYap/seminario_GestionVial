@@ -19,43 +19,56 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Los roles tienen que existir antes de asignarlos a los usuarios
+        // Los roles tienen que existir antes de asignarlos
         $this->call(RolSeeder::class);
 
-        // ---- Administrador (solo cuenta de acceso, sin legajo de agente) ----
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@ejemplo.com'],
-            [
-                'name' => 'Administrador',
-                'password' => Hash::make('password'), // solo para desarrollo: cambiarla en producción
-                'activo' => true,
-            ],
-        );
-        $this->verificarYAsignarRol($admin, 'Administrador');
-
-        // ---- Agentes: cada uno con su legajo y su cuenta de acceso ----
+        // ---- Director: tiene legajo (ficha, tiene perfil) y rol Administrador ----
         $this->crearAgenteConUsuario([
-            'nombre' => 'Juan',
-            'apellido' => 'Pérez',
+            'nombre'           => 'Carlos',
+            'apellido'         => 'Gómez',
+            'numero_documento' => '10000001',
+            'celular'          => '3871000001',
+            'correo'           => 'admin@ejemplo.com',
+            'rango'            => 'director',
+        ]);
+
+        // ---- Instructor / examinador: rol Supervisor ----
+        $this->crearAgenteConUsuario([
+            'nombre'           => 'Laura',
+            'apellido'         => 'Díaz',
+            'numero_documento' => '10000002',
+            'celular'          => '3871000002',
+            'correo'           => 'laura.diaz@example.com',
+            'rango'            => 'instructor_examinador',
+        ]);
+
+        // ---- Inspectores: rol Agente ----
+        $this->crearAgenteConUsuario([
+            'nombre'           => 'Juan',
+            'apellido'         => 'Pérez',
             'numero_documento' => '12345678',
-            'celular' => '3871234567',
-            'correo' => 'juan.perez@example.com',
+            'celular'          => '3871234567',
+            'correo'           => 'juan.perez@example.com',
+            'rango'            => 'inspector',
         ]);
 
         $this->crearAgenteConUsuario([
-            'nombre' => 'Mauro',
-            'apellido' => 'Pérez',
+            'nombre'           => 'Mauro',
+            'apellido'         => 'Pérez',
             'numero_documento' => '2563803',
-            'celular' => '3871234568',
-            'correo' => 'mauro.perez@example.com',
+            'celular'          => '3871234568',
+            'domicilio'        => 'Siempre Verde 23',
+            'correo'           => 'mauro.perez@example.com',
+            'rango'            => 'inspector',
         ]);
 
         $this->crearAgenteConUsuario([
-            'nombre' => 'Tabita',
-            'apellido' => 'Paz',
+            'nombre'           => 'Tabita',
+            'apellido'         => 'Paz',
             'numero_documento' => '25638873',
-            'celular' => '3871234569',
-            'correo' => 'tabita.paz@example.com',
+            'celular'          => '3871234569',
+            'correo'           => 'tabita.paz@example.com',
+            'rango'            => 'inspector',
         ]);
 
         // ---- Lugares de ejemplo (se pueden editar o borrar) ----
@@ -68,7 +81,10 @@ class DatabaseSeeder extends Seeder
         }
     }
 
-    /** Crea (o actualiza) el legajo y su usuario, y le da el rol Agente. */
+    /**
+     * Crea (o actualiza) el legajo y su usuario. El rol sale del rango,
+     * igual que cuando se da de alta un agente desde el panel.
+     */
     private function crearAgenteConUsuario(array $datos): void
     {
         // El documento identifica al agente: si ya existe, se actualiza en vez de duplicarlo
@@ -77,27 +93,28 @@ class DatabaseSeeder extends Seeder
             $datos,
         );
 
-        // El correo identifica al usuario: si ya existe, se deja como está
+        // El correo identifica al usuario: si ya existe, no se duplica
         $usuario = User::firstOrCreate(
             ['email' => $datos['correo']],
             [
-                'name' => "{$datos['nombre']} {$datos['apellido']}",
-                'password' => Hash::make('password'), // solo para desarrollo
+                'name'      => "{$datos['nombre']} {$datos['apellido']}",
+                'password'  => Hash::make('password'), // solo para desarrollo: cambiarla en producción
                 'agente_id' => $agente->id,
-                'activo' => true,
+                'activo'    => true,
             ],
         );
 
-        $this->verificarYAsignarRol($usuario, 'Agente');
-    }
+        // Si el usuario existía de antes sin legajo, se lo vincula
+        if ($usuario->agente_id === null) {
+            $usuario->forceFill(['agente_id' => $agente->id])->save();
+        }
 
-    /** Marca el correo como verificado (algunas rutas lo exigen) y asigna el rol. */
-    private function verificarYAsignarRol(User $usuario, string $rol): void
-    {
+        // Correo verificado (las rutas usan el middleware "verified")
         if ($usuario->email_verified_at === null) {
             $usuario->forceFill(['email_verified_at' => now()])->save();
         }
 
-        $usuario->assignRole($rol);
+        // syncRoles deja un único rol y evita acumular roles viejos
+        $usuario->syncRoles(Agente::rolParaRango($agente->rango));
     }
 }

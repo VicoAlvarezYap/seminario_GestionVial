@@ -14,17 +14,14 @@ use App\Models\Intervencion;
 class TurnoTrabajo extends Model
 {
     protected $table = 'turnos_trabajo';
-    public const HORARIOS = [
-        'manana' => ['06:00', '14:00'],
-        'tarde' => ['14:00', '22:00'],
-        'noche' => ['22:00', '06:00'],   // cruza medianoche
-        'especial' => ['00:00', '09:00'],  // sin horario fijo: ventana de todo el día
-    ];
+    public const TURNOS = ['manana', 'tarde', 'noche', 'especial'];
 
     protected $fillable = [
         'agente_id',
         'fecha',
         'turno',
+        'hora_inicio_prog',
+        'hora_fin_prog',
         'estado_turno',
         'asignacion_id',
         'inicio_real',
@@ -50,9 +47,6 @@ class TurnoTrabajo extends Model
         return $this->hasMany(Tarea::class)->orderByRaw('hora_inicio is null, hora_inicio');
     }
 
-
-
-    /** Admin y Supervisor ven todo; el resto solo sus turnos. */
     public function scopeVisiblesPara($q, $usuario)
     {
         if ($usuario->hasAnyRole(['Administrador', 'Supervisor'])) {
@@ -64,18 +58,6 @@ class TurnoTrabajo extends Model
             : $q->whereRaw('1 = 0');
     }
 
-    public function inicioProgramado(): CarbonInterface
-    {
-        return $this->fecha->copy()->setTimeFromTimeString(self::HORARIOS[$this->turno][0]);
-    }
-
-    public function finProgramado(): CarbonInterface
-    {
-        $inicio = $this->inicioProgramado();
-        $fin = $this->fecha->copy()->setTimeFromTimeString(self::HORARIOS[$this->turno][1]);
-
-        return $fin->lessThanOrEqualTo($inicio) ? $fin->addDay() : $fin;
-    }
 
     public function estadoCalculado(): string
     {
@@ -84,20 +66,55 @@ class TurnoTrabajo extends Model
             : $this->estado_turno;
     }
 
-
-
-    public function intervencionesDelTurno()
+    protected static function booted(): void
     {
-        $desde = $this->inicio_real ?? $this->inicioProgramado();
-        $hasta = $this->fin_real ?? $this->finProgramado();
+        // Al crear, copia el horario del turno (el especial lo define quien lo asigna)
+        static::creating(function (TurnoTrabajo $t) {
+            if ($t->turno === 'especial') {
+                if (!$t->hora_inicio_prog || !$t->hora_fin_prog) {
+                    throw new \InvalidArgumentException('El turno especial necesita hora de inicio y de fin.');
+                }
+                return;
+            }
 
-        return Intervencion::query()
-            ->where('estado_resolucion', '!=', 'cancelada')
-            ->where(function ($q) use ($desde, $hasta) {
-                $q->where(fn($q) => $q
-                    ->whereHas('agentes', fn($a) => $a->where('agentes.id', $this->agente_id))
-                    ->whereBetween('fecha_hora', [$desde, $hasta]))
-                    ->orWhereHas('tarea', fn($t) => $t->where('turno_trabajo_id', $this->id));
-            });
+            [$ini, $fin] = config('turnos.horarios')[$t->turno];
+            $t->hora_inicio_prog ??= $ini;
+            $t->hora_fin_prog ??= $fin;
+        });
     }
+
+    public function inicioProgramado(): CarbonInterface
+    {
+        return $this->fecha->copy()->setTimeFromTimeString($this->horaInicioProg());
+    }
+
+    public function finProgramado(): CarbonInterface
+    {
+        $fin = $this->fecha->copy()->setTimeFromTimeString($this->horaFinProg());
+
+        return $fin->lessThanOrEqualTo($this->inicioProgramado()) ? $fin->addDay() : $fin;
+    }
+
+    private function horaInicioProg(): string
+    {
+        return $this->hora_inicio_prog ?? config('turnos.horarios')[$this->turno][0] ?? '00:00';
+    }
+
+    private function horaFinProg(): string
+    {
+        return $this->hora_fin_prog ?? config('turnos.horarios')[$this->turno][1] ?? '23:59';
+    }
+    public function intervencionesDelTurno()
+{
+    if (! $this->inicio_real || ! $this->fin_real) {
+        return Intervencion::query()->whereRaw('1 = 0');
+    }
+
+    return Intervencion::query()
+        ->whereBetween('fecha_hora', [$this->inicio_real, $this->fin_real])
+        ->where(function ($q) {
+            $q->where('agente_reporta_id', $this->agente_id)
+                ->orWhereHas('agentes', fn ($a) => $a->where('agentes.id', $this->agente_id));
+        });
+}
 }

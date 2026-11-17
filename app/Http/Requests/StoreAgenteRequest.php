@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Requests;
-
+use App\Models\Agente;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,12 +17,14 @@ class StoreAgenteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre' => ['required', 'string', 'max:100'],
-            'apellido' => ['required', 'string', 'max:100'],
+            'nombre'           => ['required', 'string', 'max:100'],
+            'apellido'         => ['required', 'string', 'max:100'],
             'numero_documento' => ['required', 'string', 'max:20', 'unique:agentes,numero_documento'],
-            'celular' => ['nullable', 'string', 'max:30'],
-            'correo' => ['nullable', 'email', 'max:150'],
-            'rango' => ['required', Rule::in(['inspector', 'instructor_examinador', 'director'])],
+            'domicilio' => ['nullable', 'string', 'max:150'],
+            'rango'            => ['required', Rule::in(Agente::RANGOS)],
+            'celular'          => ['nullable', 'string', 'max:30'],
+            'email'            => ['required', 'email', 'max:150', 'unique:users,email', 'unique:agentes,correo'],
+            'password'         => ['required', 'string', 'min:8'],
 
             // Máximo 2 contactos de emergencia por agente
             'contactos' => ['nullable', 'array', 'max:2'],

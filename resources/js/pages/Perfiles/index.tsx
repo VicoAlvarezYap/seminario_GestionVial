@@ -1,22 +1,33 @@
-import { Head } from '@inertiajs/react';
-import { Mail, Phone, Search } from 'lucide-react';
+import { Head, Link } from '@inertiajs/react'; 
+import { Mail, Phone, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import FormAgente from '@/components/form-agente';
 import NavbarAgente from '@/components/navbar-agente';
+
+type ContactoEmergencia = {
+    id: number;
+    nombre: string;
+    celular: string;
+    relacion: string | null;
+};
 
 type PerfilAgente = {
     id: number;
     nombre: string;
     apellido: string;
-    documento: string | null;
-    celular: string | null;
-    correo: string | null;
+    documento: string;
+    rango: string | null;
+    domicilio: string;
+    celular: string ;
+    correo: string;
+    contactos_emergencia?: ContactoEmergencia[]; // 👈 Opcional por si viene de la lista
 };
 
 type Props = {
     agentes: PerfilAgente[];
 };
 
-// Minúsculas y sin tildes, para que "perez" encuentre "Pérez"
+
 const normalizar = (texto: string) =>
     texto
         .toLowerCase()
@@ -27,7 +38,10 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
     const inicial = a.nombre.trim().charAt(0).toUpperCase();
 
     return (
-        <div className="flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-neutral-900">
+        <Link
+            href={`/admin/perfiles/${a.id}`}
+            className="flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-sm transition-all hover:border-blue-500 hover:shadow-md dark:bg-neutral-900"
+        >
             <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white">
                     {inicial}
@@ -36,7 +50,9 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
                     <p className="truncate font-semibold">
                         {a.apellido}, {a.nombre}
                     </p>
-                    <p className="text-muted-foreground text-xs">Doc. {a.documento || '—'}</p>
+                    <p className="text-muted-foreground text-xs">
+                        {a.rango } · Doc. {a.documento || '—'}
+                    </p>
                 </div>
             </div>
 
@@ -44,9 +60,7 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
                 <div className="flex items-center gap-2">
                     <Phone className="text-muted-foreground size-4 shrink-0" />
                     {a.celular ? (
-                        <a href={`tel:${a.celular}`} className="hover:underline">
-                            {a.celular}
-                        </a>
+                        <span className="hover:underline">{a.celular}</span>
                     ) : (
                         <span className="text-muted-foreground">Sin celular</span>
                     )}
@@ -54,20 +68,19 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
                 <div className="flex items-center gap-2">
                     <Mail className="text-muted-foreground size-4 shrink-0" />
                     {a.correo ? (
-                        <a href={`mailto:${a.correo}`} className="truncate hover:underline">
-                            {a.correo}
-                        </a>
+                        <span className="truncate hover:underline">{a.correo}</span>
                     ) : (
                         <span className="text-muted-foreground">Sin correo</span>
                     )}
                 </div>
             </div>
-        </div>
+        </Link>
     );
 }
 
 export default function PerfilesIndex({ agentes }: Props) {
     const [busqueda, setBusqueda] = useState('');
+    const [creando, setCreando] = useState(false);
 
     const filtrados = useMemo(() => {
         const q = normalizar(busqueda.trim());
@@ -91,16 +104,27 @@ export default function PerfilesIndex({ agentes }: Props) {
                         </p>
                     </div>
 
-                    <label className="relative w-full sm:w-72">
-                        <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-                        <input
-                            type="search"
-                            value={busqueda}
-                            onChange={(e) => setBusqueda(e.target.value)}
-                            placeholder="Buscar por nombre o documento"
-                            className="bg-background w-full rounded-md border py-2 pr-3 pl-8 text-sm"
-                        />
-                    </label>
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                        <label className="relative w-full sm:w-72">
+                            <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+                            <input
+                                type="search"
+                                value={busqueda}
+                                onChange={(e) => setBusqueda(e.target.value)}
+                                placeholder="Buscar por nombre o documento"
+                                className="bg-background w-full rounded-md border py-2 pr-3 pl-8 text-sm"
+                            />
+                        </label>
+
+                        <button
+                            type="button"
+                            onClick={() => setCreando(true)}
+                            className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium hover:opacity-90"
+                        >
+                            <Plus className="size-4" />
+                            Nuevo agente
+                        </button>
+                    </div>
                 </div>
 
                 {filtrados.length > 0 ? (
@@ -113,6 +137,8 @@ export default function PerfilesIndex({ agentes }: Props) {
                     <p className="text-muted-foreground text-sm">No se encontraron agentes.</p>
                 )}
             </main>
+
+            {creando && <FormAgente onCerrar={() => setCreando(false)} />}
         </>
     );
 }

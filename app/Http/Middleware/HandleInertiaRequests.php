@@ -40,8 +40,8 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
-                'roles' => $request->user()?->getRoleNames() ?? [],
-                'esAdmin' => $request->user()?->hasAnyRole(['admin', 'super-admin', 'Administrador']) ?? false,
+                'roles' => $request->user()?->getRoleNames() ?? [],   // lo que ya tenés
+                'tieneAgente' => $request->user()?->agente_id !== null,
             ],
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
