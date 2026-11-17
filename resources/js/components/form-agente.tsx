@@ -14,6 +14,7 @@ export default function FormAgente({ onCerrar }: { onCerrar: () => void }) {
         nombre: '',
         apellido: '',
         numero_documento: '',
+        domicilio: '',
         rango: 'inspector',
         celular: '',
         email: '',
@@ -53,6 +54,10 @@ export default function FormAgente({ onCerrar }: { onCerrar: () => void }) {
 
                 <Campo etiqueta="Celular (opcional)" error={errors.celular}>
                     <input className={CLASE_CAMPO} value={data.celular} onChange={(e) => form.setData('celular', e.target.value)} />
+                </Campo>
+
+                <Campo etiqueta="Domicilio " error={errors.domicilio}>
+                    <input className={CLASE_CAMPO} value={data.domicilio} onChange={(e) => form.setData('domicilio', e.target.value)} />
                 </Campo>
 
                 <Campo etiqueta="Email (también es su usuario de acceso)" error={errors.email}>

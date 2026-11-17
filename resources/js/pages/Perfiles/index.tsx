@@ -1,30 +1,33 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react'; 
 import { Mail, Phone, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import FormAgente from '@/components/form-agente';
 import NavbarAgente from '@/components/navbar-agente';
 
+type ContactoEmergencia = {
+    id: number;
+    nombre: string;
+    celular: string;
+    relacion: string | null;
+};
+
 type PerfilAgente = {
     id: number;
     nombre: string;
     apellido: string;
-    documento: string | null;
+    documento: string;
     rango: string | null;
-    celular: string | null;
-    correo: string | null;
+    domicilio: string;
+    celular: string ;
+    correo: string;
+    contactos_emergencia?: ContactoEmergencia[]; // 👈 Opcional por si viene de la lista
 };
 
 type Props = {
     agentes: PerfilAgente[];
 };
 
-const ETIQUETA_RANGO: Record<string, string> = {
-    inspector: 'Inspector',
-    instructor_examinador: 'Instructor / examinador',
-    director: 'Director/a',
-};
 
-// Minúsculas y sin tildes, para que "perez" encuentre "Pérez"
 const normalizar = (texto: string) =>
     texto
         .toLowerCase()
@@ -35,7 +38,10 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
     const inicial = a.nombre.trim().charAt(0).toUpperCase();
 
     return (
-        <div className="flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-neutral-900">
+        <Link
+            href={`/admin/perfiles/${a.id}`}
+            className="flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-sm transition-all hover:border-blue-500 hover:shadow-md dark:bg-neutral-900"
+        >
             <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white">
                     {inicial}
@@ -45,7 +51,7 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
                         {a.apellido}, {a.nombre}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                        {a.rango ? (ETIQUETA_RANGO[a.rango] ?? a.rango) : 'Sin rango'} · Doc. {a.documento || '—'}
+                        {a.rango } · Doc. {a.documento || '—'}
                     </p>
                 </div>
             </div>
@@ -54,9 +60,7 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
                 <div className="flex items-center gap-2">
                     <Phone className="text-muted-foreground size-4 shrink-0" />
                     {a.celular ? (
-                        <a href={`tel:${a.celular}`} className="hover:underline">
-                            {a.celular}
-                        </a>
+                        <span className="hover:underline">{a.celular}</span>
                     ) : (
                         <span className="text-muted-foreground">Sin celular</span>
                     )}
@@ -64,15 +68,13 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
                 <div className="flex items-center gap-2">
                     <Mail className="text-muted-foreground size-4 shrink-0" />
                     {a.correo ? (
-                        <a href={`mailto:${a.correo}`} className="truncate hover:underline">
-                            {a.correo}
-                        </a>
+                        <span className="truncate hover:underline">{a.correo}</span>
                     ) : (
                         <span className="text-muted-foreground">Sin correo</span>
                     )}
                 </div>
             </div>
-        </div>
+        </Link>
     );
 }
 

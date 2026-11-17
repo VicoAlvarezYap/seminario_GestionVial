@@ -66,7 +66,6 @@ const corto = (d: Date) => d.toLocaleDateString('es-AR', { day: 'numeric', month
 
 const btnIcono = 'rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10';
 
-/* ---------- Lista de tareas de un turno ---------- */
 function ListaTareas({
     t,
     puedeEditar,
@@ -171,7 +170,7 @@ function TarjetaTurno({
     );
 }
 
-/* ---------- Componente principal ---------- */
+
 export default function CalendarioSemanaTurnos({
     desde,
     hasta,
@@ -310,7 +309,6 @@ export default function CalendarioSemanaTurnos({
 
     return (
         <div className="flex flex-col gap-3">
-            {/* ===== Filtro de rango ===== */}
             <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
                 <label className="flex flex-col gap-1 text-xs font-medium">
                     Desde
@@ -381,7 +379,6 @@ export default function CalendarioSemanaTurnos({
                 {error && <p className="w-full text-sm text-red-600">{error}</p>}
             </div>
 
-            {/* ===== Navegación + selector de vista ===== */}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <button type="button" onClick={() => mover(-1)} aria-label="Rango anterior" className="hover:bg-muted rounded-md border p-2">
@@ -420,7 +417,6 @@ export default function CalendarioSemanaTurnos({
                 </div>
             </div>
 
-            {/* ===== VISTA LISTA ===== */}
             {vista === 'lista' &&
                 (ordenados.length > 0 ? (
                     <div className="overflow-x-auto rounded-lg border">
@@ -499,8 +495,6 @@ export default function CalendarioSemanaTurnos({
                 ) : (
                     <p className="text-muted-foreground text-sm">No hay turnos en el rango seleccionado.</p>
                 ))}
-
-            {/* ===== VISTA CALENDARIO ===== */}
             {vista === 'calendario' && (
                 <div className="overflow-x-auto">
                     <div className="min-w-700px overflow-hidden rounded-lg border">

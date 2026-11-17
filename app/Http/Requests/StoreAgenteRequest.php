@@ -20,6 +20,7 @@ class StoreAgenteRequest extends FormRequest
             'nombre'           => ['required', 'string', 'max:100'],
             'apellido'         => ['required', 'string', 'max:100'],
             'numero_documento' => ['required', 'string', 'max:20', 'unique:agentes,numero_documento'],
+            'domicilio' => ['nullable', 'string', 'max:150'],
             'rango'            => ['required', Rule::in(Agente::RANGOS)],
             'celular'          => ['nullable', 'string', 'max:30'],
             'email'            => ['required', 'email', 'max:150', 'unique:users,email', 'unique:agentes,correo'],

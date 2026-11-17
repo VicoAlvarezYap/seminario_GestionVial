@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\TurnoTrabajo;
 use Illuminate\Validation\Rule;
 
 class TurnoTrabajoRequest extends FormRequest
@@ -11,8 +12,11 @@ class TurnoTrabajoRequest extends FormRequest
     {
         $reglas = [
             'fecha' => ['required', 'date'],
-            // Debe coincidir con los valores del enum de la migración
-            'turno' => ['required', Rule::in(['manana', 'tarde', 'noche', 'especial'])],
+            'turno' => ['required', Rule::in(TurnoTrabajo::TURNOS)],
+
+            //En caso de turnos especiales
+            'hora_inicio_prog' => ['required_if:turno,especial', 'nullable', 'date_format:H:i'],
+            'hora_fin_prog' => ['required_if:turno,especial', 'nullable', 'date_format:H:i'],
         ];
 
         if ($this->isMethod('POST')) {
@@ -35,5 +39,40 @@ class TurnoTrabajoRequest extends FormRequest
             ],
             'estado_turno' => ['sometimes', Rule::in(['programado', 'cumplido', 'ausente', 'cancelado', 'reasignado'])],
         ];
+    }
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if (
+                $this->input('turno') !== 'especial'
+                || $validator->errors()->hasAny(['hora_inicio_prog', 'hora_fin_prog'])
+            ) {
+                return;
+            }
+
+            [$hi, $mi] = array_map('intval', explode(':', $this->input('hora_inicio_prog')));
+            [$hf, $mf] = array_map('intval', explode(':', $this->input('hora_fin_prog')));
+
+            $minutos = ($hf * 60 + $mf) - ($hi * 60 + $mi);
+            if ($minutos <= 0) {
+                $minutos += 24 * 60;   // cruza la medianoche
+            }
+
+            $min = config('turnos.especial.min_horas') * 60;
+            $max = config('turnos.especial.max_horas') * 60;
+
+            if ($minutos < $min || $minutos > $max) {
+                $validator->errors()->add(
+                    'hora_fin_prog',
+                    sprintf(
+                        'El turno especial debe durar entre %d y %d horas (este dura %d h %02d min).',
+                        $min / 60,
+                        $max / 60,
+                        intdiv($minutos, 60),
+                        $minutos % 60
+                    )
+                );
+            }
+        });
     }
 }

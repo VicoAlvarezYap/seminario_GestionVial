@@ -1,47 +1,52 @@
 <?php
+
 namespace App\Http\Controllers;
+
+use App\Http\Requests\ContactoEmergenciaRequest;
 use App\Models\ContactoEmergencia;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ContactoEmergenciaController extends Controller
 {
-    public function store (Request $request){ //recibe
-        $validated =$request ->validate([
-            'nombre' => 'required|string|max: 100',
-            'celular' => 'required|string|max:50',
-            'relacion' => 'required|string|max:50',
-        ]);
-        $request->user()->agente->contactosEmergencia()->create($validated);
+    /** El maximo de contacto de emergencia es 2 */
+    private const MAXIMO = 2;
 
-        return back()->with('success', 'Contacto de emergencia agregado.');
-    }
-    public function destroy(Request $request, ContactoEmergencia $contacto)
+    public function store(ContactoEmergenciaRequest $request): RedirectResponse
     {
-        //elimina- modulo en prueba (cambio a un eliminar logico)
-        if ($contacto->agente_id !== $request->user()->agente->id) {
-            abort(403);
+        $agenteId = $request->user()->agente_id;
+        abort_unless($agenteId, 403);
+
+        if (ContactoEmergencia::where('agente_id', $agenteId)->count() >= self::MAXIMO) {
+            return back()->withErrors(['nombre' => 'Ya cargaste el máximo de ' . self::MAXIMO . ' contactos.']);
         }
 
-        $contacto->delete();
+        ContactoEmergencia::create($request->validated() + ['agente_id' => $agenteId]);
 
-        return back()->with('success', 'Contacto eliminado.');
+        return back()->with('success', 'Contacto agregado correctamente.');
     }
-    public function update(Request $request, ContactoEmergencia $contacto)
+
+    public function update(ContactoEmergenciaRequest $request, ContactoEmergencia $contacto): RedirectResponse
     {
-        // Importante: que pasa si el contacto a modificar no es del agente (?)
-        if ($contacto->agente_id !== $request->user()->agente->id) {
-            abort(403);
-        }
+        $this->autorizar($request, $contacto);
 
-        $validated = $request->validate([
-            'nombre' => 'required|string|max:255',
-            'celular' => 'required|string|max:50',
-            'relacion' => 'required|string|max:50',
-        ]);
-
-        $contacto->update($validated);
+        $contacto->update($request->validated());
 
         return back()->with('success', 'Contacto actualizado correctamente.');
     }
 
+    public function destroy(Request $request, ContactoEmergencia $contacto): RedirectResponse
+    {
+        $this->autorizar($request, $contacto);
+
+        $contacto->delete();
+
+        return back()->with('success', 'Contacto eliminado correctamente.');
+    }
+    private function autorizar(Request $request, ContactoEmergencia $contacto): void
+    {
+        $agenteId = $request->user()->agente_id;
+
+        abort_unless($agenteId && $agenteId === $contacto->agente_id, 403);
+    }
 }

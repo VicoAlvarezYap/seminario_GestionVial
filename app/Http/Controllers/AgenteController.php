@@ -51,26 +51,26 @@ class AgenteController extends Controller
 
         DB::transaction(function () use ($d) {
             $agente = Agente::create([
-                'nombre'           => $d['nombre'],
-                'apellido'         => $d['apellido'],
+                'nombre' => $d['nombre'],
+                'apellido' => $d['apellido'],
                 'numero_documento' => $d['numero_documento'],
-                'rango'            => $d['rango'],
-                'celular'          => $d['celular'] ?? null,
-                'correo'           => $d['email'],
+                'domicilio' => $d['domicilio'] ?? null,
+                'rango' => $d['rango'],
+                'celular' => $d['celular'] ?? null,
+                'correo' => $d['email'],
             ]);
 
             $usuario = new User([
-                'name'      => "{$agente->nombre} {$agente->apellido}",
-                'email'     => $d['email'],
-                'password'  => Hash::make($d['password']),
+                'name' => "{$agente->nombre} {$agente->apellido}",
+                'email' => $d['email'],
+                'password' => Hash::make($d['password']),
                 'agente_id' => $agente->id,
-                'activo'    => true,
+                'activo' => true,
             ]);
-    
             $usuario->email_verified_at = now();
             $usuario->save();
 
-            $usuario->assignRole($d['rango'] === 'director' ? 'Administrador' : 'Agente');
+            $usuario->assignRole(Agente::rolParaRango($d['rango']));
         });
 
         return back()->with('success', 'Agente creado correctamente.');
@@ -84,12 +84,28 @@ class AgenteController extends Controller
             'agente' => $agente,
         ]);
     }
-    public function show(Request $request)
+    public function show(Request $request, ?Agente $agente = null): Response
     {
-        $agente = $request->user()->agente()->with('contactosEmergencia')->first();
+        $esPropio = $agente === null || $agente->id === $request->user()->agente_id;
+        if ($agente === null) {
+            $agente = $request->user()->agente;
+            abort_unless($agente, 404, 'Tu cuenta no está vinculada a un agente.');
+        }
+        $agente->load('contactosEmergencia'); // ajusta el nombre de la relación según tu modelo
 
         return Inertia::render('Agentes/Perfil', [
-            'agente' => $agente,
+            'agente' => [
+                'id' => $agente->id,
+                'nombre' => $agente->nombre,
+                'apellido' => $agente->apellido,
+                'numero_documento' => $agente->numero_documento,
+                'domicilio' => $agente->domicilio,
+                'rango' => $agente->rango,
+                'celular' => $agente->celular,
+                'correo' => $agente->correo,
+                'contactos_emergencia' => $agente->contactosEmergencia,
+            ],
+            'esPropio' => $esPropio,
         ]);
     }
 

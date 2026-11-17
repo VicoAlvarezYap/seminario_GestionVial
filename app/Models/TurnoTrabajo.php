@@ -13,17 +13,14 @@ use Carbon\CarbonInterface;
 class TurnoTrabajo extends Model
 {
     protected $table = 'turnos_trabajo';
-    public const HORARIOS = [
-        'manana' => ['06:00', '14:00'],
-        'tarde' => ['14:00', '22:00'],
-        'noche' => ['22:00', '06:00'],   // cruza medianoche
-        'especial' => ['00:00', '09:00'],  // sin horario fijo: ventana de todo el día
-    ];
+    public const TURNOS = ['manana', 'tarde', 'noche', 'especial'];
 
     protected $fillable = [
         'agente_id',
         'fecha',
         'turno',
+        'hora_inicio_prog',
+        'hora_fin_prog',
         'estado_turno',
         'asignacion_id',
         'inicio_real',
@@ -65,15 +62,14 @@ class TurnoTrabajo extends Model
 
     public function inicioProgramado(): CarbonInterface
     {
-        return $this->fecha->copy()->setTimeFromTimeString(self::HORARIOS[$this->turno][0]);
+        return $this->fecha->copy()->setTimeFromTimeString($this->hora_inicio_prog);
     }
 
     public function finProgramado(): CarbonInterface
     {
-        $inicio = $this->inicioProgramado();
-        $fin = $this->fecha->copy()->setTimeFromTimeString(self::HORARIOS[$this->turno][1]);
+        $fin = $this->fecha->copy()->setTimeFromTimeString($this->hora_fin_prog);
 
-        return $fin->lessThanOrEqualTo($inicio) ? $fin->addDay() : $fin;
+        return $fin->lessThanOrEqualTo($this->inicioProgramado()) ? $fin->addDay() : $fin;
     }
 
     public function estadoCalculado(): string
@@ -82,4 +78,73 @@ class TurnoTrabajo extends Model
             ? 'en_curso'
             : $this->estado_turno;
     }
+    protected static function booted(): void
+    {
+        // Al crear, copia el horario del turno (el especial lo define quien lo asigna)
+        static::creating(function (TurnoTrabajo $t) {
+            if ($t->turno === 'especial') {
+                if (!$t->hora_inicio_prog || !$t->hora_fin_prog) {
+                    throw new \InvalidArgumentException('El turno especial necesita hora de inicio y de fin.');
+                }
+                return;
+            }
+
+            [$ini, $fin] = config('turnos.horarios')[$t->turno];
+            $t->hora_inicio_prog ??= $ini;
+            $t->hora_fin_prog ??= $fin;
+        });
+    }
+    public function minutosTrabajados(): int
+    {
+        if (!$this->inicio_real) {
+            return 0;
+        }
+
+        $hasta = $this->fin_real ?? now();
+
+        return max(0, intdiv($hasta->timestamp - $this->inicio_real->timestamp, 60));
+    }
+
+    public function minutosAtraso(): int
+    {
+        if (!$this->inicio_real) {
+            return 0;
+        }
+
+        $d = intdiv($this->inicio_real->timestamp - $this->inicioProgramado()->timestamp, 60);
+
+        return $d > config('turnos.tolerancia_min') ? $d : 0;
+    }
+    public function minutosExtra(): int
+    {
+        $hasta = $this->fin_real ?? ($this->inicio_real ? now() : null);
+
+        if (!$hasta) {
+            return 0;
+        }
+
+        $d = intdiv($hasta->timestamp - $this->finProgramado()->timestamp, 60);
+
+        return $d > config('turnos.tolerancia_min') ? $d : 0;
+    }
+    public function cumplimiento(): string
+    {
+        if (!$this->inicio_real) {
+            return 'sin_iniciar';
+        }
+        if (!$this->fin_real) {
+            return $this->minutosExtra() > 0 ? 'en_curso_extendido' : 'en_curso';
+        }
+        if ($this->minutosExtra() > 0) {
+            return 'extendido';
+        }
+        // Salió antes de tiempo (más allá de la tolerancia)
+        if ($this->fin_real->lt($this->finProgramado()->subMinutes(config('turnos.tolerancia_min')))) {
+            return 'salida_anticipada';
+        }
+
+        return 'en_horario';
+    }
+
+
 }

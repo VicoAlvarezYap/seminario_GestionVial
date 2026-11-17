@@ -13,8 +13,10 @@ return new class extends Migration
             $table->string('nombre', 100);
             $table->string('apellido', 100);
             $table->string('numero_documento', 20)->unique();
+            $table->string('domicilio', 150)->nullable();
             $table->string('celular', 30)->nullable();
             $table->string('correo', 150)->nullable();
+            $table->enum('rango', ['inspector', 'instructor_examinador', 'director'])->default('inspector');
             $table->timestamps();
 
             $table->index(['apellido', 'nombre']);

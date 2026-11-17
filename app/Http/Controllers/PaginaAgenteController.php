@@ -35,7 +35,7 @@ class PaginaAgenteController extends Controller
             'agentes' => $puedeEditar ? $this->listaAgentes() : [],
             'lugares' => $puedeEditar ? $this->listaLugares() : [],
             'titulosSugeridos' => $puedeEditar ? config('tareas.titulos') : [],
-            'turnosDisponibles' => array_keys(TurnoTrabajo::HORARIOS),
+            'turnosDisponibles' => TurnoTrabajo::TURNOS,
             'miTurno' => $this->miTurno($usuario, $puedeEditar),
             'semana' => [
                 'desde' => $desde->toDateString(),
