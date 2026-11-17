@@ -24,14 +24,14 @@ export default function Welcome() {
 
                 {auth.user ? (
                     <Link
-                        href={dashboard()}
+                         href="/pagina_principal"
                         className="inline-block rounded-sm border border-[#19140035] px-6 py-2 text-sm leading-normal hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
-                    >
-                        Dashboard
-                    </Link>
+                         >
+                        Ir al sistema
+                     </Link>
                 ) : (
                     <Link
-                        href={login()}
+                        href="/login"
                         className="inline-block rounded-sm border border-black bg-[#1b1b18] px-6 py-2 text-sm leading-normal text-white hover:bg-black dark:border-[#eeeeec] dark:bg-[#eeeeec] dark:text-[#1C1C1A] dark:hover:bg-white"
                     >
                         Iniciar sesión
