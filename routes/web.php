@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PaginaAgenteController;
-use App\Http\Controllers\AgenteController;
+use App\Http\Controllers\Admin\AgenteController;
 use App\Http\Controllers\ContactoEmergenciaController;
 use App\Http\Controllers\LicenciaController;
 use App\Http\Controllers\RelevoController;

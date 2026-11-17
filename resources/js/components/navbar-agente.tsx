@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     AlertTriangle,
+    Bell,
     ClipboardCheck,
     ClipboardList,
     FileText,
@@ -85,14 +86,21 @@ export default function NavbarAgente() {
 
                 <span className="absolute left-1/2 -translate-x-1/2 text-lg font-semibold">Gestion Vial</span>
 
-                <button
-                    type="button"
-                    onClick={() => router.post('/logout')}
-                    aria-label="Cerrar sesión"
-                    className="hover:bg-muted rounded-md p-2"
-                >
-                    <LogOut className="size-5" />
-                </button>
+                {/* Derecha: campana (solo ícono) + cerrar sesión */}
+                <div className="flex items-center gap-1">
+                    <span className="p-2" aria-hidden="true">
+                        <Bell className="size-5" />
+                    </span>
+
+                    <button
+                        type="button"
+                        onClick={() => router.post('/logout')}
+                        aria-label="Cerrar sesión"
+                        className="hover:bg-muted rounded-md p-2"
+                    >
+                        <LogOut className="size-5" />
+                    </button>
+                </div>
             </div>
 
             {abierto && (

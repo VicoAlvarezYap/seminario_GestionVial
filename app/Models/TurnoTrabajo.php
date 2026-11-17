@@ -47,9 +47,6 @@ class TurnoTrabajo extends Model
         return $this->hasMany(Tarea::class)->orderByRaw('hora_inicio is null, hora_inicio');
     }
 
-
-
-    /** Admin y Supervisor ven todo; el resto solo sus turnos. */
     public function scopeVisiblesPara($q, $usuario)
     {
         if ($usuario->hasAnyRole(['Administrador', 'Supervisor'])) {
@@ -61,22 +58,50 @@ class TurnoTrabajo extends Model
             : $q->whereRaw('1 = 0');
     }
 
-    public function inicioProgramado(): CarbonInterface
-    {
-        return $this->fecha->copy()->setTimeFromTimeString($this->hora_inicio_prog);
-    }
-
-    public function finProgramado(): CarbonInterface
-    {
-        $fin = $this->fecha->copy()->setTimeFromTimeString($this->hora_fin_prog);
-
-        return $fin->lessThanOrEqualTo($this->inicioProgramado()) ? $fin->addDay() : $fin;
-    }
 
     public function estadoCalculado(): string
     {
         return ($this->estado_turno === 'programado' && $this->inicio_real && !$this->fin_real)
             ? 'en_curso'
             : $this->estado_turno;
+    }
+
+    protected static function booted(): void
+    {
+        // Al crear, copia el horario del turno (el especial lo define quien lo asigna)
+        static::creating(function (TurnoTrabajo $t) {
+            if ($t->turno === 'especial') {
+                if (!$t->hora_inicio_prog || !$t->hora_fin_prog) {
+                    throw new \InvalidArgumentException('El turno especial necesita hora de inicio y de fin.');
+                }
+                return;
+            }
+
+            [$ini, $fin] = config('turnos.horarios')[$t->turno];
+            $t->hora_inicio_prog ??= $ini;
+            $t->hora_fin_prog ??= $fin;
+        });
+    }
+
+    public function inicioProgramado(): CarbonInterface
+    {
+        return $this->fecha->copy()->setTimeFromTimeString($this->horaInicioProg());
+    }
+
+    public function finProgramado(): CarbonInterface
+    {
+        $fin = $this->fecha->copy()->setTimeFromTimeString($this->horaFinProg());
+
+        return $fin->lessThanOrEqualTo($this->inicioProgramado()) ? $fin->addDay() : $fin;
+    }
+
+    private function horaInicioProg(): string
+    {
+        return $this->hora_inicio_prog ?? config('turnos.horarios')[$this->turno][0] ?? '00:00';
+    }
+
+    private function horaFinProg(): string
+    {
+        return $this->hora_fin_prog ?? config('turnos.horarios')[$this->turno][1] ?? '23:59';
     }
 }
