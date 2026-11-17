@@ -1,7 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { LayoutGrid, LogOut, Menu, UserRound, X, FileText, AlertTriangle, ClipboardList, ClipboardCheck } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, ClipboardList, FileText, LayoutGrid, LogOut, Menu, Settings, UserRound, X } from 'lucide-react';
 import { useState } from 'react';
-
 
 const enlaces = [
     { titulo: 'Inicio', href: '/pagina_principal', icono: LayoutGrid, soloAgente: false },
@@ -70,6 +69,16 @@ export default function NavbarAgente() {
                             {e.titulo}
                         </Link>
                     ))}
+
+                    <Link
+                        href="/settings/profile"
+                        onClick={() => setAbierto(false)}
+                        className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-muted"
+                    >
+                        <Settings className="size-4" />
+                        Configuración
+                    </Link>
+
                     <button
                         type="button"
                         onClick={() => router.post('/logout')}

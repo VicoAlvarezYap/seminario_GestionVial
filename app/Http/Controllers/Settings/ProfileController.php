@@ -48,10 +48,12 @@ class ProfileController extends Controller
      */
     public function destroy(ProfileDeleteRequest $request): RedirectResponse
     {
+
+        // Solo administracion puede eliminar su propia cuenta desde Configuración
+        abort_unless( $request->user()->hasAnyRole(['Administrador', 'Supervisor', 'admin', 'super-admin']), 403,'Tu cuenta solo puede ser eliminada por la administración.');
         $user = $request->user();
 
         Auth::logout();
-
         $user->delete();
 
         $request->session()->invalidate();

@@ -16,6 +16,11 @@ type PageProps = {
 export default function Profile() {
     const { auth } = usePage<PageProps>().props;
 
+    const roles = (auth as unknown as { roles?: string[] }).roles ?? [];
+    const puedeEliminar = roles.some((r) =>
+        ['admin', 'super-admin', 'administrador'].includes(r.toLowerCase()),
+    );
+
     return (
         <>
             <Head title="Profile settings" />
@@ -90,7 +95,7 @@ export default function Profile() {
                 </Form>
             </div>
 
-            <DeleteUser />
+            {puedeEliminar && <DeleteUser />}
         </>
     );
 }

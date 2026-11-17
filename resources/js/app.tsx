@@ -2,8 +2,8 @@ import { createInertiaApp } from '@inertiajs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
-import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
+import ConNavbarLayout from '@/layouts/con-navbar-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -17,9 +17,10 @@ void createInertiaApp({
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):
-                return [AppLayout, SettingsLayout];
+                return [ConNavbarLayout, SettingsLayout];
             default:
-                return AppLayout;
+                // Las pantallas del agente y del admin ya muestran NavbarAgente
+                return null;
         }
     },
     strictMode: true,
