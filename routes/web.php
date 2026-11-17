@@ -8,7 +8,7 @@ use App\Http\Controllers\LicenciaController;
 use App\Http\Controllers\RelevoController;
 use App\Http\Controllers\IntervencionController;
 use App\Http\Controllers\FichadaController;
-use App\Http\Controllers\ReporteTurnoController;
+use App\Http\Controllers\ReportesTurnoController;
 use App\Http\Controllers\Admin\EventoOperativoController;
 use App\Http\Controllers\Admin\TareaController;
 use App\Http\Controllers\Admin\TurnoTrabajoController;
@@ -78,7 +78,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/relevos/{relevo}/pdf', [RelevoController::class, 'pdf'])->name('relevos.pdf');
 
     // Reportes de turno
-    Route::controller(ReporteTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
+    Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/{reporte}', 'show')->name('show');
     });
