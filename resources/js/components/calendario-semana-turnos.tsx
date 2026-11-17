@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import {Link, router, usePage} from '@inertiajs/react';
 import { Calendar, ChevronLeft, ChevronRight, List, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import FormTarea from '@/components/form-tarea';
@@ -30,11 +30,19 @@ export type TurnoSemana = {
     estado: string;
     tareas: TareaSemana[];
 };
+export type Paginacion = {
+    current_page: number;
+    last_page: number;
+    links: { url: string | null; label: string; active: boolean }[];
+};
 
 export type DatosSemana = {
     desde: string; // YYYY-MM-DD
     hasta: string; // YYYY-MM-DD
-    turnos: TurnoSemana[];
+    turnos: {
+        data: TurnoSemana[];
+        meta: Paginacion;
+    };
 };
 
 type Props = DatosSemana & {
@@ -141,9 +149,8 @@ function TarjetaTurno({
 }) {
     return (
         <div
-            className={`relative rounded bg-blue-100 p-1.5 text-xs text-blue-900 dark:bg-blue-950 dark:text-blue-200 ${
-                t.estado === 'cancelado' ? 'line-through opacity-60' : ''
-            }`}
+            className={`relative rounded bg-blue-100 p-1.5 text-xs text-blue-900 dark:bg-blue-950 dark:text-blue-200 ${t.estado === 'cancelado' ? 'line-through opacity-60' : ''
+                }`}
         >
             {puedeEditar && (
                 <div className="absolute top-1 right-1 flex">
@@ -214,7 +221,6 @@ export default function CalendarioSemanaTurnos({
 
     const fechaNueva = hoy >= desde && hoy <= hasta ? hoy : desde;
 
-    /* ---- Acciones ---- */
     const aplicar = () => {
         if (!desdeInput || !hastaInput) {
             setError('Completá ambas fechas.');
@@ -267,9 +273,8 @@ export default function CalendarioSemanaTurnos({
         }
     };
 
-    /* ---- Datos derivados ---- */
     const turnosVisibles = useMemo(
-        () => (agenteFiltro === 'todos' ? turnos : turnos.filter((t) => String(t.agente_id) === agenteFiltro)),
+        () => (agenteFiltro === 'todos' ? turnos.data : turnos.data.filter((t) => String(t.agente_id) === agenteFiltro)),
         [turnos, agenteFiltro],
     );
 
@@ -397,9 +402,8 @@ export default function CalendarioSemanaTurnos({
                     <button
                         type="button"
                         onClick={() => setVista('lista')}
-                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                            vista === 'lista' ? 'bg-background shadow-sm' : 'hover:bg-muted'
-                        }`}
+                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${vista === 'lista' ? 'bg-background shadow-sm' : 'hover:bg-muted'
+                            }`}
                     >
                         <List className="size-3.5" />
                         Lista
@@ -407,9 +411,8 @@ export default function CalendarioSemanaTurnos({
                     <button
                         type="button"
                         onClick={() => setVista('calendario')}
-                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                            vista === 'calendario' ? 'bg-background shadow-sm' : 'hover:bg-muted'
-                        }`}
+                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${vista === 'calendario' ? 'bg-background shadow-sm' : 'hover:bg-muted'
+                            }`}
                     >
                         <Calendar className="size-3.5" />
                         Calendario
@@ -466,11 +469,10 @@ export default function CalendarioSemanaTurnos({
                                         </td>
                                         <td className="p-3 capitalize">
                                             <span
-                                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                    t.estado === 'cancelado'
-                                                        ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
-                                                        : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
-                                                }`}
+                                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${t.estado === 'cancelado'
+                                                    ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
+                                                    : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
+                                                    }`}
                                             >
                                                 {t.estado.replace('_', ' ') || 'programado'}
                                             </span>
@@ -517,15 +519,13 @@ export default function CalendarioSemanaTurnos({
                                     return (
                                         <div
                                             key={clave}
-                                            className={`flex min-h-28 flex-col gap-1.5 p-2 ${idx > 0 ? 'border-l' : ''} ${
-                                                dentro ? '' : 'bg-muted/30 opacity-50'
-                                            }`}
+                                            className={`flex min-h-28 flex-col gap-1.5 p-2 ${idx > 0 ? 'border-l' : ''} ${dentro ? '' : 'bg-muted/30 opacity-50'
+                                                }`}
                                         >
                                             <div className="flex flex-col items-center gap-1">
                                                 <div
-                                                    className={`flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-sm ${
-                                                        esHoy ? 'bg-primary text-primary-foreground font-semibold' : ''
-                                                    }`}
+                                                    className={`flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-sm ${esHoy ? 'bg-primary text-primary-foreground font-semibold' : ''
+                                                        }`}
                                                 >
                                                     {d.getDate() === 1 || clave === desde
                                                         ? `${d.getDate()} ${d.toLocaleDateString('es-AR', { month: 'short' })}`
@@ -558,8 +558,6 @@ export default function CalendarioSemanaTurnos({
                     )}
                 </div>
             )}
-
-            {/* ===== Modales ===== */}
             {asignando && (
                 <FormTurno
                     fecha={asignando}
@@ -589,6 +587,25 @@ export default function CalendarioSemanaTurnos({
                     onCerrar={() => setTareaForm(null)}
                 />
             )}
+
+            {/* Paginación de turnos */}
+            {turnos.meta && turnos.meta.links.length > 3 && (
+                <div className="flex items-center justify-center gap-1 py-3">
+                    {turnos.meta.links.map((link, index) => (
+                        <Link
+                            key={index}
+                            href={link.url ?? '#'}
+                            preserveScroll
+                            className={`rounded-md px-3 py-1 text-sm border ${link.active
+                                    ? 'bg-primary text-primary-foreground font-semibold'
+                                    : 'hover:bg-muted bg-background'
+                                } ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
+                            dangerouslySetInnerHTML={{ __html: link.label }}
+                        />
+                    ))}
+                </div>
+            )}
+
         </div>
     );
 }

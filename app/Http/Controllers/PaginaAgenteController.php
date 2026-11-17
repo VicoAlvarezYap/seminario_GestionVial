@@ -25,7 +25,13 @@ class PaginaAgenteController extends Controller
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
             'ev_desde' => ['nullable', 'date'],
             'ev_hasta' => ['nullable', 'date', 'after_or_equal:ev_desde'],
+            'agente' => ['nullable', 'integer'],
+            'vista' => ['nullable', 'in:lista,calendario'],
+            'vista_ev' => ['nullable', 'in:lista,calendario'],
+            'pagina_turnos' => ['nullable', 'integer', 'min:1'],
+            'pagina_eventos' => ['nullable', 'integer', 'min:1'],
         ]);
+
 
         [$desde, $hasta] = $this->leerRango($request, 'desde', 'hasta', now()->startOfWeek(), now()->endOfWeek());
         [$evDesde, $evHasta] = $this->leerRango($request, 'ev_desde', 'ev_hasta', now()->startOfMonth(), now()->endOfMonth());
@@ -40,19 +46,21 @@ class PaginaAgenteController extends Controller
             'semana' => [
                 'desde' => $desde->toDateString(),
                 'hasta' => $hasta->toDateString(),
-                'turnos' => $this->turnos($usuario, $desde, $hasta),
+                'turnos' => $this->turnos($usuario,$request, $desde, $hasta),
             ],
             'mes' => [
                 'desde' => $evDesde->toDateString(),
                 'hasta' => $evHasta->toDateString(),
-                'eventos' => $this->eventos($evDesde, $evHasta),
+                'eventos' => $this->eventos($request,$evDesde, $evHasta),
             ],
         ]);
     }
 
-    private function turnos($usuario, CarbonInterface $desde, CarbonInterface $hasta): array
+    private function turnos($usuario, Request $request, CarbonInterface $desde, CarbonInterface $hasta): array
     {
-        return TurnoTrabajo::with([
+        $porPagina = 10; // 10 elementos por paginas
+
+        $paginator = TurnoTrabajo::with([
             'agente:id,nombre,apellido',
             'tareas.lugar:id,nombre',
             'tareas.evento.lugar:id,nombre',
@@ -60,8 +68,10 @@ class PaginaAgenteController extends Controller
             ->visiblesPara($usuario)
             ->whereBetween('fecha', [$desde->toDateString(), $hasta->toDateString()])
             ->orderBy('fecha')
-            ->get()
-            ->map(fn(TurnoTrabajo $t) => [
+            ->paginate($porPagina, ['*'], 'pagina_turnos', $request->integer('pagina_turnos', 1));
+
+        return [
+            'data' => collect($paginator->items())->map(fn(TurnoTrabajo $t) => [
                 'id' => $t->id,
                 'fecha' => $t->fecha->toDateString(),
                 'turno' => $t->turno,
@@ -82,12 +92,16 @@ class PaginaAgenteController extends Controller
                     'estado' => $tarea->estado,
                     'detalle' => $tarea->detalle,
                 ])->values()->all(),
-            ])
-            ->values()
-            ->all();
+            ])->values()->all(),
+            // Agregamos los links de paginación para usarlos en React
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'links' => $paginator->linkCollection()->all(),
+            ]
+        ];
     }
-
-    /** Turno de hoy para el botón Iniciar / Terminar (solo agentes; el admin no ficha). */
+    //Tener en cuenta esta parte 
     private function miTurno($usuario, bool $puedeEditar): ?array
     {
         if (!$usuario->agente_id) {
@@ -143,13 +157,17 @@ class PaginaAgenteController extends Controller
         ];
     }
 
-    private function eventos(CarbonInterface $desde, CarbonInterface $hasta): array
+    private function eventos(Request $request, CarbonInterface $desde, CarbonInterface $hasta): array
     {
-        return EventoOperativo::with(['puntosRecorrido', 'lugar:id,nombre'])
+        $porPagina = 10;
+
+        $paginator = EventoOperativo::with(['puntosRecorrido', 'lugar:id,nombre'])
             ->whereBetween('fecha_hora_inicio', [$desde->copy()->startOfDay(), $hasta->copy()->endOfDay()])
             ->orderBy('fecha_hora_inicio')
-            ->get()
-            ->map(fn(EventoOperativo $e) => [
+            ->paginate($porPagina, ['*'], 'pagina_eventos', $request->integer('pagina_eventos', 1));
+
+        return [
+            'data' => collect($paginator->items())->map(fn(EventoOperativo $e) => [
                 'id' => $e->id,
                 'titulo' => $e->titulo,
                 'lugar_id' => $e->lugar_id,
@@ -167,9 +185,13 @@ class PaginaAgenteController extends Controller
                 'puntos' => $e->puntosRecorrido
                     ->map(fn($p) => ['descripcion_referencia' => $p->descripcion_referencia])
                     ->values()->all(),
-            ])
-            ->values()
-            ->all();
+            ])->values()->all(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'links' => $paginator->linkCollection()->all(),
+            ]
+        ];
     }
 
     private function listaAgentes(): array

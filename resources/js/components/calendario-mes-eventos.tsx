@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { Link, router, usePage} from '@inertiajs/react';
 import { Calendar, ChevronLeft, ChevronRight, List, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import FormEvento from '@/components/form-evento'; // ← ajustá a tu formulario
@@ -25,10 +25,19 @@ export type EventoCalendario = {
     puntos: { descripcion_referencia: string | null; latitud: number; longitud: number }[];
 };
 
+export type Paginacion = {
+    current_page: number;
+    last_page: number;
+    links: { url: string | null; label: string; active: boolean }[];
+};
+
 export type DatosMes = {
     desde: string;
     hasta: string;
-    eventos: EventoCalendario[];
+    eventos: {
+        data: EventoCalendario[];
+        meta: Paginacion;
+    };
 };
 
 export type TipoRecorrido = 'fijo' | 'movil';
@@ -66,9 +75,8 @@ function TarjetaEvento({
 }) {
     return (
         <div
-            className={`relative rounded bg-emerald-100 p-1.5 text-xs text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 ${
-                e.estado === 'cancelado' ? 'line-through opacity-60' : ''
-            }`}
+            className={`relative rounded bg-emerald-100 p-1.5 text-xs text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 ${e.estado === 'cancelado' ? 'line-through opacity-60' : ''
+                }`}
         >
             {puedeEditar && (
                 <div className="absolute top-1 right-1 flex">
@@ -95,7 +103,6 @@ function TarjetaEvento({
     );
 }
 
-/* ---------- Componente principal ---------- */
 export default function CalendarioMesEventos({ desde, hasta, eventos, puedeEditar, lugares, onCambiar }: Props) {
     const hoy = hoyISO();
     const dDesde = parseFecha(desde);
@@ -168,7 +175,7 @@ export default function CalendarioMesEventos({ desde, hasta, eventos, puedeEdita
     };
 
     const ordenados = useMemo(
-        () => [...eventos].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio)),
+        () => [...eventos.data].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio)),
         [eventos],
     );
 
@@ -249,7 +256,7 @@ export default function CalendarioMesEventos({ desde, hasta, eventos, puedeEdita
                     </button>
                     <span className="ml-2 font-medium">{titulo}</span>
                     <span className="text-muted-foreground text-sm">
-                        ({eventos.length} {eventos.length === 1 ? 'evento' : 'eventos'})
+                        ({eventos.data.length} {eventos.data.length === 1 ? 'evento' : 'eventos'})
                     </span>
                     {puedeEditar && (
                         <button
@@ -266,25 +273,22 @@ export default function CalendarioMesEventos({ desde, hasta, eventos, puedeEdita
                     <button
                         type="button"
                         onClick={() => setVista('lista')}
-                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                            vista === 'lista' ? 'bg-background shadow-sm' : 'hover:bg-muted'
-                        }`}
+                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${vista === 'lista' ? 'bg-background shadow-sm' : 'hover:bg-muted'
+                            }`}
                     >
                         <List className="size-3.5" /> Lista
                     </button>
                     <button
                         type="button"
                         onClick={() => setVista('calendario')}
-                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                            vista === 'calendario' ? 'bg-background shadow-sm' : 'hover:bg-muted'
-                        }`}
+                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${vista === 'calendario' ? 'bg-background shadow-sm' : 'hover:bg-muted'
+                            }`}
                     >
                         <Calendar className="size-3.5" /> Calendario
                     </button>
                 </div>
             </div>
 
-            {/* ===== VISTA LISTA ===== */}
             {vista === 'lista' &&
                 (ordenados.length > 0 ? (
                     <div className="overflow-x-auto rounded-lg border">
@@ -373,7 +377,7 @@ export default function CalendarioMesEventos({ desde, hasta, eventos, puedeEdita
                         <div className="bg-muted/50 grid grid-cols-7 border-b">
                             {DIAS_CORTOS.map((d, i) => (
                                 <div key={d} className={`text-muted-foreground p-2 text-center text-xs ${i > 0 ? 'border-l' : ''}`}>
-                                    {d} 
+                                    {d}
                                 </div>
                             ))}
                         </div>
@@ -389,21 +393,19 @@ export default function CalendarioMesEventos({ desde, hasta, eventos, puedeEdita
                                     return (
                                         <div
                                             key={clave}
-                                            className={`flex min-h-28 flex-col gap-1.5 p-2 ${idx > 0 ? 'border-l' : ''} ${
-                                                dentro ? '' : 'bg-muted/30 opacity-50'
-                                            }`}
+                                            className={`flex min-h-28 flex-col gap-1.5 p-2 ${idx > 0 ? 'border-l' : ''} ${dentro ? '' : 'bg-muted/30 opacity-50'
+                                                }`}
                                         >
                                             <div className="flex flex-col items-center gap-1">
                                                 <div
-                                                    className={`flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-sm ${
-                                                        esHoy ? 'bg-primary text-primary-foreground font-semibold' : ''
-                                                    }`}
+                                                    className={`flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-sm ${esHoy ? 'bg-primary text-primary-foreground font-semibold' : ''
+                                                        }`}
                                                 >
                                                     {d.getDate() === 1 || clave === desde
                                                         ? `${d.getDate()} ${d.toLocaleDateString('es-AR', { month: 'short' })}`
                                                         : d.getDate()}
                                                 </div>
-                                        
+
                                             </div>
 
                                             {dentro &&
@@ -423,13 +425,31 @@ export default function CalendarioMesEventos({ desde, hasta, eventos, puedeEdita
                         ))}
                     </div>
 
-                    {eventos.length === 0 && <p className="text-muted-foreground mt-3 text-sm">No hay eventos en el rango seleccionado.</p>}
+                    {eventos.data.length === 0 && <p className="text-muted-foreground mt-3 text-sm">No hay eventos en el rango seleccionado.</p>}
                 </div>
             )}
 
-            
+
             {creando && <FormEvento fecha={creando} lugares={lugares} onCerrar={() => setCreando(null)} />}
             {/*{editando && <FormEvento fecha={editando.fecha} evento={editando} lugares={lugares} onCerrar={() => setEditando(null)} />}*/}
+
+            {/* Paginación de eventos */}
+            {eventos.meta && eventos.meta.links.length > 3 && (
+                <div className="flex items-center justify-center gap-1 py-3">
+                    {eventos.meta.links.map((link, index) => (
+                        <Link
+                            key={index}
+                            href={link.url ?? '#'}
+                            preserveScroll
+                            className={`rounded-md px-3 py-1 text-sm border ${link.active
+                                    ? 'bg-primary text-primary-foreground font-semibold'
+                                    : 'hover:bg-muted bg-background'
+                                } ${!link.url ? 'pointer-events-none opacity-50' : ''}`}
+                            dangerouslySetInnerHTML={{ __html: link.label }}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
