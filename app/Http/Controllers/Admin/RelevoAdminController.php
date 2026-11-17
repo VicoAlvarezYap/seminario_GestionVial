@@ -50,6 +50,7 @@ class RelevoAdminController extends Controller
             'buscar' => ['nullable', 'string', 'max:100'],
             'policial' => ['nullable', Rule::in(['si', 'no'])],
             'infraccion' => ['nullable', Rule::in(array_values(RelevoController::INFRACCIONES))],
+            'estado' => ['nullable', Rule::in(['activas', 'eliminadas'])],
             'desde' => ['nullable', 'date'],
             'hasta' => $request->filled('desde')
                 ? ['nullable', 'date', 'after_or_equal:desde']
@@ -60,6 +61,7 @@ class RelevoAdminController extends Controller
             'buscar' => trim($validos['buscar'] ?? ''),
             'policial' => $validos['policial'] ?? '',
             'infraccion' => $validos['infraccion'] ?? '',
+            'estado' => $validos['estado'] ?? '',
             'desde' => $validos['desde'] ?? '',
             'hasta' => $validos['hasta'] ?? '',
         ];
@@ -67,7 +69,13 @@ class RelevoAdminController extends Controller
 
     private function consulta(array $f): Builder
     {
-        $consulta = Relevos::query()->with('agente');
+        $consulta = match ($f['estado']) {
+            'activas' => Relevos::query(),
+            'eliminadas' => Relevos::onlyTrashed(),
+            default => Relevos::withTrashed(),
+        };
+
+        $consulta->with('agente');
 
         // Cada palabra tiene que aparecer en el acta, la persona, la patente o el agente
         foreach (preg_split('/\s+/', $f['buscar'], -1, PREG_SPLIT_NO_EMPTY) as $palabra) {
@@ -111,7 +119,7 @@ class RelevoAdminController extends Controller
                 : 'Sin agente',
             'agente_dni' => $r->agente?->numero_documento,
             'alcoholemia_texto' => RelevoController::ALCOHOLEMIA[$r->alcoholemia_nivel] ?? null,
-            // Nombres que ya usa la página del admin
+            
             'persona' => $r->tercero_nombre_apellido,
             'dni' => $r->tercero_dni,
             'domicilio' => $r->tercero_domicilio,
@@ -121,6 +129,8 @@ class RelevoAdminController extends Controller
             'motivo' => $r->motivo_detencion,
             'personas_implicadas' => $r->personas_implicadas,
             'policial' => (bool) $r->necesito_atencion_policial,
+            'eliminado' => $r->trashed(),                          
+            'eliminado_en' => $r->deleted_at?->format('d/m/Y H:i'),
         ];
     }
 }

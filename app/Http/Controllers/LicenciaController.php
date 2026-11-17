@@ -32,7 +32,22 @@ class LicenciaController extends Controller
         'Santa Victoria Oeste', 'Seclantás', 'Tartagal', 'Tolar Grande',
         'Vaqueros',
     ];
+    private const ESTADOS_SIN_PDF = ['cancelada'];
 
+    private function pdfDisponible(string $estado): bool{
+      return ! in_array($estado, self::ESTADOS_SIN_PDF, true);
+    }
+    public function descargarJustificante(HistorialDeLicencias $licencia){
+    abort_unless(
+        $licencia->justificante_path && Storage::exists($licencia->justificante_path),
+        404
+    );
+
+    return Storage::download(
+        $licencia->justificante_path,
+        'justificante-'.$licencia->id.'.pdf'
+    );
+    }
     public function index(Request $request): Response
     {
         $usuario = $request->user();
@@ -40,7 +55,7 @@ class LicenciaController extends Controller
 
         $licencias = HistorialDeLicencias::query()
             ->where('agente_id', $usuario->agente_id)
-            ->orderByDesc('fecha_inicio')
+            ->orderByDesc('id')
             ->get()
             ->map(fn (HistorialDeLicencias $l) => [
                 'id' => $l->id,
@@ -56,6 +71,7 @@ class LicenciaController extends Controller
                 'dj_parentesco' => $l->dj_parentesco,
                 'tiene_justificante' => $l->justificante_path !== null,
                 'editable' => $l->estado === 'pendiente',
+                'puede_descargar_pdf' => $this->pdfDisponible($l->estado),
             ])
             ->values()
             ->all();
@@ -192,13 +208,18 @@ class LicenciaController extends Controller
             'Solo se pueden modificar licencias pendientes.'
         );
     }
-    public function pdf(Request $request, HistorialDeLicencias $licencia)
-{
+   public function pdf(Request $request, HistorialDeLicencias $licencia){
     abort_unless(
         (int) $licencia->agente_id === (int) $request->user()->agente_id,
         403
     );
 
+    abort_unless(
+        $this->pdfDisponible($licencia->estado),
+        403,
+        'No se puede descargar el PDF de una licencia cancelada.'
+    );
+
     return app(\App\Http\Controllers\Admin\LicenciaAdminController::class)->pdf($licencia);
-}
+    }
 }

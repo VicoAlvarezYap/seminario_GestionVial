@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAgenteRequest;
 use App\Http\Requests\UpdateAgenteRequest;
 use App\Models\Agente;

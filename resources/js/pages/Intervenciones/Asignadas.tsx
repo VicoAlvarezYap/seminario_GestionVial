@@ -1,4 +1,4 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { Download, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import NavbarAgente from '@/components/navbar-agente';
@@ -16,13 +16,17 @@ type Intervencion = {
     fecha_hora: string;
     evento: string;
     tipo: string;
+    tipo_evento: string | null;
+    cantidad: number;
     nivel_urgencia: string;
+    ubicacion_direccion: string | null;
     lugar: string;
     descripcion: string | null;
     estado_resolucion: string;
     es_emergencia: boolean;
     mi_rol: string | null;
     siguientes: string[];
+    editable: boolean;
 };
 
 type Props = {
@@ -30,7 +34,7 @@ type Props = {
     tipos: string[];
 };
 
-type DatosNueva = {
+type DatosReporte = {
     tipo: string;
     tipo_evento: string;
     cantidad: string;
@@ -39,7 +43,7 @@ type DatosNueva = {
     descripcion: string;
 };
 
-const vacia: DatosNueva = {
+const vacio: DatosReporte = {
     tipo: '',
     tipo_evento: '',
     cantidad: '1',
@@ -113,17 +117,18 @@ function Dato({ titulo, valor }: { titulo: string; valor: string | null }) {
 export default function IntervencionesAsignadas({ intervenciones, tipos }: Props) {
     const [seleccion, setSeleccion] = useState<Intervencion | null>(null);
     const [creando, setCreando] = useState(false);
+    const [editando, setEditando] = useState<Intervencion | null>(null);
     const informe = useForm({ estado_resolucion: '', informe: '' });
-    const nueva = useForm<DatosNueva>(vacia);
-    const datos = nueva.data;
+    const reporte = useForm<DatosReporte>(vacio);
+    const datos = reporte.data;
 
-    const abrir = (i: Intervencion) => {
+    const abrirDetalle = (i: Intervencion) => {
         informe.reset();
         informe.clearErrors();
         setSeleccion(i);
     };
 
-    const cerrar = () => {
+    const cerrarDetalle = () => {
         setSeleccion(null);
         informe.reset();
         informe.clearErrors();
@@ -138,29 +143,59 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
 
         informe.patch(`/intervenciones/${seleccion.id}/informar`, {
             preserveScroll: true,
-            onSuccess: () => cerrar(),
+            onSuccess: () => cerrarDetalle(),
         });
     };
 
     const abrirNueva = () => {
-        nueva.setData(vacia);
-        nueva.clearErrors();
+        setEditando(null);
+        reporte.setData(vacio);
+        reporte.clearErrors();
         setCreando(true);
     };
 
-    const cerrarNueva = () => {
-        setCreando(false);
-        nueva.reset();
-        nueva.clearErrors();
+    const abrirEdicion = (i: Intervencion) => {
+        setEditando(i);
+        reporte.clearErrors();
+        reporte.setData({
+            tipo: i.tipo,
+            tipo_evento: i.tipo_evento ?? '',
+            cantidad: String(i.cantidad ?? 1),
+            nivel_urgencia: i.nivel_urgencia,
+            ubicacion_direccion: i.ubicacion_direccion ?? '',
+            descripcion: i.descripcion ?? '',
+        });
+        setCreando(true);
     };
 
-    const enviarNueva = (e: FormEvent) => {
+    const cerrarReporte = () => {
+        setCreando(false);
+        setEditando(null);
+        reporte.reset();
+        reporte.clearErrors();
+    };
+
+    const enviarReporte = (e: FormEvent) => {
         e.preventDefault();
 
-        nueva.post('/intervenciones/registrar', {
+        const opciones = {
             preserveScroll: true,
-            onSuccess: () => cerrarNueva(),
-        });
+            onSuccess: () => cerrarReporte(),
+        };
+
+        if (editando) {
+            reporte.put(`/intervenciones/${editando.id}`, opciones);
+        } else {
+            reporte.post('/intervenciones/registrar', opciones);
+        }
+    };
+
+    const cancelarReporte = (i: Intervencion) => {
+        if (!window.confirm('¿Querés cancelar este reporte? No se puede deshacer.')) {
+            return;
+        }
+
+        router.patch(`/intervenciones/${i.id}/cancelar`, {}, { preserveScroll: true });
     };
 
     return (
@@ -236,10 +271,36 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                                 <div className="flex flex-wrap gap-2">
                                                     <button
                                                         type="button"
-                                                        onClick={() => abrir(i)}
+                                                        onClick={() => abrirDetalle(i)}
                                                         className={claseAccion}
                                                     >
                                                         {i.siguientes.length > 0 ? 'Informar' : 'Ver detalle'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={!i.editable}
+                                                        onClick={() => abrirEdicion(i)}
+                                                        title={
+                                                            i.editable
+                                                                ? 'Editar el reporte'
+                                                                : 'Solo el reportante puede editar, y solo si está recién reportada'
+                                                        }
+                                                        className={claseAccion}
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={!i.editable}
+                                                        onClick={() => cancelarReporte(i)}
+                                                        title={
+                                                            i.editable
+                                                                ? 'Cancelar el reporte'
+                                                                : 'Solo el reportante puede cancelar, y solo si está recién reportada'
+                                                        }
+                                                        className={claseAccion}
+                                                    >
+                                                        Cancelar
                                                     </button>
                                                     <a
                                                         href={`/intervenciones/${i.id}/pdf`}
@@ -264,24 +325,26 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                 open={creando}
                 onOpenChange={(valor) => {
                     if (!valor) {
-                        cerrarNueva();
+                        cerrarReporte();
                     }
                 }}
             >
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
                     <DialogHeader>
-                        <DialogTitle>Nueva intervención</DialogTitle>
+                        <DialogTitle>{editando ? 'Editar intervención' : 'Nueva intervención'}</DialogTitle>
                         <DialogDescription>
-                            Se registra con la fecha y hora del servidor al guardar.
+                            {editando
+                                ? 'Podés corregir los datos mientras la intervención esté recién reportada.'
+                                : 'Se registra con la fecha y hora del servidor al guardar.'}
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={enviarNueva} className="space-y-4">
+                    <form onSubmit={enviarReporte} className="space-y-4">
                         <div>
                             <label className={claseEtiqueta}>Tipo</label>
                             <select
                                 value={datos.tipo}
-                                onChange={(e) => nueva.setData('tipo', e.target.value)}
+                                onChange={(e) => reporte.setData('tipo', e.target.value)}
                                 className={claseInput}
                             >
                                 <option value="">Seleccioná un tipo</option>
@@ -291,7 +354,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                     </option>
                                 ))}
                             </select>
-                            <MensajeError mensaje={nueva.errors.tipo} />
+                            <MensajeError mensaje={reporte.errors.tipo} />
                         </div>
 
                         <div>
@@ -300,10 +363,10 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                 type="text"
                                 placeholder="Ej: caída de árbol, bache, semáforo apagado"
                                 value={datos.tipo_evento}
-                                onChange={(e) => nueva.setData('tipo_evento', e.target.value)}
+                                onChange={(e) => reporte.setData('tipo_evento', e.target.value)}
                                 className={claseInput}
                             />
-                            <MensajeError mensaje={nueva.errors.tipo_evento} />
+                            <MensajeError mensaje={reporte.errors.tipo_evento} />
                         </div>
 
                         {datos.tipo === 'infraccion' && (
@@ -313,10 +376,10 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                     type="number"
                                     min={1}
                                     value={datos.cantidad}
-                                    onChange={(e) => nueva.setData('cantidad', e.target.value)}
+                                    onChange={(e) => reporte.setData('cantidad', e.target.value)}
                                     className={claseInput}
                                 />
-                                <MensajeError mensaje={nueva.errors.cantidad} />
+                                <MensajeError mensaje={reporte.errors.cantidad} />
                             </div>
                         )}
 
@@ -324,7 +387,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                             <label className={claseEtiqueta}>Nivel de urgencia</label>
                             <select
                                 value={datos.nivel_urgencia}
-                                onChange={(e) => nueva.setData('nivel_urgencia', e.target.value)}
+                                onChange={(e) => reporte.setData('nivel_urgencia', e.target.value)}
                                 className={claseInput}
                             >
                                 {Object.entries(ETIQUETA_URGENCIA).map(([valor, etiqueta]) => (
@@ -333,7 +396,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                     </option>
                                 ))}
                             </select>
-                            <MensajeError mensaje={nueva.errors.nivel_urgencia} />
+                            <MensajeError mensaje={reporte.errors.nivel_urgencia} />
                         </div>
 
                         <div>
@@ -341,10 +404,10 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                             <input
                                 type="text"
                                 value={datos.ubicacion_direccion}
-                                onChange={(e) => nueva.setData('ubicacion_direccion', e.target.value)}
+                                onChange={(e) => reporte.setData('ubicacion_direccion', e.target.value)}
                                 className={claseInput}
                             />
-                            <MensajeError mensaje={nueva.errors.ubicacion_direccion} />
+                            <MensajeError mensaje={reporte.errors.ubicacion_direccion} />
                         </div>
 
                         <div>
@@ -352,26 +415,26 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                             <textarea
                                 rows={4}
                                 value={datos.descripcion}
-                                onChange={(e) => nueva.setData('descripcion', e.target.value)}
+                                onChange={(e) => reporte.setData('descripcion', e.target.value)}
                                 className={claseInput}
                             />
-                            <MensajeError mensaje={nueva.errors.descripcion} />
+                            <MensajeError mensaje={reporte.errors.descripcion} />
                         </div>
 
                         <DialogFooter className="gap-2">
                             <button
                                 type="button"
-                                onClick={cerrarNueva}
+                                onClick={cerrarReporte}
                                 className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
                             >
                                 Cancelar
                             </button>
                             <button
                                 type="submit"
-                                disabled={nueva.processing}
+                                disabled={reporte.processing}
                                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                             >
-                                {nueva.processing ? 'Guardando...' : 'Guardar'}
+                                {reporte.processing ? 'Guardando...' : 'Guardar'}
                             </button>
                         </DialogFooter>
                     </form>
@@ -382,7 +445,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                 open={seleccion !== null}
                 onOpenChange={(valor) => {
                     if (!valor) {
-                        cerrar();
+                        cerrarDetalle();
                     }
                 }}
             >
@@ -451,7 +514,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                 <DialogFooter className="gap-2">
                                     <button
                                         type="button"
-                                        onClick={cerrar}
+                                        onClick={cerrarDetalle}
                                         className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
                                     >
                                         Cerrar

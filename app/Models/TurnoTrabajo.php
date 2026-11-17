@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\ReportesTurno;
 use Carbon\CarbonInterface;
+use App\Models\Intervencion;
 
 class TurnoTrabajo extends Model
 {
@@ -78,73 +79,4 @@ class TurnoTrabajo extends Model
             ? 'en_curso'
             : $this->estado_turno;
     }
-    protected static function booted(): void
-    {
-        // Al crear, copia el horario del turno (el especial lo define quien lo asigna)
-        static::creating(function (TurnoTrabajo $t) {
-            if ($t->turno === 'especial') {
-                if (!$t->hora_inicio_prog || !$t->hora_fin_prog) {
-                    throw new \InvalidArgumentException('El turno especial necesita hora de inicio y de fin.');
-                }
-                return;
-            }
-
-            [$ini, $fin] = config('turnos.horarios')[$t->turno];
-            $t->hora_inicio_prog ??= $ini;
-            $t->hora_fin_prog ??= $fin;
-        });
-    }
-    public function minutosTrabajados(): int
-    {
-        if (!$this->inicio_real) {
-            return 0;
-        }
-
-        $hasta = $this->fin_real ?? now();
-
-        return max(0, intdiv($hasta->timestamp - $this->inicio_real->timestamp, 60));
-    }
-
-    public function minutosAtraso(): int
-    {
-        if (!$this->inicio_real) {
-            return 0;
-        }
-
-        $d = intdiv($this->inicio_real->timestamp - $this->inicioProgramado()->timestamp, 60);
-
-        return $d > config('turnos.tolerancia_min') ? $d : 0;
-    }
-    public function minutosExtra(): int
-    {
-        $hasta = $this->fin_real ?? ($this->inicio_real ? now() : null);
-
-        if (!$hasta) {
-            return 0;
-        }
-
-        $d = intdiv($hasta->timestamp - $this->finProgramado()->timestamp, 60);
-
-        return $d > config('turnos.tolerancia_min') ? $d : 0;
-    }
-    public function cumplimiento(): string
-    {
-        if (!$this->inicio_real) {
-            return 'sin_iniciar';
-        }
-        if (!$this->fin_real) {
-            return $this->minutosExtra() > 0 ? 'en_curso_extendido' : 'en_curso';
-        }
-        if ($this->minutosExtra() > 0) {
-            return 'extendido';
-        }
-        // Salió antes de tiempo (más allá de la tolerancia)
-        if ($this->fin_real->lt($this->finProgramado()->subMinutes(config('turnos.tolerancia_min')))) {
-            return 'salida_anticipada';
-        }
-
-        return 'en_horario';
-    }
-
-
 }
