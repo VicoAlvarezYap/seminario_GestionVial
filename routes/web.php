@@ -47,10 +47,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('turnos', TurnoTrabajoController::class)->only(['store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
     });
-
-    /* ---------- Personal: cualquier usuario vinculado a un agente ----------
-       Sin middleware de rol: cada controlador verifica agente_id. */
-
     // Fichadas
     Route::prefix('turnos/{turno}')->name('turnos.')->group(function () {
         Route::post('iniciar', [FichadaController::class, 'iniciar'])->name('iniciar');

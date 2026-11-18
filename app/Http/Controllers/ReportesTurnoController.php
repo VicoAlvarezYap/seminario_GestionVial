@@ -158,4 +158,5 @@ class ReportesTurnoController extends Controller
     {
         return $usuario->hasAnyRole(['Administrador', 'Supervisor']);
     }
+    
 }
