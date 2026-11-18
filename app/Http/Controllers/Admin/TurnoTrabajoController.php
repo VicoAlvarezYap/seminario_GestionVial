@@ -9,6 +9,8 @@ use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Models\TurnoTrabajo;
 use Inertia\Response;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -77,7 +79,7 @@ class TurnoTrabajoController extends Controller
     public function update(TurnoTrabajoRequest $request, TurnoTrabajo $turno): RedirectResponse
     {
         if (!$turno->estaProgramado() || $turno->fichajes()->exists()) {
-            return back()->with('error', 'No se puede modificar: el turno ya tiene fichajes o no está programado.');
+            return back()->with('error', 'No se puede modificar: el turno ya tiene fichajess o no está programado.');
         }
 
         $datos = $request->validated();
@@ -217,7 +219,7 @@ class TurnoTrabajoController extends Controller
     {
         // Protege el historial no es una eliminacion completa
         if ($turno->fichajes()->exists()) {
-            return back()->with('error', 'No se puede eliminar: el turno tiene fichajes registrados.');
+            return back()->with('error', 'No se puede eliminar: el turno tiene fichajess registrados.');
         }
 
         // Las intervenciones protegen a sus tareas (restrictOnDelete)
@@ -240,20 +242,99 @@ class TurnoTrabajoController extends Controller
             'agente_ids' => "Ya tienen ese turno asignado: {$nombres}.",
         ]);
     }
-    public function listado(Request $request)
+    public function listado(Request $request): Response
     {
-        $desde = $request->input('desde', now()->startOfMonth()->toDateString());
-        $hasta = $request->input('hasta', now()->endOfMonth()->toDateString());
-
-        $turnos = TurnoTrabajo::with('agente:id,nombre,apellido')
-            ->whereBetween('fecha', [$desde, $hasta])
-            ->orderBy('fecha')
-            ->orderByRaw("FIELD(turno, 'manana','tarde','noche','especial')")
-            ->get();
+        $f = $this->filtrosProximos($request);
+        $hoy = now()->toDateString();
 
         return Inertia::render('Turnos/listado', [
-            'turnos' => $turnos,
-            'filtros' => ['desde' => $desde, 'hasta' => $hasta],
+            'hoy' => $hoy,
+            'manana' => now()->addDay()->toDateString(),
+            'horariosConfig' => config('turnos.horarios'),
+            'turnosHoy' => $this->turnosEntre($hoy, $hoy),
+            'proximos' => $this->turnosEntre($f['desde'], $f['hasta'], $f['agente'], soloVigentes: true),
+            'filtros' => $f,
+            'agentes' => Agente::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
         ]);
+    }
+
+    public function listadoPdf(Request $request)
+    {
+        $f = $this->filtrosProximos($request);
+
+        $turnos = $this->turnosEntre($f['desde'], $f['hasta'], $f['agente'], soloVigentes: true);
+
+        $pdf = Pdf::loadView('pdf.turnos-proximos', [
+            'turnos' => $turnos->groupBy('fecha'),
+            'desde' => $f['desde'],
+            'hasta' => $f['hasta'],
+            'agente' => $f['agente'] ? Agente::find($f['agente']) : null,
+            'horarios' => config('turnos.horarios'),
+            'generado' => now(),
+        ])->setPaper('a4');
+
+        return $pdf->download("turnos-{$f['desde']}-a-{$f['hasta']}.pdf");
+    }
+
+    /** Normaliza los filtros de "Turnos próximos": desde, hasta y agente. */
+    private function filtrosProximos(Request $request): array
+    {
+        $request->validate([
+            'desde' => ['nullable', 'date_format:Y-m-d'],
+            'hasta' => ['nullable', 'date_format:Y-m-d'],
+            'agente' => ['nullable', 'integer', 'exists:agentes,id'],
+        ]);
+
+        $manana = now()->addDay()->startOfDay();
+
+        // Por defecto: desde mañana, una semana
+        $desde = $request->filled('desde') ? Carbon::parse($request->input('desde'))->startOfDay() : $manana->copy();
+        if ($desde->lt($manana)) {
+            $desde = $manana->copy(); // "próximos" nunca incluye hoy ni el pasado
+        }
+
+        $hasta = $request->filled('hasta') ? Carbon::parse($request->input('hasta'))->startOfDay() : $desde->copy()->addDays(6);
+        if ($hasta->lt($desde)) {
+            $hasta = $desde->copy();
+        }
+        if ($hasta->gt($desde->copy()->addDays(365))) {
+            $hasta = $desde->copy()->addDays(365); // tope de un año
+        }
+
+        return [
+            'desde' => $desde->toDateString(),
+            'hasta' => $hasta->toDateString(),
+            'agente' => $request->filled('agente') ? (int) $request->input('agente') : null,
+        ];
+    }
+
+    private function turnosEntre(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false): Collection
+    {
+        return TurnoTrabajo::with('agente:id,nombre,apellido')
+            ->whereDate('fecha', '>=', $desde)
+            ->whereDate('fecha', '<=', $hasta)
+            ->when($agenteId, fn($q) => $q->where('agente_id', $agenteId))
+            ->when($soloVigentes, fn($q) => $q->whereNotIn('estado_turno', ['cancelado', 'reasignado']))
+            ->orderBy('fecha')
+            ->orderByRaw("CASE turno
+            WHEN 'manana' THEN 1
+            WHEN 'tarde' THEN 2
+            WHEN 'noche' THEN 3
+            ELSE 4 END")
+            ->get()
+            ->map(function (TurnoTrabajo $t) {
+                $estado = $t->estado_turno;
+
+                return [
+                    'id' => $t->id,
+                    'fecha' => Carbon::parse($t->fecha)->toDateString(), // siempre YYYY-MM-DD
+                    'turno' => $t->turno,
+                    'hora_inicio_prog' => $t->hora_inicio_prog,
+                    'hora_fin_prog' => $t->hora_fin_prog,
+                    'estado' => $estado instanceof \BackedEnum ? $estado->value : (string) $estado,
+                    'agente' => $t->agente,
+                ];
+            })
+            ->values();
     }
 }

@@ -29,6 +29,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/perfiles/{agente}', [AgenteController::class, 'show'])->name('perfiles.show');
         Route::post('/agentes', [AgenteController::class, 'store'])->name('agentes.store');
         Route::get('turnos/listado', [TurnoTrabajoController::class, 'listado'])->name('turnos.listado');
+        Route::get('/admin/turnos/listado/pdf', [TurnoTrabajoController::class, 'listadoPdf']);
         Route::post('turnos/jornada', [TurnoTrabajoController::class, 'storeJornada']);
         // Licencias
         Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');
