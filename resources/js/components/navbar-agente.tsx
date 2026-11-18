@@ -10,6 +10,7 @@ import {
     Menu,
     UserRound,
     Users,
+    CalendarDays,
     X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -35,6 +36,7 @@ const enlacesAdmin: Enlace[] = [
     { titulo: 'Gestión de Licencias', href: '/admin/licencias', icono: FileText },
     { titulo: 'Gestión de Turnos', href: '/admin/turnos', icono: FileText },
     { titulo: 'Gestión de Infracciones', href: '/admin/relevos', icono: ClipboardList },
+    { titulo: 'Ver Turnos', href: '/admin/turnos/listado', icono: CalendarDays },
     { titulo: 'Gestión de Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
 ];
 

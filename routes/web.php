@@ -28,7 +28,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/perfiles', [PerfilController::class, 'index'])->name('perfiles.index');
         Route::get('/perfiles/{agente}', [AgenteController::class, 'show'])->name('perfiles.show');
         Route::post('/agentes', [AgenteController::class, 'store'])->name('agentes.store');
-
+        Route::get('turnos/listado', [TurnoTrabajoController::class, 'listado'])->name('turnos.listado');
+        Route::post('turnos/jornada', [TurnoTrabajoController::class, 'storeJornada']);
         // Licencias
         Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');
         Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf');
@@ -41,12 +42,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/intervenciones', [IntervencionAdminController::class, 'index'])->name('intervenciones.index');
         Route::get('/intervenciones/{intervencion}/pdf', [IntervencionAdminController::class, 'pdf'])->name('intervenciones.pdf');
 
-        // CRUDs
+
         Route::resource('eventos-operativos', EventoOperativoController::class)->only(['store', 'update', 'destroy']);
-        Route::resource('turnos', TurnoTrabajoController::class)->only(['index','store', 'update', 'destroy']);
+        Route::resource('turnos', TurnoTrabajoController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
     });
-    
+
     // Perfil y contactos de emergencia
     Route::get('/mi-perfil', [AgenteController::class, 'show'])->name('mi-perfil');
     Route::post('/mi-perfil/contactos', [ContactoEmergenciaController::class, 'store'])->name('contactos.store');

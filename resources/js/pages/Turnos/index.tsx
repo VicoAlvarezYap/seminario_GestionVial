@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Calendar, Users, Clock, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Search, Users, X } from 'lucide-react';
 
 type AgenteOpcion = { id: number; nombre: string; apellido: string };
 type TurnoDelDia = { agente_id: number; turno: string };
 type Turno = 'manana' | 'tarde' | 'noche' | 'especial';
+type Jornada = 'normal' | 'especial';
+type Seleccion = Record<Turno, number[]>;
 
 type Props = {
     agentesDisponibles: AgenteOpcion[];
@@ -21,6 +23,8 @@ const NOMBRES: Record<Turno, string> = {
     noche: 'Noche',
     especial: 'Especial',
 };
+const PASOS = ['Elegir fecha', 'Jornada', 'Asignar agentes', 'Asignar tareas'];
+const VACIA: Seleccion = { manana: [], tarde: [], noche: [], especial: [] };
 
 export default function TurnosIndex({
     agentesDisponibles,
@@ -29,27 +33,57 @@ export default function TurnosIndex({
     especialConfig,
     turnosDelDia,
 }: Props) {
-    const [paso, setPaso] = useState<'fecha' | 'tipo_jornada' | 'turno'>('fecha');
+    const [paso, setPaso] = useState(0); // 0 fecha, 1 jornada, 2 agentes (el 3 es la página de tareas)
     const [fecha, setFecha] = useState(fechaInicial);
-    const [tipoJornada, setTipoJornada] = useState<'normal' | 'especial'>('normal');
-    const [turno, setTurno] = useState<Turno>('manana');
-    const [agenteIds, setAgenteIds] = useState<number[]>([]);
+    const [tipoJornada, setTipoJornada] = useState<Jornada>('normal');
+    const [turno, setTurno] = useState<Turno>('manana'); // bloque activo
+    const [seleccion, setSeleccion] = useState<Seleccion>(VACIA);
+    const [busqueda, setBusqueda] = useState('');
     const [horaInicio, setHoraInicio] = useState('');
     const [horaFin, setHoraFin] = useState('');
     const [errores, setErrores] = useState<Record<string, string>>({});
     const [procesando, setProcesando] = useState(false);
     const [mensaje, setMensaje] = useState('');
 
-    // Agentes con algún turno ese día (viene del servidor)
-    const ocupados = new Set(turnosDelDia.map((t) => t.agente_id));
+    const esNormal = tipoJornada === 'normal';
+    const bloques: Turno[] = esNormal ? SECUENCIA : ['especial'];
+    const esUltimoBloque = turno === bloques[bloques.length - 1];
+    const agentesDelBloque = seleccion[turno];
+    const bloqueCompleto = agentesDelBloque.length > 0;
+    const jornadaCompleta = bloques.every((t) => seleccion[t].length > 0);
 
-    // ---------- PASO 1 -> 2 ----------
-    const continuarFecha = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!fecha) return;
+    const ocupados = useMemo(() => new Set(turnosDelDia.map((t) => t.agente_id)), [turnosDelDia]);
+
+    const agentesFiltrados = useMemo(() => {
+        const q = busqueda.trim().toLowerCase();
+        if (!q) return agentesDisponibles;
+        return agentesDisponibles.filter((a) => `${a.apellido} ${a.nombre}`.toLowerCase().includes(q));
+    }, [agentesDisponibles, busqueda]);
+
+    // Un agente solo puede estar en un bloque por día
+    const bloqueDeAgente = (id: number): Turno | null =>
+        bloques.find((t) => t !== turno && seleccion[t].includes(id)) ?? null;
+
+    // ---------- helpers ----------
+    const reiniciar = (msg = '') => {
+        setPaso(0);
+        setTurno('manana');
+        setSeleccion(VACIA);
+        setBusqueda('');
+        setErrores({});
+        setMensaje(msg);
+    };
+
+    const cambiarJornada = (valor: Jornada) => {
+        setTipoJornada(valor);
+        setSeleccion(VACIA);
+        setErrores({});
+    };
+
+    // ---------- navegación (nada se guarda hasta el último paso) ----------
+    const irAJornada = () => {
         setMensaje('');
-
-        // Carga los turnos ya existentes de ese día
+        setSeleccion(VACIA); // los agentes ocupados cambian con la fecha
         router.get(
             '/admin/turnos',
             { fecha },
@@ -57,292 +91,397 @@ export default function TurnosIndex({
                 preserveState: true,
                 preserveScroll: true,
                 only: ['turnosDelDia', 'fechaInicial'],
-                onSuccess: () => setPaso('tipo_jornada'),
+                onSuccess: () => setPaso(1),
             },
         );
     };
 
-    // ---------- PASO 2 -> 3 ----------
-    const elegirJornada = (tipo: 'normal' | 'especial') => {
-        setTipoJornada(tipo);
-        setAgenteIds([]);
+    const irAAgentes = () => {
+        setTurno(esNormal ? 'manana' : 'especial');
+        setBusqueda('');
         setErrores({});
-
-        if (tipo === 'normal') {
-            const [ini, fin] = horariosConfig.manana ?? ['', ''];
-            setTurno('manana');
-            setHoraInicio(ini);
-            setHoraFin(fin);
-        } else {
-            setTurno('especial');
-            setHoraInicio('');
-            setHoraFin('');
-        }
-        setPaso('turno');
+        setPaso(2);
     };
 
-    // ---------- AVANZAR AL SIGUIENTE TURNO O TERMINAR ----------
-    const avanzar = () => {
-        if (tipoJornada === 'normal' && turno !== 'noche') {
-            const siguiente = SECUENCIA[SECUENCIA.indexOf(turno) + 1];
-            const [ini, fin] = horariosConfig[siguiente] ?? ['', ''];
-            setTurno(siguiente);
-            setHoraInicio(ini);
-            setHoraFin(fin);
-            setAgenteIds([]);
+    const siguiente = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (paso === 0 && fecha) irAJornada();
+        else if (paso === 1) irAAgentes();
+        else if (paso === 2 && !esUltimoBloque && bloqueCompleto) {
+            setTurno(SECUENCIA[SECUENCIA.indexOf(turno) + 1]);
+            setBusqueda('');
             setErrores({});
+        }
+    };
+
+    const anterior = () => {
+        setErrores({});
+        setBusqueda('');
+        if (paso === 2 && esNormal && turno !== 'manana') {
+            setTurno(SECUENCIA[SECUENCIA.indexOf(turno) - 1]);
             return;
         }
-
-        setMensaje(
-            tipoJornada === 'normal'
-                ? 'Jornada normal completada correctamente.'
-                : 'Turno especial creado correctamente.',
-        );
-        setAgenteIds([]);
-        setPaso('fecha');
+        setPaso((p) => Math.max(0, p - 1));
     };
 
-    // ---------- GUARDAR ----------
-    const guardar = (e: React.FormEvent) => {
-        e.preventDefault();
-
+    // ---------- guardar todo junto ----------
+    const guardar = (irATareas: boolean) => {
         router.post(
-            '/admin/turnos',
+            '/admin/turnos/jornada',
             {
                 fecha,
-                turno,
-                agente_ids: agenteIds,
-                ...(tipoJornada === 'especial' && {
-                    hora_inicio_prog: horaInicio,
-                    hora_fin_prog: horaFin,
-                }),
+                ir_a_tareas: irATareas,
+                bloques: bloques.map((t) => ({
+                    turno: t,
+                    agente_ids: seleccion[t],
+                    ...(!esNormal && { hora_inicio_prog: horaInicio, hora_fin_prog: horaFin }),
+                })),
             },
             {
-                preserveState: true,
                 preserveScroll: true,
                 onStart: () => {
                     setProcesando(true);
                     setErrores({});
                 },
                 onError: (errs) => setErrores(errs as Record<string, string>),
-                onSuccess: () => avanzar(),
+                onSuccess: () => {
+                    // Si va a tareas, el servidor redirige a la otra página
+                    if (!irATareas) {
+                        reiniciar(esNormal ? 'Jornada guardada correctamente.' : 'Turno especial guardado correctamente.');
+                    }
+                },
                 onFinish: () => setProcesando(false),
             },
         );
     };
 
-    const toggleAgente = (id: number, marcado: boolean) => {
-        setAgenteIds((prev) => (marcado ? [...prev, id] : prev.filter((x) => x !== id)));
-    };
+    const toggleAgente = (id: number, marcado: boolean) =>
+        setSeleccion((prev) => ({
+            ...prev,
+            [turno]: marcado ? [...prev[turno], id] : prev[turno].filter((x) => x !== id),
+        }));
 
-    const esUltimo = tipoJornada === 'especial' || turno === 'noche';
-    const siguienteNombre =
-        tipoJornada === 'normal' && turno !== 'noche'
-            ? NOMBRES[SECUENCIA[SECUENCIA.indexOf(turno) + 1]]
-            : '';
+    const siguienteDeshabilitado = procesando || (paso === 0 && !fecha) || (paso === 2 && !bloqueCompleto);
+    const guardarDeshabilitado =
+        procesando || !jornadaCompleta || (!esNormal && (!horaInicio || !horaFin));
 
     return (
-        <div className="max-w-4xl mx-auto p-6 space-y-6">
-            <h1 className="text-2xl font-bold">Gestión y Asignación de Turnos</h1>
-
+        <div className="mx-auto max-w-3xl p-4 sm:p-6">
             {mensaje && (
-                <div className="bg-green-50 border border-green-200 text-green-700 text-sm p-3 rounded-md">
+                <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
                     {mensaje}
                 </div>
             )}
 
-            {/* PASO 1: FECHA */}
-            {paso === 'fecha' && (
-                <div className="p-6 border rounded-lg shadow-sm space-y-4 bg-card">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                        <Calendar className="size-5" /> Paso 1: Seleccioná el día
-                    </h2>
-                    <form onSubmit={continuarFecha} className="flex gap-4 items-end">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-sm font-medium">Fecha de la jornada</label>
-                            <input
-                                type="date"
-                                value={fecha}
-                                onChange={(e) => setFecha(e.target.value)}
-                                className="border rounded-md px-3 py-2 text-sm bg-background"
-                                required
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium flex items-center gap-1"
-                        >
-                            Siguiente <ArrowRight className="size-4" />
-                        </button>
-                    </form>
-                </div>
-            )}
-
-            {/* PASO 2: TIPO DE JORNADA */}
-            {paso === 'tipo_jornada' && (
-                <div className="p-6 border rounded-lg shadow-sm space-y-4 bg-card">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-lg font-semibold">Paso 2: Tipo de jornada para el {fecha}</h2>
+            <form onSubmit={siguiente} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+                {/* ENCABEZADO */}
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b px-6 py-5">
+                    <div className="flex items-center gap-4">
                         <button
                             type="button"
-                            onClick={() => setPaso('fecha')}
-                            className="text-xs text-muted-foreground hover:underline"
+                            onClick={() => reiniciar()}
+                            aria-label="Cancelar y volver al inicio"
+                            className="flex size-10 items-center justify-center rounded-lg border hover:bg-accent"
                         >
-                            Cambiar fecha
+                            <X className="size-4" />
                         </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-2">
-                        <button
-                            type="button"
-                            onClick={() => elegirJornada('normal')}
-                            className="p-6 border rounded-xl hover:border-primary text-left space-y-2 bg-background group"
-                        >
-                            <h3 className="font-bold group-hover:text-primary flex items-center gap-2">
-                                <Clock className="size-5" /> Jornada Normal
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                                Mañana ➔ Tarde ➔ Noche con horarios preconfigurados.
-                            </p>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => elegirJornada('especial')}
-                            className="p-6 border rounded-xl hover:border-primary text-left space-y-2 bg-background group"
-                        >
-                            <h3 className="font-bold group-hover:text-primary flex items-center gap-2">
-                                <Users className="size-5" /> Turno Especial
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                                Horario personalizado de {especialConfig.min_horas} a {especialConfig.max_horas} horas.
-                            </p>
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* PASO 3: TURNO */}
-            {paso === 'turno' && (
-                <div className="p-6 border rounded-lg shadow-sm space-y-6 bg-card">
-                    <div className="flex justify-between items-center border-b pb-4">
                         <div>
-                            <h2 className="text-lg font-semibold uppercase tracking-wider text-primary">
-                                {tipoJornada === 'normal' ? `Turno ${NOMBRES[turno]}` : 'Turno Especial'}
-                            </h2>
-                            <p className="text-xs text-muted-foreground">Fecha: {fecha}</p>
+                            <h1 className="text-lg font-semibold leading-tight">Asignación de turnos</h1>
+                            <p className="text-xs text-muted-foreground">
+                                {paso === 0 ? 'Elegí el día de la jornada' : `Jornada del ${fecha}`}
+                            </p>
                         </div>
-                        <span className="text-xs bg-muted px-2.5 py-1 rounded-full font-medium uppercase">
-                            {tipoJornada === 'normal'
-                                ? `${SECUENCIA.indexOf(turno) + 1} de 3`
-                                : 'Especial'}
-                        </span>
                     </div>
 
-                    {tipoJornada === 'normal' && (
-                        <div className="bg-muted/40 p-3 rounded-md text-sm flex items-center justify-between border">
-                            <span>Horario oficial del bloque:</span>
-                            <span className="font-mono font-semibold bg-background px-2 py-1 rounded border">
-                                {horaInicio} a {horaFin}
-                                {turno === 'noche' && ' (cruza medianoche)'}
-                            </span>
+                    <ol className="flex flex-wrap gap-2">
+                        {PASOS.map((nombre, i) => {
+                            const activo = i === paso;
+                            const hecho = i < paso;
+                            return (
+                                <li
+                                    key={nombre}
+                                    aria-current={activo ? 'step' : undefined}
+                                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                                        activo
+                                            ? 'border-primary bg-primary/10 text-primary'
+                                            : 'text-muted-foreground'
+                                    }`}
+                                >
+                                    <span
+                                        className={`flex size-5 items-center justify-center rounded-full text-[10px] ${
+                                            activo || hecho
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-muted text-muted-foreground'
+                                        }`}
+                                    >
+                                        {hecho ? <Check className="size-3" /> : i + 1}
+                                    </span>
+                                    {nombre}
+                                </li>
+                            );
+                        })}
+                    </ol>
+                </div>
+
+                {/* CUERPO */}
+                <div className="min-h-[22rem] space-y-5 px-6 py-6">
+                    {Object.keys(errores).length > 0 && (
+                        <div className="space-y-1 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                            {Object.entries(errores).map(([campo, msg]) => (
+                                <p key={campo}>{msg}</p>
+                            ))}
                         </div>
                     )}
 
-                    <form onSubmit={guardar} className="space-y-4">
-                        {Object.keys(errores).length > 0 && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-md space-y-1">
-                                {Object.entries(errores).map(([campo, msg]) => (
-                                    <p key={campo}>
-                                        <strong>{campo}:</strong> {msg}
-                                    </p>
-                                ))}
-                            </div>
-                        )}
-
-                        {tipoJornada === 'especial' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-sm font-medium">Hora inicio</label>
-                                    <input
-                                        type="time"
-                                        value={horaInicio}
-                                        onChange={(e) => setHoraInicio(e.target.value)}
-                                        className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium">Hora fin</label>
-                                    <input
-                                        type="time"
-                                        value={horaFin}
-                                        onChange={(e) => setHoraFin(e.target.value)}
-                                        className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                                        required
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="text-sm font-medium block mb-2">Seleccionar agentes</label>
-                            <div className="border rounded-md max-h-60 overflow-y-auto p-2 space-y-1 bg-background">
-                                {agentesDisponibles.map((agente) => {
-                                    const ocupado = ocupados.has(agente.id);
-                                    return (
-                                        <label
-                                            key={agente.id}
-                                            className={`flex items-center gap-2 p-2 rounded text-sm ${ocupado
-                                                    ? 'bg-muted opacity-50 cursor-not-allowed'
-                                                    : 'hover:bg-accent cursor-pointer'
-                                                }`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                disabled={ocupado}
-                                                checked={agenteIds.includes(agente.id)}
-                                                onChange={(e) => toggleAgente(agente.id, e.target.checked)}
-                                            />
-                                            <span>
-                                                {agente.apellido}, {agente.nombre}
-                                            </span>
-                                            {ocupado && (
-                                                <span className="ml-auto text-xs text-red-500 font-semibold">
-                                                    Ya tiene turno este día
-                                                </span>
-                                            )}
-                                        </label>
-                                    );
-                                })}
-                            </div>
+                    {/* PASO 1: FECHA */}
+                    {paso === 0 && (
+                        <div className="max-w-xs space-y-1.5">
+                            <label htmlFor="fecha" className="flex items-center gap-2 text-sm font-medium">
+                                <Calendar className="size-4 text-muted-foreground" /> Fecha de la jornada
+                            </label>
+                            <input
+                                id="fecha"
+                                type="date"
+                                value={fecha}
+                                onChange={(e) => setFecha(e.target.value)}
+                                className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm"
+                                required
+                            />
                         </div>
+                    )}
 
-                        <div className="flex justify-between gap-3 pt-4 border-t">
-                            {tipoJornada === 'normal' && turno !== 'manana' && !esUltimo ? (
-                                <button
-                                    type="button"
-                                    onClick={avanzar}
-                                    className="text-sm text-muted-foreground hover:underline"
-                                >
-                                    Omitir {NOMBRES[turno]}
-                                </button>
-                            ) : (
-                                <span />
+                    {/* PASO 2: JORNADA */}
+                    {paso === 1 && (
+                        <fieldset className="space-y-3">
+                            <legend className="mb-3 text-sm font-medium">¿Qué tipo de jornada querés armar?</legend>
+                            {(
+                                [
+                                    {
+                                        valor: 'normal' as Jornada,
+                                        titulo: 'Jornada normal',
+                                        detalle: 'Mañana, tarde y noche con los horarios configurados.',
+                                        icono: Clock,
+                                    },
+                                    {
+                                        valor: 'especial' as Jornada,
+                                        titulo: 'Turno especial',
+                                        detalle: `Horario personalizado de ${especialConfig.min_horas} a ${especialConfig.max_horas} horas.`,
+                                        icono: Users,
+                                    },
+                                ]
+                            ).map(({ valor, titulo, detalle, icono: Icono }) => {
+                                const sel = tipoJornada === valor;
+                                return (
+                                    <label
+                                        key={valor}
+                                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 ${
+                                            sel ? 'border-primary bg-primary/10' : 'hover:bg-accent'
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="jornada"
+                                            checked={sel}
+                                            onChange={() => cambiarJornada(valor)}
+                                            className="mt-1"
+                                        />
+                                        <div>
+                                            <p className="flex items-center gap-2 text-sm font-medium">
+                                                <Icono className="size-4" /> {titulo}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">{detalle}</p>
+                                        </div>
+                                    </label>
+                                );
+                            })}
+                            {ocupados.size > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                    {ocupados.size} {ocupados.size === 1 ? 'agente ya tiene' : 'agentes ya tienen'} turno
+                                    este día y no se podrán volver a elegir.
+                                </p>
+                            )}
+                        </fieldset>
+                    )}
+
+                    {/* PASO 3: AGENTES */}
+                    {paso === 2 && (
+                        <>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <h2 className="text-sm font-medium">
+                                    {esNormal ? `Turno ${NOMBRES[turno]}` : 'Turno especial'}
+                                    {esNormal && (
+                                        <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">
+                                            {horariosConfig[turno]?.[0]} a {horariosConfig[turno]?.[1]}
+                                            {turno === 'noche' && ' (cruza medianoche)'}
+                                        </span>
+                                    )}
+                                </h2>
+
+                                {esNormal && (
+                                    <ol className="flex gap-1.5 text-xs">
+                                        {SECUENCIA.map((t) => (
+                                            <li
+                                                key={t}
+                                                className={`rounded-md border px-2.5 py-1 ${
+                                                    t === turno
+                                                        ? 'border-primary bg-primary/10 text-primary'
+                                                        : seleccion[t].length > 0
+                                                          ? 'text-foreground'
+                                                          : 'text-muted-foreground'
+                                                }`}
+                                            >
+                                                {NOMBRES[t]} ({seleccion[t].length})
+                                            </li>
+                                        ))}
+                                    </ol>
+                                )}
+                            </div>
+
+                            {!esNormal && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-medium">Hora de inicio</label>
+                                        <input
+                                            type="time"
+                                            value={horaInicio}
+                                            onChange={(e) => setHoraInicio(e.target.value)}
+                                            className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-medium">Hora de fin</label>
+                                        <input
+                                            type="time"
+                                            value={horaFin}
+                                            onChange={(e) => setHoraFin(e.target.value)}
+                                            className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm"
+                                            required
+                                        />
+                                    </div>
+                                </div>
                             )}
 
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium">Agentes</label>
+                                    <span className="text-xs text-muted-foreground">
+                                        {agentesDelBloque.length}{' '}
+                                        {agentesDelBloque.length === 1 ? 'seleccionado' : 'seleccionados'}
+                                        {!bloqueCompleto && ' (elegí al menos uno)'}
+                                    </span>
+                                </div>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <input
+                                        type="search"
+                                        value={busqueda}
+                                        onChange={(e) => setBusqueda(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                                        placeholder="Buscar agente…"
+                                        className="w-full rounded-lg border bg-muted/40 py-2.5 pl-9 pr-3 text-sm"
+                                    />
+                                </div>
+                                <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border p-2">
+                                    {agentesFiltrados.map((agente) => {
+                                        const yaTieneTurno = ocupados.has(agente.id);
+                                        const enOtro = bloqueDeAgente(agente.id);
+                                        const deshabilitado = yaTieneTurno || enOtro !== null;
+                                        const marcado = agentesDelBloque.includes(agente.id);
+                                        return (
+                                            <label
+                                                key={agente.id}
+                                                className={`flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm ${
+                                                    deshabilitado
+                                                        ? 'cursor-not-allowed bg-muted opacity-50'
+                                                        : marcado
+                                                          ? 'cursor-pointer border-primary bg-primary/10'
+                                                          : 'cursor-pointer hover:bg-accent'
+                                                }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    disabled={deshabilitado}
+                                                    checked={marcado}
+                                                    onChange={(e) => toggleAgente(agente.id, e.target.checked)}
+                                                />
+                                                <span>
+                                                    {agente.apellido}, {agente.nombre}
+                                                </span>
+                                                {(yaTieneTurno || enOtro) && (
+                                                    <span className="ml-auto text-xs font-medium text-red-500">
+                                                        {yaTieneTurno
+                                                            ? 'Ya tiene turno este día'
+                                                            : `Elegido en ${NOMBRES[enOtro as Turno]}`}
+                                                    </span>
+                                                )}
+                                            </label>
+                                        );
+                                    })}
+                                    {agentesFiltrados.length === 0 && (
+                                        <p className="p-3 text-sm text-muted-foreground">
+                                            Ningún agente coincide con la búsqueda.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* PIE */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-6 py-4">
+                    <button
+                        type="button"
+                        onClick={() => reiniciar()}
+                        className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent"
+                    >
+                        Cancelar
+                    </button>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                        {paso > 0 && (
+                            <button
+                                type="button"
+                                onClick={anterior}
+                                disabled={procesando}
+                                className="flex items-center gap-1.5 rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+                            >
+                                <ArrowLeft className="size-4" /> Anterior
+                            </button>
+                        )}
+
+                        {paso === 2 && esUltimoBloque ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => guardar(false)}
+                                    disabled={guardarDeshabilitado}
+                                    className="rounded-lg border border-primary bg-background px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+                                >
+                                    Guardar jornada
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => guardar(true)}
+                                    disabled={guardarDeshabilitado}
+                                    className="flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                                >
+                                    Guardar y asignar tareas <ArrowRight className="size-4" />
+                                </button>
+                            </>
+                        ) : (
                             <button
                                 type="submit"
-                                disabled={procesando || agenteIds.length === 0}
-                                className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
+                                disabled={siguienteDeshabilitado}
+                                className="flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
                             >
-                                {esUltimo ? 'Guardar turno' : `Guardar y pasar a ${siguienteNombre}`}
+                                Siguiente <ArrowRight className="size-4" />
                             </button>
-                        </div>
-                    </form>
+                        )}
+                    </div>
                 </div>
-            )}
+            </form>
         </div>
     );
 }
