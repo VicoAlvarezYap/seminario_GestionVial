@@ -32,9 +32,10 @@ const enlacesPersonales: Enlace[] = [
 // Solo el rol Administrador
 const enlacesAdmin: Enlace[] = [
     { titulo: 'Agentes', href: '/admin/perfiles', icono: Users },
-    { titulo: 'Gestión de licencias', href: '/admin/licencias', icono: FileText },
-    { titulo: 'Gestión de infracciones', href: '/admin/relevos', icono: ClipboardList },
-    { titulo: 'Gestión de intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
+    { titulo: 'Gestión de Licencias', href: '/admin/licencias', icono: FileText },
+    { titulo: 'Gestión de Turnos', href: '/admin/turnos', icono: FileText },
+    { titulo: 'Gestión de Infracciones', href: '/admin/relevos', icono: ClipboardList },
+    { titulo: 'Gestión de Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
 ];
 
 export default function NavbarAgente() {

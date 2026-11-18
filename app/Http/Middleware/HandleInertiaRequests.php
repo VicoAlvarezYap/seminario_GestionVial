@@ -44,6 +44,11 @@ class HandleInertiaRequests extends Middleware
                 'tieneAgente' => $request->user()?->agente_id !== null,
             ],
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'flash' => [
+                'success' => fn() => $request->session()->get('success'),
+                'warning' => fn() => $request->session()->get('warning'),
+                'error'   => fn () => $request->session()->get('error'),
+            ],
         ];
     }
 }

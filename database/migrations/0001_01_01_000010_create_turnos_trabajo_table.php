@@ -12,18 +12,17 @@ return new class extends Migration {
             $table->foreignId('agente_id')->constrained('agentes')->cascadeOnDelete()->cascadeOnUpdate();
             $table->date('fecha');
             $table->enum('turno', ['manana', 'tarde', 'noche', 'especial']);
-            $table->enum('estado_turno', ['programado', 'cumplido', 'ausente', 'cancelado', 'reasignado','abandonado'])
+            $table->enum('estado_turno', ['programado', 'cumplido', 'ausente', 'cancelado', 'reasignado', 'abandonado'])
                 ->default('programado');
             $table->uuid('asignacion_id')->nullable()->index();
             $table->time('hora_inicio_prog')->nullable();
             $table->time('hora_fin_prog')->nullable();
-            $table->SmallInteger('minutos_trabajados');  //informacion que se obtiene atravez de un proceso
-            $table->SmallInteger('minutos_extra');     
-            $table->SmallInteger('minutos_tarde');
-            $table->SmallInteger('minutos_salida_anticipada');
-    
+            $table->unsignedSmallInteger('minutos_trabajados')->default(0);
+            $table->unsignedSmallInteger('minutos_extra')->default(0);
+            $table->unsignedSmallInteger('minutos_tarde')->default(0);
+            $table->unsignedSmallInteger('minutos_salida_anticipada')->default(0);
             $table->timestamps();
-            
+
             $table->unique(['agente_id', 'fecha', 'turno']);
             $table->index(['fecha', 'turno']);
         });

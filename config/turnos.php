@@ -8,7 +8,7 @@ return [
         'noche'  => ['19:00', '01:00'],   // cruza medianoche
     ],
     'especial' =>[
-        'min_horas'=>8,
+        'min_horas'=>1,
         'max_horas'=>12,
     ],
     'tolerancia_min' => 15,   //  minutos de tolerancia

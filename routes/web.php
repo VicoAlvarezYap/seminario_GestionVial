@@ -7,7 +7,6 @@ use App\Http\Controllers\ContactoEmergenciaController;
 use App\Http\Controllers\LicenciaController;
 use App\Http\Controllers\RelevoController;
 use App\Http\Controllers\IntervencionController;
-use App\Http\Controllers\FichadaController;
 use App\Http\Controllers\ReportesTurnoController;
 use App\Http\Controllers\Admin\EventoOperativoController;
 use App\Http\Controllers\Admin\TareaController;
@@ -44,15 +43,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // CRUDs
         Route::resource('eventos-operativos', EventoOperativoController::class)->only(['store', 'update', 'destroy']);
-        Route::resource('turnos', TurnoTrabajoController::class)->only(['store', 'update', 'destroy']);
+        Route::resource('turnos', TurnoTrabajoController::class)->only(['index','store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
     });
-    // Fichadas
-    Route::prefix('turnos/{turno}')->name('turnos.')->group(function () {
-        Route::post('iniciar', [FichadaController::class, 'iniciar'])->name('iniciar');
-        Route::post('finalizar', [FichadaController::class, 'finalizar'])->name('finalizar');
-    });
-
+    
     // Perfil y contactos de emergencia
     Route::get('/mi-perfil', [AgenteController::class, 'show'])->name('mi-perfil');
     Route::post('/mi-perfil/contactos', [ContactoEmergenciaController::class, 'store'])->name('contactos.store');
