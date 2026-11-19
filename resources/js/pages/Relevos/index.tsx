@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Download, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
 import NavbarAgente from '@/components/navbar-agente';
@@ -21,19 +21,23 @@ type Acta = {
     tercero_tipo_documento: string;
     tercero_dni: string;
     vehiculo_placa: string;
-    vehiculo_tipo: string; 
+    vehiculo_tipo: string;
     motivo_detencion: string;
     editable: boolean;
-    [campo: string]: string | number | boolean | string[];
+    conductor_correo: string | null;
+    correo_enviado_at: string | null;
+    [campo: string]: string | number | boolean | string[] | null;
 };
+
 type Ubicacion = {
     domicilio: string;
     codigoPostal: string;
     localidad: string;
     provincia: string;
     pais: string;
-    partido?: string; // solo conductor
+    partido?: string;
 };
+
 type Props = {
     relevos: Acta[];
     agente: { nombre: string; apellido: string } | null;
@@ -41,7 +45,7 @@ type Props = {
     infracciones: Opcion[];
     alcoholemia: Opcion[];
     tiposDocumento: string[];
-    tiposVehiculo: string[]; 
+    tiposVehiculo: string[];
 };
 
 type Datos = {
@@ -81,13 +85,13 @@ const SECCIONES: Seccion[] = [
     {
         titulo: 'Conductor',
         abierta: true,
-        ubicacion:{ 
-        domicilio: 'tercero_domicilio',
-        codigoPostal: 'conductor_codigo_postal',
-        localidad: 'conductor_localidad',
-        partido: 'conductor_partido',
-        provincia: 'conductor_provincia',
-        pais: 'conductor_pais',
+        ubicacion: {
+            domicilio: 'tercero_domicilio',
+            codigoPostal: 'conductor_codigo_postal',
+            localidad: 'conductor_localidad',
+            partido: 'conductor_partido',
+            provincia: 'conductor_provincia',
+            pais: 'conductor_pais',
         },
         campos: [
             { n: 'tercero_nombre_apellido', e: 'Apellido y nombre', ancho: 2, req: true },
@@ -129,12 +133,12 @@ const SECCIONES: Seccion[] = [
     },
     {
         titulo: 'Titular del vehículo',
-        ubicacion: { 
-        domicilio: 'propietario_domicilio',
-        codigoPostal: 'propietario_codigo_postal',
-        localidad: 'propietario_localidad',
-        provincia: 'propietario_provincia',
-        pais: 'propietario_pais',
+        ubicacion: {
+            domicilio: 'propietario_domicilio',
+            codigoPostal: 'propietario_codigo_postal',
+            localidad: 'propietario_localidad',
+            provincia: 'propietario_provincia',
+            pais: 'propietario_pais',
         },
         campos: [
             { n: 'vehiculo_propietario', e: 'Propiedad de (apellido y nombre o razón social)', ancho: 2 },
@@ -206,7 +210,7 @@ function ordenar(lista: Item[]): Item[] {
     return [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
 
-//si el valor guardado no esta en la lista lo mantiene visible
+// Si el valor guardado no está en la lista, lo mantiene visible
 function opcionesCon(lista: string[], actual: string): string[] {
     if (!actual || lista.includes(actual)) {
         return lista;
@@ -214,12 +218,20 @@ function opcionesCon(lista: string[], actual: string): string[] {
 
     return [actual, ...lista];
 }
+
 const LIMITE_OPCIONES = 50;
 
 function quitarAcentos(texto: string): string {
     return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
+function MensajeError({ mensaje }: { mensaje?: string }) {
+    if (!mensaje) {
+        return null;
+    }
+
+    return <p className="mt-1 text-xs text-red-600">{mensaje}</p>;
+}
 
 function Combobox({
     valor,
@@ -240,7 +252,6 @@ function Combobox({
     const [busqueda, setBusqueda] = useState('');
     const [resaltado, setResaltado] = useState(0);
 
-    
     const filtradas = useMemo(() => {
         const q = quitarAcentos(busqueda.trim());
 
@@ -319,13 +330,17 @@ function Combobox({
                     setResaltado(0);
                     setAbierto(true);
                 }}
-                onBlur={cerrar}
+                // Retraso: si el usuario usa la barra de desplazamiento, la lista no se cierra
+                onBlur={() => setTimeout(cerrar, 150)}
                 onKeyDown={teclado}
                 className={claseInput}
             />
 
             {abierto && (
-                <ul className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-white text-sm shadow-md dark:bg-zinc-900">
+                <ul
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-white text-sm shadow-md dark:bg-zinc-900"
+                >
                     {visibles.length === 0 && (
                         <li className="px-3 py-2 text-muted-foreground">Sin resultados</li>
                     )}
@@ -333,15 +348,12 @@ function Combobox({
                     {visibles.map((o, i) => (
                         <li
                             key={o}
-                            
                             onMouseDown={(e) => {
                                 e.preventDefault();
                                 elegir(o);
                             }}
                             onMouseEnter={() => setResaltado(i)}
-                            className={`cursor-pointer px-3 py-2 ${
-                                i === resaltado ? 'bg-zinc-100 dark:bg-zinc-800' : ''
-                            }`}
+                            className={`cursor-pointer px-3 py-2 ${i === resaltado ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
                         >
                             {o}
                         </li>
@@ -508,10 +520,7 @@ function UbicacionFields({
                     ) : (
                         <Combobox
                             valor={provinciaNombre}
-                            opciones={opcionesCon(
-                                provincias.map((p) => p.nombre),
-                                provinciaNombre,
-                            )}
+                            opciones={opcionesCon(provincias.map((p) => p.nombre), provinciaNombre)}
                             onChange={cambiarProvincia}
                             error={errores[campos.provincia]}
                         />
@@ -535,10 +544,7 @@ function UbicacionFields({
                             valor={valor(campos.localidad)}
                             disabled={!provinciaNombre}
                             placeholder={provinciaNombre ? 'Escribí para buscar' : 'Primero elegí la provincia'}
-                            opciones={opcionesCon(
-                                localidades.map((l) => l.nombre),
-                                valor(campos.localidad),
-                            )}
+                            opciones={opcionesCon(localidades.map((l) => l.nombre), valor(campos.localidad))}
                             onChange={(v) => onChange(campos.localidad, v)}
                             error={errores[campos.localidad]}
                         />
@@ -563,10 +569,7 @@ function UbicacionFields({
                                 valor={valor(partido)}
                                 disabled={!provinciaNombre}
                                 placeholder={provinciaNombre ? 'Escribí para buscar' : 'Primero elegí la provincia'}
-                                opciones={opcionesCon(
-                                    departamentos.map((d) => d.nombre),
-                                    valor(partido),
-                                )}
+                                opciones={opcionesCon(departamentos.map((d) => d.nombre), valor(partido))}
                                 onChange={(v) => onChange(partido, v)}
                                 error={errores[partido]}
                             />
@@ -589,14 +592,6 @@ function UbicacionFields({
     );
 }
 
-function MensajeError({ mensaje }: { mensaje?: string }) {
-    if (!mensaje) {
-        return null;
-    }
-
-    return <p className="mt-1 text-xs text-red-600">{mensaje}</p>;
-}
-
 function CampoForm({
     campo,
     valor,
@@ -610,9 +605,8 @@ function CampoForm({
     error?: string;
     onChange: (v: string) => void;
     documentos: string[];
-    tiposVehiculo: string[]; 
+    tiposVehiculo: string[];
 }) {
-   
     const opciones =
         campo.opciones === 'documentos'
             ? documentos
@@ -667,6 +661,7 @@ export default function ActasIndex({
     const formulario = useForm<Datos>(vacio);
     const datos = formulario.data;
     const errores = formulario.errors as Record<string, string | undefined>;
+    const { flash } = usePage().props as unknown as { flash?: { success?: string } };
 
     const cerrar = () => {
         setAbierto(false);
@@ -733,6 +728,14 @@ export default function ActasIndex({
         router.delete(`/relevos/${r.id}`, { preserveScroll: true });
     };
 
+    const enviarCorreo = (r: Acta) => {
+        if (!window.confirm(`¿Enviar el acta a ${r.conductor_correo}?`)) {
+            return;
+        }
+
+        router.post(`/relevos/${r.id}/enviar`, {}, { preserveScroll: true });
+    };
+
     return (
         <>
             <Head title="Mis infracciones" />
@@ -753,6 +756,12 @@ export default function ActasIndex({
                         Nueva acta de infracción
                     </button>
                 </div>
+
+                {flash?.success && (
+                    <p className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-800 dark:border-green-700 dark:bg-green-900/30 dark:text-green-200">
+                        {flash.success}
+                    </p>
+                )}
 
                 {!agente && (
                     <p className="text-sm text-red-600">
@@ -800,7 +809,7 @@ export default function ActasIndex({
                                             </td>
                                             <td className="max-w-xs p-3">{r.motivo_detencion}</td>
                                             <td className="p-3">
-                                                <div className="flex flex-wrap gap-2">
+                                                <div className="flex flex-wrap items-center gap-2">
                                                     <button
                                                         type="button"
                                                         disabled={!r.editable}
@@ -814,6 +823,35 @@ export default function ActasIndex({
                                                     >
                                                         Editar
                                                     </button>
+
+                                                    <a
+                                                        href={`/relevos/${r.id}/pdf`}
+                                                        title="Descargar el acta en PDF"
+                                                        className={`${claseAccion} inline-flex items-center gap-1`}
+                                                    >
+                                                        <Download className="size-3" />
+                                                        Descargar PDF
+                                                    </a>
+
+                                                    <button
+                                                        type="button"
+                                                        disabled={!r.conductor_correo}
+                                                        onClick={() => enviarCorreo(r)}
+                                                        title={
+                                                            r.conductor_correo
+                                                                ? `Enviar a ${r.conductor_correo}`
+                                                                : 'El infractor no tiene correo cargado'
+                                                        }
+                                                        className={claseAccion}
+                                                    >
+                                                        Enviar por correo
+                                                    </button>
+                                                    {r.correo_enviado_at && (
+                                                        <span className="text-xs text-muted-foreground">
+                                                            Enviado {r.correo_enviado_at}
+                                                        </span>
+                                                    )}
+
                                                     <button
                                                         type="button"
                                                         disabled={!r.editable}
@@ -827,14 +865,6 @@ export default function ActasIndex({
                                                     >
                                                         Eliminar
                                                     </button>
-                                                    <a
-                                                        href={`/relevos/${r.id}/pdf`}
-                                                        title="Descargar el acta en PDF"
-                                                        className={`${claseAccion} inline-flex items-center gap-1`}
-                                                    >
-                                                        <Download className="size-3" />
-                                                        Descargar PDF
-                                                    </a>
                                                 </div>
                                             </td>
                                         </tr>
@@ -963,8 +993,8 @@ export default function ActasIndex({
                                         </div>
                                     )}
 
-                                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                            {s.campos
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        {s.campos
                                             .filter((c) => !Object.values(s.ubicacion ?? {}).includes(c.n))
                                             .map((c) => (
                                                 <CampoForm
@@ -977,16 +1007,16 @@ export default function ActasIndex({
                                                     tiposVehiculo={tiposVehiculo}
                                                 />
                                             ))}
-                                        </div>
+                                    </div>
 
-                                        {s.ubicacion && (
-                                            <UbicacionFields
+                                    {s.ubicacion && (
+                                        <UbicacionFields
                                             campos={s.ubicacion}
                                             valor={(n) => String(datos[n] ?? '')}
                                             onChange={(n, v) => formulario.setData(n, v)}
                                             errores={errores}
                                         />
-                                        )}
+                                    )}
                                 </div>
                             </details>
                         ))}

@@ -30,20 +30,6 @@ class RelevoAdminController extends Controller
         ]);
     }
 
-    public function pdf(Relevos $relevo)
-    {
-        $relevo->load('agente');
-
-        return Pdf::loadView('pdf.relevo', [
-            'd' => $this->aArreglo($relevo),
-            'infracciones' => RelevoController::INFRACCIONES,
-            'alcoholemia' => RelevoController::ALCOHOLEMIA,
-            'generado' => now()->format('d/m/Y H:i'),
-        ])
-            ->setPaper('a4')
-            ->download('acta-'.$relevo->id.'.pdf');
-    }
-
     private function filtros(Request $request): array
     {
         $validos = $request->validate([
@@ -133,4 +119,22 @@ class RelevoAdminController extends Controller
             'eliminado_en' => $r->deleted_at?->format('d/m/Y H:i'),
         ];
     }
+    public function documento(Relevos $relevo)
+{
+    $relevo->load('agente');
+
+    return Pdf::loadView('pdf.relevo', [
+        // Copiá acá el mismo arreglo de datos que ya tenías en pdf()
+        // (el que pasabas a loadView: 'd', 'infracciones', 'alcoholemia', 'generado')
+        'd' => $this->aArreglo($relevo),
+        'infracciones' => RelevoController::INFRACCIONES,
+        'alcoholemia' => RelevoController::ALCOHOLEMIA,
+        'generado' => now()->format('d/m/Y H:i'),
+    ])->setPaper('a4');
+}
+
+public function pdf(Relevos $relevo)
+{
+    return $this->documento($relevo)->download('acta-'.$relevo->id.'.pdf');
+}
 }

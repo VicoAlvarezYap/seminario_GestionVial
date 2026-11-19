@@ -14,26 +14,50 @@ class ReportesTurnoController extends Controller
    public const TURNOS = ['manana', 'tarde', 'noche', 'especial'];
    public const SECCIONES = ['horario', 'tareas', 'intervenciones', 'recursos', 'novedades'];
     public function index(Request $request): Response
-    {
-        $usuario = $request->user();
+{
+    $usuario = $request->user();
 
-        $request->validate([
-            'desde' => ['nullable', 'date'],
-            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
-        ]);
+    $v = $request->validate([
+        'desde' => ['nullable', 'date'],
+        'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+        'agente_id' => ['nullable', 'integer', 'exists:agentes,id'],
+    ]);
 
-        $desde = $request->query('desde', now()->subMonths(1)->toDateString());
-        $hasta = $request->query('hasta', now()->toDateString());
+    $desde = $v['desde'] ?? now()->subMonths(1)->toDateString();
+    $hasta = $v['hasta'] ?? now()->toDateString();
+    $agenteId = $v['agente_id'] ?? null;
 
-        $reportes = $this->consultar($usuario, $desde, $hasta);
+    return Inertia::render('Reportes/index', [
+        'reportes' => $this->consultar($usuario, $desde, $hasta, [], false, $agenteId),
+        'desde' => $desde,
+        'hasta' => $hasta,
+        'veTodo' => $this->veTodo($usuario),
+        'modo' => 'todos',
+        'agentes' => $this->listaAgentes(),
+        'agenteId' => $agenteId,
+    ]);
+}
+        public function misReportes(Request $request): Response
+        {
+            $usuario = $request->user();
 
-        return Inertia::render('Reportes/index', [ // 👈 Estandarizado con mayúscula
-            'reportes' => $reportes,
-            'desde' => $desde,
-            'hasta' => $hasta,
-            'veTodo' => $this->veTodo($usuario),
-        ]);
-    }
+            $v = $request->validate([
+                'desde' => ['nullable', 'date'],
+                'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            ]);
+
+            $desde = $v['desde'] ?? now()->subMonths(1)->toDateString();
+            $hasta = $v['hasta'] ?? now()->toDateString();
+
+            return Inertia::render('Reportes/index', [
+                'reportes' => $this->consultar($usuario, $desde, $hasta, [], true),
+                'desde' => $desde,
+                'hasta' => $hasta,
+                'veTodo' => false,
+                'modo' => 'propios',
+            ]);
+
+            }
     public function pdf(Request $request)
     {
         $usuario = $request->user();
@@ -46,18 +70,17 @@ class ReportesTurnoController extends Controller
             'turnos.*' => ['string', Rule::in(self::TURNOS)],
             'secciones' => ['required', 'array', 'min:1'],
             'secciones.*' => ['string', Rule::in(self::SECCIONES)],
+            'agente_id' => ['nullable', 'integer', 'exists:agentes,id'],
         ]);
 
-        $reportes = $this->consultar($usuario, $v['desde'], $v['hasta'], $v['turnos'] ?? []);
+        $reportes = $this->consultar($usuario, $v['desde'], $v['hasta'], $v['turnos'] ?? [], false, $v['agente_id'] ?? null);
 
         return Pdf::loadView('pdf.reporte_turnos', [
             'reportes' => $reportes,
             'secciones' => $v['secciones'],
             'desde' => $v['desde'],
             'hasta' => $v['hasta'],
-            'agente' => $usuario->agente
-                ? trim($usuario->agente->apellido.', '.$usuario->agente->nombre)
-                : 'Todos',
+            'agente' => $this->nombreAgentePdf($usuario, $v['agente_id'] ?? null),
             'generado' => now()->format('d/m/Y H:i'),
         ])
             ->setPaper('a4')
@@ -137,7 +160,7 @@ class ReportesTurnoController extends Controller
         return $usuario->hasAnyRole(['Administrador', 'Supervisor']);
     }
     //arma los reportes del rango, con los filtros de turno y de permisos
-    private function consultar($usuario, string $desde, string $hasta, array $turnos = []): array
+    private function consultar($usuario, string $desde, string $hasta, array $turnos = [], bool $soloPropios = false, ?int $agenteId = null): array
     {
         return ReportesTurno::with([
             'turno.agente:id,nombre,apellido',
@@ -147,7 +170,8 @@ class ReportesTurnoController extends Controller
             ->whereHas('turno', fn ($q) => $q
                 ->whereBetween('fecha', [$desde, $hasta])
                 ->when($turnos !== [], fn ($q) => $q->whereIn('turno', $turnos))
-                ->when(! $this->veTodo($usuario), fn ($q) => $usuario->agente_id
+                ->when($agenteId && ! $soloPropios && $this->veTodo($usuario), fn ($q) => $q->where('agente_id', $agenteId))
+                ->when($soloPropios || ! $this->veTodo($usuario), fn ($q) => $usuario->agente_id
                     ? $q->where('agente_id', $usuario->agente_id)
                     : $q->whereRaw('1 = 0')))
             ->get()
@@ -195,4 +219,24 @@ class ReportesTurnoController extends Controller
             ->values()
             ->all();
         }
+        private function nombreAgentePdf($usuario, ?int $agenteId): string
+{
+    if ($agenteId && $this->veTodo($usuario)) {
+        $a = \App\Models\Agente::find($agenteId);
+
+        return $a ? "{$a->apellido}, {$a->nombre}" : 'Todos';
+    }
+
+    return $usuario->agente
+        ? trim($usuario->agente->apellido.', '.$usuario->agente->nombre)
+        : 'Todos';
+}
+   private function listaAgentes(): array
+{
+    return \App\Models\Agente::orderBy('apellido')->orderBy('nombre')
+        ->get(['id', 'nombre', 'apellido'])
+        ->map(fn ($a) => ['id' => $a->id, 'nombre' => "{$a->apellido}, {$a->nombre}"])
+        ->values()
+        ->all();
+}
 }

@@ -23,11 +23,12 @@ type PropsAuth = { auth?: { roles?: string[]; tieneAgente?: boolean } };
 // Lo personal: cualquiera con legajo (agentes, supervisores y el director)
 const enlacesPersonales: Enlace[] = [
     { titulo: 'Inicio', href: '/pagina_principal', icono: LayoutGrid },
+    { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound },
     { titulo: 'Mis reportes', href: '/reportes', icono: ClipboardCheck },
     { titulo: 'Intervenciones', href: '/intervenciones', icono: AlertTriangle },
     { titulo: 'Infracciones', href: '/relevos', icono: ClipboardList },
     { titulo: 'Licencias', href: '/licencias', icono: FileText },
-    { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound },
+    
 ];
 
 // Solo el rol Administrador
@@ -36,6 +37,7 @@ const enlacesAdmin: Enlace[] = [
     { titulo: 'Gestión de licencias', href: '/admin/licencias', icono: FileText },
     { titulo: 'Gestión de infracciones', href: '/admin/relevos', icono: ClipboardList },
     { titulo: 'Gestión de intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
+    { titulo: 'Gestión de reportes de turno', href: '/admin/reportes', icono: ClipboardCheck },
 ];
 
 export default function NavbarAgente() {

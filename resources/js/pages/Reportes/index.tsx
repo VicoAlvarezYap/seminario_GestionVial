@@ -45,6 +45,9 @@ type Props = {
     desde: string;
     hasta: string;
     veTodo: boolean;
+    modo?: 'propios' | 'todos';
+    agentes?: { id: number; nombre: string }[];
+    agenteId?: number | null;
 };
 
 const NOMBRE_TURNO: Record<string, string> = {
@@ -164,7 +167,7 @@ function Detalle({ r }: { r: Reporte }) {
     );
 }
 
-export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props) {
+export default function ReportesIndex({ reportes, desde, hasta, veTodo, modo = 'todos', agentes = [], agenteId = null }: Props) {
     const [abierto, setAbierto] = useState<number | null>(null);
     const [desdeInput, setDesdeInput] = useState(desde);
     const [hastaInput, setHastaInput] = useState(hasta);
@@ -172,20 +175,26 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
     // Filtros del PDF: estado dentro del componente
     const [turnosPdf, setTurnosPdf] = useState<string[]>([]);
     const [seccionesPdf, setSeccionesPdf] = useState<string[]>(['tareas', 'intervenciones']);
-
+    const [agenteFiltro, setAgenteFiltro] = useState<string>(agenteId ? String(agenteId) : '');
     // Usa desdeInput y hastaInput, por eso va dentro del componente
     const urlPdf = () => {
         const p = new URLSearchParams({ desde: desdeInput, hasta: hastaInput });
         turnosPdf.forEach((t) => p.append('turnos[]', t));
         seccionesPdf.forEach((s) => p.append('secciones[]', s));
+        if (agenteFiltro) p.append('agente_id', agenteFiltro);
         return `/reportes/pdf?${p.toString()}`;
     };
 
-    const filtrar = () => {
-        if (!desdeInput || !hastaInput || desdeInput > hastaInput) {
-            return;
-        }
-        router.get('/reportes', { desde: desdeInput, hasta: hastaInput }, { preserveScroll: true, replace: true });
+   const filtrar = () => {
+    if (!desdeInput || !hastaInput || desdeInput > hastaInput) {
+        return;
+    }
+
+    router.get(
+        veTodo ? '/admin/reportes' : '/reportes',
+        { desde: desdeInput, hasta: hastaInput, agente_id: agenteFiltro || undefined },
+        { preserveScroll: true, replace: true },
+    );
     };
 
     return (
@@ -196,7 +205,7 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
             <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
                 <div className="flex items-center gap-2">
                     <FileText className="size-6" />
-                    <h1 className="text-2xl font-bold">{veTodo ? 'Reportes de turno' : 'Mis reportes'}</h1>
+                    <h1 className="text-2xl font-bold">{modo === 'propios' ? 'Mis reportes' : 'Reportes de turno (todos los agentes)'}</h1>
                 </div>
 
                 {/* Filtro de fechas de la pantalla */}
@@ -221,10 +230,25 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
                             className={claseCampo}
                         />
                     </label>
+                    {veTodo && (
+                        <label className="flex flex-col gap-1 text-xs font-medium">
+                            Agente
+                            <select
+                                value={agenteFiltro}
+                                onChange={(e) => setAgenteFiltro(e.target.value)}
+                                className={claseCampo}
+                            >
+                                <option value="">Todos</option>
+                                {agentes.map((a) => (
+                                    <option key={a.id} value={a.id}>{a.nombre}</option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
                     <button
                         type="button"
                         onClick={filtrar}
-                        disabled={desdeInput === desde && hastaInput === hasta}
+                        disabled={desdeInput === desde && hastaInput === hasta && agenteFiltro === (agenteId ? String(agenteId) : '')}
                         className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
                     >
                         Filtrar

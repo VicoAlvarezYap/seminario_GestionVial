@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Plus , Download} from 'lucide-react';
-import { useRef, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import NavbarAgente from '@/components/navbar-agente';
 import {
     Dialog,
@@ -87,6 +87,159 @@ function MensajeError({ mensaje }: { mensaje?: string }) {
 
     return <p className="mt-1 text-xs text-red-600">{mensaje}</p>;
 }
+const LIMITE_OPCIONES = 50;
+
+// Para que "cordoba" encuentre "Córdoba"
+function quitarAcentos(texto: string): string {
+    return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function Combobox({
+    valor,
+    opciones,
+    onChange,
+    onBuscar,
+    disabled,
+    placeholder = 'Escribí para buscar',
+    error,
+}: {
+    valor: string;
+    opciones: string[];
+    onChange: (v: string) => void;
+    onBuscar?: (q: string) => void;
+    disabled?: boolean;
+    placeholder?: string;
+    error?: string;
+}) {
+    const [abierto, setAbierto] = useState(false);
+    const [busqueda, setBusqueda] = useState('');
+    const [resaltado, setResaltado] = useState(0);
+
+    // Si hay onBuscar, la lista la trae la API según lo escrito; si no, se filtra en el front
+    const filtradas = useMemo(() => {
+    if (onBuscar) {
+        return opciones;
+    }
+
+    const q = quitarAcentos(busqueda.trim());
+
+    if (q === '') {
+        return opciones;
+    }
+
+    const coinciden = opciones.filter((o) => quitarAcentos(o).includes(q));
+    const empiezan = coinciden.filter((o) => quitarAcentos(o).startsWith(q));
+    const contienen = coinciden.filter((o) => !quitarAcentos(o).startsWith(q));
+
+    return [...empiezan, ...contienen];
+}, [busqueda, opciones, onBuscar]);
+
+    const visibles = filtradas.slice(0, LIMITE_OPCIONES);
+
+    const abrir = () => {
+        if (disabled) {
+            return;
+        }
+
+        setBusqueda('');
+        setResaltado(0);
+        setAbierto(true);
+        onBuscar?.('');
+    };
+
+    const cerrar = () => {
+        setAbierto(false);
+        setBusqueda('');
+    };
+
+    const elegir = (o: string) => {
+        onChange(o);
+        cerrar();
+    };
+
+    const teclado = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (!abierto) {
+            if (e.key === 'ArrowDown') {
+                abrir();
+            }
+
+            return;
+        }
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setResaltado((r) => Math.min(r + 1, visibles.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setResaltado((r) => Math.max(r - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+
+            if (visibles[resaltado]) {
+                elegir(visibles[resaltado]);
+            }
+        } else if (e.key === 'Escape') {
+            cerrar();
+        }
+    };
+
+    return (
+        <div className="relative">
+            <input
+                type="text"
+                role="combobox"
+                aria-expanded={abierto}
+                autoComplete="off"
+                disabled={disabled}
+                value={abierto ? busqueda : valor}
+                placeholder={abierto ? valor || placeholder : placeholder}
+                onFocus={abrir}
+                onChange={(e) => {
+                    setBusqueda(e.target.value);
+                    setResaltado(0);
+                    setAbierto(true);
+                    onBuscar?.(e.target.value);
+                }}
+                onBlur={() => setTimeout(cerrar, 150)}
+                onKeyDown={teclado}
+                className={claseInput}
+            />
+
+                     {abierto && (
+                        <ul
+                            onMouseDown={(e) => e.preventDefault()}
+                            className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-white text-sm shadow-md dark:bg-zinc-900"
+                        >
+                            {visibles.length === 0 && (
+                                <li className="px-3 py-2 text-muted-foreground">Sin resultados</li>
+                            )}
+
+                            {visibles.map((o, i) => (
+                                <li
+                                    key={o}
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        elegir(o);
+                                    }}
+                                    onMouseEnter={() => setResaltado(i)}
+                                    className={`cursor-pointer px-3 py-2 ${i === resaltado ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
+                                >
+                                    {o}
+                                </li>
+                            ))}
+
+                            {filtradas.length > LIMITE_OPCIONES && (
+                                <li className="px-3 py-2 text-xs text-muted-foreground">
+                                    Mostrando {LIMITE_OPCIONES} de {filtradas.length}. Escribí más letras para acotar.
+                                </li>
+                            )}
+                        </ul>
+                    )}
+
+            <MensajeError mensaje={error} />
+        </div>
+    );
+}
 
 export default function LicenciasIndex({
     licencias,
@@ -160,7 +313,14 @@ export default function LicenciasIndex({
             formulario.post('/licencias', opciones);
         }
     };
+    const [localidadesOpc, setLocalidadesOpc] = useState<string[]>([]);
 
+    const buscarLocalidades = (q: string) => {
+        fetch(`/licencias/localidades?q=${encodeURIComponent(q)}`)
+            .then((r) => r.json())
+            .then((d: string[]) => setLocalidadesOpc(d))
+            .catch(() => setLocalidadesOpc([]));
+    };
     const cancelarLicencia = (l: Licencia) => {
         if (!window.confirm('¿Querés cancelar esta licencia? No se puede deshacer.')) {
             return;
@@ -362,18 +522,14 @@ export default function LicenciasIndex({
                             </div>
                             <div>
                                 <label className={claseEtiqueta}>Localidad</label>
-                                <select
-                                    value={datos.domicilio_localidad}
-                                    onChange={(e) => formulario.setData('domicilio_localidad', e.target.value)}
-                                    className={claseInput}
-                                >
-                                    <option value="">Seleccioná una localidad</option>
-                                    {localidades.map((loc) => (
-                                        <option key={loc} value={loc}>
-                                            {loc}
-                                        </option>
-                                    ))}
-                                </select>
+                                <Combobox
+                                    valor={datos.domicilio_localidad}
+                                    opciones={localidadesOpc}
+                                    onBuscar={buscarLocalidades}
+                                    onChange={(v) => formulario.setData('domicilio_localidad', v)}
+                                    error={errores.domicilio_localidad}
+                                    placeholder="Escribí para buscar"
+                                />
                                 <MensajeError mensaje={errores.domicilio_localidad} />
                             </div>
                         </fieldset>

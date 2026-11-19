@@ -107,6 +107,8 @@ class Relevos extends Model
             'vehiculo_anio' => $this->vehiculo_anio ? (string) $this->vehiculo_anio : '',
             'licencia_vencimiento' => $this->licencia_vencimiento?->format('Y-m-d') ?? '',
             'instrumento_fecha_hora' => $this->instrumento_fecha_hora?->format('Y-m-d\TH:i') ?? '',
+            'conductor_correo' => $this->conductor_correo,
+            'correo_enviado_at' => $this->correo_enviado_at?->format('d/m/Y H:i'),
         ];
     }
 }

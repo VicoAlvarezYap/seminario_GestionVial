@@ -17,7 +17,7 @@ use App\Http\Controllers\Admin\PerfilController;
 use App\Http\Controllers\Admin\LicenciaAdminController;
 use App\Http\Controllers\Admin\RelevoAdminController;
 use App\Http\Controllers\Admin\IntervencionAdminController;
-
+use App\Http\Controllers\EventoExcelController;
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -47,6 +47,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('eventos-operativos', EventoOperativoController::class)->only(['store', 'update', 'destroy']);
         Route::resource('turnos', TurnoTrabajoController::class)->only(['store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
+
+        //reportes 
+        Route::get('/reportes', [ReportesTurnoController::class, 'index'])->name('reportes.index');
     });
 
     /* ---------- Personal: cualquier usuario vinculado a un agente ----------
@@ -72,19 +75,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/{licencia}/cancelar', 'cancelar')->name('cancelar');
         Route::get('/{licencia}/justificante', 'justificante')->name('justificante');
         Route::get('/{licencia}/pdf', 'pdf')->name('pdf');
+        Route::get('/localidades', 'localidades')->name('localidades');
     });
 
     // Relevos
     Route::resource('relevos', RelevoController::class)->except(['create', 'edit', 'show']);
     Route::get('/relevos/{relevo}/pdf', [RelevoController::class, 'pdf'])->name('relevos.pdf');
-
-    // Reportes de turno: el PDF va antes de {reporte} para que "pdf" no se tome como id
-    Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('/pdf', 'pdf')->name('pdf');
-        Route::get('/excel', 'excel')->name('excel');
-        Route::get('/{reporte}', 'show')->name('show')->where('reporte', '[0-9]+');
-    });
+    Route::post('/relevos/{relevo}/enviar', [RelevoController::class, 'enviarCorreo'])->name('relevos.enviar');
+    // Reportes de turno 
+        Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
+            Route::get('/', 'misReportes')->name('index');
+            Route::get('/pdf', 'pdf')->name('pdf');
+            Route::get('/excel', 'excel')->name('excel');
+            Route::get('/{reporte}', 'show')->name('show')->where('reporte', '[0-9]+');
+        });
 
     // Intervenciones
     Route::controller(IntervencionController::class)->prefix('intervenciones')->name('intervenciones.')->group(function () {
@@ -97,6 +101,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::post('lugares', [LugarController::class, 'store'])->name('lugares.store');
+
 });
 
 require __DIR__ . '/settings.php';
