@@ -10,7 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-
+use App\Mail\ActaInfraccionMail;
+use Illuminate\Support\Facades\Mail;
 class RelevoController extends Controller
 {   
     //anexo del decreto 437/11 del acta de infraccion
@@ -108,7 +109,14 @@ class RelevoController extends Controller
 
         return redirect()->route('relevos.index');
     }
+    public function documento(Relevos $relevo)
+{
+    $relevo->load('agente');
 
+    return Pdf::loadView('pdf.relevo', [
+       
+    ])->setPaper('a4');
+}
     public function pdf(Request $request, Relevos $relevo)
     {
         $this->verificarDuenio($request, $relevo);
@@ -231,4 +239,19 @@ class RelevoController extends Controller
             'Solo se pueden modificar actas cargadas hoy.'
         );
     }
+   public function enviarCorreo(Request $request, Relevos $relevo): RedirectResponse
+{
+    $this->verificarDuenio($request, $relevo);
+
+    abort_unless(filled($relevo->conductor_correo), 422, 'El infractor no tiene correo cargado.');
+
+    $pdf = app(RelevoAdminController::class)->documento($relevo)->output();
+
+    Mail::to($relevo->conductor_correo)->send(new ActaInfraccionMail($relevo, $pdf));
+
+    $relevo->update(['correo_enviado_at' => now()]);
+
+    return back()->with('success', 'Acta enviada a '.$relevo->conductor_correo.'.');
+}
+
 }

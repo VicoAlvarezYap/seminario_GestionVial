@@ -17,21 +17,7 @@ class LicenciaController extends Controller
 
     private const PARENTESCOS = ['Cónyuge', 'Hijo', 'Padre', 'Hermano'];
 
-    private const LOCALIDADES = [
-        'Aguaray', 'Angastaco', 'Animaná', 'Apolinario Saravia', 'Cachi',
-        'Cafayate', 'Campo Quijano', 'Campo Santo', 'Cerrillos', 'Chicoana',
-        'Colonia Santa Rosa', 'Coronel Moldes', 'El Carril', 'El Galpón',
-        'El Quebrachal', 'El Tala', 'Embarcación', 'General Güemes',
-        'General Mosconi', 'General Pizarro', 'Guachipas', 'Hipólito Yrigoyen',
-        'Iruya', 'Isla de Cañas', 'Joaquín V. González', 'La Caldera',
-        'La Merced', 'La Poma', 'La Viña', 'Las Lajitas', 'Los Toldos',
-        'Metán', 'Molinos', 'Nazareno', 'Payogasta', 'Pichanal',
-        'Rivadavia Banda Sur', 'Rosario de la Frontera', 'Rosario de Lerma',
-        'Salta', 'Salvador Mazza', 'San Antonio de los Cobres', 'San Carlos',
-        'San Lorenzo', 'San Ramón de la Nueva Orán', 'Santa Victoria Este',
-        'Santa Victoria Oeste', 'Seclantás', 'Tartagal', 'Tolar Grande',
-        'Vaqueros',
-    ];
+
     private const ESTADOS_SIN_PDF = ['cancelada'];
 
     private function pdfDisponible(string $estado): bool{
@@ -81,7 +67,7 @@ class LicenciaController extends Controller
             'agente' => $agente
                 ? ['nombre' => $agente->nombre, 'apellido' => $agente->apellido]
                 : null,
-            'localidades' => self::LOCALIDADES,
+            
             'motivos' => self::MOTIVOS,
             'parentescos' => self::PARENTESCOS,
         ]);
@@ -162,7 +148,7 @@ class LicenciaController extends Controller
         return [
             'domicilio_calle' => ['required', 'string', 'max:120'],
             'domicilio_numero' => ['required', 'string', 'max:10'],
-            'domicilio_localidad' => ['required', Rule::in(self::LOCALIDADES)],
+            'domicilio_localidad' => ['required', 'string', 'max:255'],
             'motivo' => ['required', Rule::in(self::MOTIVOS)],
             'fecha_inicio' => ['required', 'date', "after_or_equal:{$hoy}", "before_or_equal:{$unAnioDespues}"],
             'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio', "before_or_equal:{$unAnioDespues}"],
@@ -222,4 +208,32 @@ class LicenciaController extends Controller
 
     return app(\App\Http\Controllers\Admin\LicenciaAdminController::class)->pdf($licencia);
     }
+    //Georef: api
+    public function localidades(Request $request)
+{
+    $q = trim((string) $request->query('q', ''));
+
+    $localidades = \Illuminate\Support\Facades\Cache::remember('georef-localidades-salta-v2', 86400, function () {
+        $respuesta = \Illuminate\Support\Facades\Http::get('https://apis.datos.gob.ar/georef/api/localidades', [
+            'provincia' => 'salta',
+            'campos' => 'nombre',
+            'max' => 5000,
+        ]);
+
+        return collect($respuesta->json('localidades', []))
+            ->pluck('nombre')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    });
+
+    $filtradas = collect($localidades)
+        ->filter(fn ($n) => $q === '' || mb_stripos($n, $q) !== false)
+        ->take(50)
+        ->values()
+        ->all();
+
+    return response()->json($filtradas);
+}
 }

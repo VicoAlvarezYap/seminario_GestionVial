@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-
+use Illuminate\Database\Eloquent\Relations\HasMany;
 class Intervencion extends Model
 {
     protected $table = 'intervenciones';
@@ -65,4 +65,5 @@ class Intervencion extends Model
     {
         return $query->whereNotNull('tarea_id');
     }
+    
 }

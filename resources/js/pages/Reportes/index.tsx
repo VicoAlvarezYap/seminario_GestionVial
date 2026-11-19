@@ -45,6 +45,9 @@ type Props = {
     desde: string;
     hasta: string;
     veTodo: boolean;
+    modo?: 'propios' | 'todos';
+    agentes?: { id: number; nombre: string }[];
+    agenteId?: number | null;
 };
 
 const NOMBRE_TURNO: Record<string, string> = {
@@ -60,6 +63,25 @@ const NOMBRE_TIPO: Record<string, string> = {
     emergencia: 'Emergencia',
     otro: 'Otro',
 };
+
+// Opciones de los filtros del PDF (a nivel de módulo: no usan estado)
+const TURNOS_OPC: [string, string][] = [
+    ['manana', 'Mañana'],
+    ['tarde', 'Tarde'],
+    ['noche', 'Noche'],
+    ['especial', 'Especial'],
+];
+
+const SECCIONES_OPC: [string, string][] = [
+    ['horario', 'Horario'],
+    ['tareas', 'Tareas'],
+    ['intervenciones', 'Intervenciones'],
+    ['recursos', 'Recursos'],
+    ['novedades', 'Novedades'],
+];
+
+const alternar = (lista: string[], valor: string, set: (v: string[]) => void) =>
+    set(lista.includes(valor) ? lista.filter((x) => x !== valor) : [...lista, valor]);
 
 const hora = (iso: string | null) =>
     iso ? new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
@@ -145,16 +167,34 @@ function Detalle({ r }: { r: Reporte }) {
     );
 }
 
-export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props) {
+export default function ReportesIndex({ reportes, desde, hasta, veTodo, modo = 'todos', agentes = [], agenteId = null }: Props) {
     const [abierto, setAbierto] = useState<number | null>(null);
     const [desdeInput, setDesdeInput] = useState(desde);
     const [hastaInput, setHastaInput] = useState(hasta);
 
-    const filtrar = () => {
-        if (!desdeInput || !hastaInput || desdeInput > hastaInput) {
-            return;
-        }
-        router.get('/reportes', { desde: desdeInput, hasta: hastaInput }, { preserveScroll: true, replace: true });
+    // Filtros del PDF: estado dentro del componente
+    const [turnosPdf, setTurnosPdf] = useState<string[]>([]);
+    const [seccionesPdf, setSeccionesPdf] = useState<string[]>(['tareas', 'intervenciones']);
+    const [agenteFiltro, setAgenteFiltro] = useState<string>(agenteId ? String(agenteId) : '');
+    // Usa desdeInput y hastaInput, por eso va dentro del componente
+    const urlPdf = () => {
+        const p = new URLSearchParams({ desde: desdeInput, hasta: hastaInput });
+        turnosPdf.forEach((t) => p.append('turnos[]', t));
+        seccionesPdf.forEach((s) => p.append('secciones[]', s));
+        if (agenteFiltro) p.append('agente_id', agenteFiltro);
+        return `/reportes/pdf?${p.toString()}`;
+    };
+
+   const filtrar = () => {
+    if (!desdeInput || !hastaInput || desdeInput > hastaInput) {
+        return;
+    }
+
+    router.get(
+        veTodo ? '/admin/reportes' : '/reportes',
+        { desde: desdeInput, hasta: hastaInput, agente_id: agenteFiltro || undefined },
+        { preserveScroll: true, replace: true },
+    );
     };
 
     return (
@@ -165,9 +205,10 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
             <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
                 <div className="flex items-center gap-2">
                     <FileText className="size-6" />
-                    <h1 className="text-2xl font-bold">{veTodo ? 'Reportes de turno' : 'Mis reportes'}</h1>
+                    <h1 className="text-2xl font-bold">{modo === 'propios' ? 'Mis reportes' : 'Reportes de turno (todos los agentes)'}</h1>
                 </div>
 
+                {/* Filtro de fechas de la pantalla */}
                 <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
                     <label className="flex flex-col gap-1 text-xs font-medium">
                         Desde
@@ -189,10 +230,25 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
                             className={claseCampo}
                         />
                     </label>
+                    {veTodo && (
+                        <label className="flex flex-col gap-1 text-xs font-medium">
+                            Agente
+                            <select
+                                value={agenteFiltro}
+                                onChange={(e) => setAgenteFiltro(e.target.value)}
+                                className={claseCampo}
+                            >
+                                <option value="">Todos</option>
+                                {agentes.map((a) => (
+                                    <option key={a.id} value={a.id}>{a.nombre}</option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
                     <button
                         type="button"
                         onClick={filtrar}
-                        disabled={desdeInput === desde && hastaInput === hasta}
+                        disabled={desdeInput === desde && hastaInput === hasta && agenteFiltro === (agenteId ? String(agenteId) : '')}
                         className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
                     >
                         Filtrar
@@ -200,6 +256,52 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
                     <span className="text-muted-foreground ml-auto text-sm">
                         {reportes.length} {reportes.length === 1 ? 'reporte' : 'reportes'}
                     </span>
+                </div>
+
+                {/* Bloque nuevo: descarga del PDF con filtros */}
+                <div className="space-y-3 rounded-lg border p-3">
+                    <h2 className="text-sm font-semibold">Descargar PDF</h2>
+
+                    <fieldset className="space-y-2 text-sm">
+                        <legend className="text-xs font-medium">Turnos a incluir (sin selección = todos)</legend>
+                        <div className="flex flex-wrap gap-4">
+                            {TURNOS_OPC.map(([valor, etiqueta]) => (
+                                <label key={valor} className="flex items-center gap-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={turnosPdf.includes(valor)}
+                                        onChange={() => alternar(turnosPdf, valor, setTurnosPdf)}
+                                    />
+                                    {etiqueta}
+                                </label>
+                            ))}
+                        </div>
+                    </fieldset>
+
+                    <fieldset className="space-y-2 text-sm">
+                        <legend className="text-xs font-medium">Secciones a incluir</legend>
+                        <div className="flex flex-wrap gap-4">
+                            {SECCIONES_OPC.map(([valor, etiqueta]) => (
+                                <label key={valor} className="flex items-center gap-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={seccionesPdf.includes(valor)}
+                                        onChange={() => alternar(seccionesPdf, valor, setSeccionesPdf)}
+                                    />
+                                    {etiqueta}
+                                </label>
+                            ))}
+                        </div>
+                    </fieldset>
+
+                    <a
+                        href={urlPdf()}
+                        className={`inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                            seccionesPdf.length === 0 ? 'pointer-events-none opacity-50' : ''
+                        }`}
+                    >
+                        Descargar PDF
+                    </a>
                 </div>
 
                 {reportes.length === 0 ? (
@@ -227,7 +329,11 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo }: Props)
                                                     ` · ${r.intervenciones.length} ${r.intervenciones.length === 1 ? 'intervención' : 'intervenciones'}`}
                                             </div>
                                         </div>
-                                        {expandido ? <ChevronUp className="size-5 shrink-0" /> : <ChevronDown className="size-5 shrink-0" />}
+                                        {expandido ? (
+                                            <ChevronUp className="size-5 shrink-0" />
+                                        ) : (
+                                            <ChevronDown className="size-5 shrink-0" />
+                                        )}
                                     </button>
 
                                     {expandido && <Detalle r={r} />}

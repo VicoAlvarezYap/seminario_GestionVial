@@ -16,7 +16,7 @@ use App\Http\Controllers\Admin\PerfilController;
 use App\Http\Controllers\Admin\LicenciaAdminController;
 use App\Http\Controllers\Admin\RelevoAdminController;
 use App\Http\Controllers\Admin\IntervencionAdminController;
-
+use App\Http\Controllers\EventoExcelController;
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -37,8 +37,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf');
         Route::patch('/licencias/{licencia}/resolver', [LicenciaAdminController::class, 'resolver'])->name('licencias.resolver');
         Route::get('/licencias/{licencia}/justificante', [LicenciaAdminController::class, 'justificante'])->name('licencias.justificante');
+        Route::get('/licencias/{licencia}/justificante/descargar', [LicenciaAdminController::class, 'descargarJustificante'])->name('licencias.justificante.descargar');
 
-        // Relevos e intervenciones (vista admin)
+        // Relevos e intervenciones
         Route::get('/relevos', [RelevoAdminController::class, 'index'])->name('relevos.index');
         Route::get('/relevos/{relevo}/pdf', [RelevoAdminController::class, 'pdf'])->name('relevos.pdf');
         Route::get('/intervenciones', [IntervencionAdminController::class, 'index'])->name('intervenciones.index');
@@ -47,6 +48,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('eventos-operativos', EventoOperativoController::class)->only(['store', 'update', 'destroy']);
         Route::resource('turnos', TurnoTrabajoController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
+
+        //reportes 
+        Route::get('/reportes', [ReportesTurnoController::class, 'index'])->name('reportes.index');
     });
 
     // Perfil y contactos de emergencia
@@ -66,30 +70,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/{licencia}/cancelar', 'cancelar')->name('cancelar');
         Route::get('/{licencia}/justificante', 'justificante')->name('justificante');
         Route::get('/{licencia}/pdf', 'pdf')->name('pdf');
+        Route::get('/localidades', 'localidades')->name('localidades');
     });
 
     // Relevos
     Route::resource('relevos', RelevoController::class)->except(['create', 'edit', 'show']);
     Route::get('/relevos/{relevo}/pdf', [RelevoController::class, 'pdf'])->name('relevos.pdf');
+    Route::post('/relevos/{relevo}/enviar', [RelevoController::class, 'enviarCorreo'])->name('relevos.enviar');
+    // Reportes de turno 
+        Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
+            Route::get('/', 'misReportes')->name('index');
+            Route::get('/pdf', 'pdf')->name('pdf');
+            Route::get('/excel', 'excel')->name('excel');
+            Route::get('/{reporte}', 'show')->name('show')->where('reporte', '[0-9]+');
+        });
 
-    // Reportes de turno
-    Route::controller(ReportesTurnoController::class)->prefix('reportes')->name('reportes.')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('/{reporte}', 'show')->name('show');
-    });
-
-    // Intervenciones (emergencias)
+    // Intervenciones
     Route::controller(IntervencionController::class)->prefix('intervenciones')->name('intervenciones.')->group(function () {
         Route::get('/', 'index')->name('index');
-        Route::post('/', 'store')->name('store');
+        Route::post('/registrar', 'registrar')->name('registrar');
         Route::put('/{intervencion}', 'update')->name('update');
         Route::patch('/{intervencion}/cancelar', 'cancelar')->name('cancelar');
-        // Descomentá cuando existan en el controlador:
         Route::get('/{intervencion}/pdf', 'pdf')->name('pdf');
         Route::patch('/{intervencion}/informar', 'informar')->name('informar');
     });
 
     Route::post('lugares', [LugarController::class, 'store'])->name('lugares.store');
+
 });
 
 require __DIR__ . '/settings.php';

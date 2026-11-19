@@ -8,6 +8,7 @@ import {
     LayoutGrid,
     LogOut,
     Menu,
+    Settings,
     UserRound,
     Users,
     CalendarDays,
@@ -23,23 +24,21 @@ type PropsAuth = { auth?: { roles?: string[]; tieneAgente?: boolean } };
 // Lo personal: cualquiera con legajo (agentes, supervisores y el director)
 const enlacesPersonales: Enlace[] = [
     { titulo: 'Inicio', href: '/pagina_principal', icono: LayoutGrid },
+    { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound },
     { titulo: 'Mis reportes', href: '/reportes', icono: ClipboardCheck },
     { titulo: 'Intervenciones', href: '/intervenciones', icono: AlertTriangle },
     { titulo: 'Infracciones', href: '/relevos', icono: ClipboardList },
     { titulo: 'Licencias', href: '/licencias', icono: FileText },
-    { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound },
+    
     { titulo: 'Historial de turnos', href: '/mi-historial-turnos', icono: CalendarDays },
 ];
 
 // Solo el rol Administrador
 const enlacesAdmin: Enlace[] = [
     { titulo: 'Agentes', href: '/admin/perfiles', icono: Users },
-    { titulo: 'Gestión de Licencias', href: '/admin/licencias', icono: FileText },
-    { titulo: 'Gestión de Turnos', href: '/admin/turnos', icono: FileText },
-    { titulo: 'Gestión de Infracciones', href: '/admin/relevos', icono: ClipboardList },
-    { titulo: 'Ver Turnos', href: '/admin/turnos/listado', icono: CalendarDays },
-    { titulo: 'Historial de Turnos', href: '/admin/turnos/historial', icono: CalendarDays },
-    { titulo: 'Gestión de Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
+    { titulo: 'Gestión de licencias', href: '/admin/licencias', icono: FileText },
+    { titulo: 'Gestión de infracciones', href: '/admin/relevos', icono: ClipboardList },
+    { titulo: 'Gestión de intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
 ];
 
 export default function NavbarAgente() {
@@ -125,6 +124,15 @@ export default function NavbarAgente() {
                             {administracion.map(renderEnlace)}
                         </>
                     )}
+
+                    <Link
+                        href="/settings/profile"
+                        onClick={() => setAbierto(false)}
+                        className="hover:bg-muted flex items-center gap-2 rounded-md px-3 py-2"
+                    >
+                        <Settings className="size-4" />
+                        Configuración
+                    </Link>
 
                     <button
                         type="button"

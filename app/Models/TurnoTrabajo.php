@@ -225,4 +225,17 @@ class TurnoTrabajo extends Model
                     ->orWhereHas('tarea', fn ($t) => $t->where('turno_trabajo_id', $this->id));
             });
     }
+    public function intervencionesDelTurno()
+{
+    if (! $this->inicio_real || ! $this->fin_real) {
+        return Intervencion::query()->whereRaw('1 = 0');
+    }
+
+    return Intervencion::query()
+        ->whereBetween('fecha_hora', [$this->inicio_real, $this->fin_real])
+        ->where(function ($q) {
+            $q->where('agente_reporta_id', $this->agente_id)
+                ->orWhereHas('agentes', fn ($a) => $a->where('agentes.id', $this->agente_id));
+        });
+}
 }
