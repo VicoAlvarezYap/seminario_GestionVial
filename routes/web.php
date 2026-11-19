@@ -30,8 +30,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/agentes', [AgenteController::class, 'store'])->name('agentes.store');
         Route::get('turnos/listado', [TurnoTrabajoController::class, 'listado'])->name('turnos.listado');
         Route::get('turnos/listado/pdf', [TurnoTrabajoController::class, 'listadoPdf']);
+        Route::get('/turnos/listado/excel', [TurnoTrabajoController::class, 'listadoExcel'])->name('turnos.listado.excel');
         Route::get('turnos/historial', [TurnoTrabajoController::class, 'historial']);
         Route::post('turnos/jornada', [TurnoTrabajoController::class, 'storeJornada']);
+        Route::get('/turnos/tareas', [TurnoTrabajoController::class, 'asignarTareasForm'])->name('turnos.tareas');
+        Route::post('/turnos/tareas', [TurnoTrabajoController::class, 'storeTareas'])->name('turnos.tareas.store');
         // Licencias
         Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');
         Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf');

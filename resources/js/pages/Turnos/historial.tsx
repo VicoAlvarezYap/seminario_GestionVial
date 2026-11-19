@@ -105,7 +105,7 @@ export default function Historial({ turnos, horariosConfig, filtros, agentes, pa
                             />
                         </div>
                         <div className="flex min-w-40 flex-1 flex-col gap-1">
-                            <label htmlFor="h-agente" className={label}>Agente</label>
+                
                             {esAdmin && (
                                 <div className="flex min-w-40 flex-1 flex-col gap-1">
                                     <label htmlFor="h-agente" className={label}>Agente</label>

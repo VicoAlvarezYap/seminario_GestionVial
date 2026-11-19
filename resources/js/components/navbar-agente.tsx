@@ -28,8 +28,7 @@ const enlacesPersonales: Enlace[] = [
     { titulo: 'Mis reportes', href: '/reportes', icono: ClipboardCheck },
     { titulo: 'Intervenciones', href: '/intervenciones', icono: AlertTriangle },
     { titulo: 'Infracciones', href: '/relevos', icono: ClipboardList },
-    { titulo: 'Licencias', href: '/licencias', icono: FileText },
-    
+    { titulo: 'Licencias', href: '/licencias', icono: FileText }, 
     { titulo: 'Historial de turnos', href: '/mi-historial-turnos', icono: CalendarDays },
 ];
 
@@ -39,6 +38,10 @@ const enlacesAdmin: Enlace[] = [
     { titulo: 'Gestión de licencias', href: '/admin/licencias', icono: FileText },
     { titulo: 'Gestión de infracciones', href: '/admin/relevos', icono: ClipboardList },
     { titulo: 'Gestión de intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
+    { titulo: 'Ver Turnos', href: '/admin/turnos/listado', icono: CalendarDays },
+    { titulo: 'Gestión de Turnos', href: '/admin/turnos', icono: FileText },
+    { titulo: 'Historial de Turnos', href: '/admin/turnos/historial', icono: CalendarDays },
+    { titulo: 'Historial de reportes de turno', href: '/admin/reportes', icono: ClipboardCheck },
 ];
 
 export default function NavbarAgente() {
