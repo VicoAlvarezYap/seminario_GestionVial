@@ -18,6 +18,13 @@ return new class extends Migration
             $table->enum('estado', ['pendiente', 'aprobada', 'rechazada', 'cancelada', 'finalizada'])
                 ->default('pendiente');
             $table->text('observaciones')->nullable();
+             $table->string('domicilio_calle', 120)->nullable();
+            $table->string('domicilio_numero', 10)->nullable();
+            $table->string('domicilio_localidad')->nullable();
+            $table->string('dj_a_cargo', 150)->nullable();
+            $table->string('dj_parentesco')->nullable();
+            $table->boolean('dj_conformidad')->default(false);
+            $table->string('justificante_path')->nullable();
 
             $table->index(['fecha_inicio', 'fecha_fin']);
         });

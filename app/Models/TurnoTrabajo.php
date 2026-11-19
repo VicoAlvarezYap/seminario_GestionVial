@@ -211,20 +211,6 @@ class TurnoTrabajo extends Model
     {
         return $this->hora_fin_prog ?? config("turnos.horarios.{$this->turno}.1", '23:59');
     }
-    public function intervencionesDelTurno(): Builder
-    {
-        $desde = $this->inicio_real ?? $this->inicioProgramado();
-        $hasta = $this->fin_real ?? $this->finProgramado();
-
-        return Intervencion::query()
-            ->where('estado_resolucion', '!=', 'cancelada')
-            ->where(function (Builder $q) use ($desde, $hasta) {
-                $q->where(fn (Builder $q) => $q
-                        ->whereHas('agentes', fn ($a) => $a->where('agentes.id', $this->agente_id))
-                        ->whereBetween('fecha_hora', [$desde, $hasta]))
-                    ->orWhereHas('tarea', fn ($t) => $t->where('turno_trabajo_id', $this->id));
-            });
-    }
     public function intervencionesDelTurno()
 {
     if (! $this->inicio_real || ! $this->fin_real) {

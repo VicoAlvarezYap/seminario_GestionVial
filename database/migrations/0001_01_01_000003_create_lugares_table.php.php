@@ -17,6 +17,7 @@ return new class extends Migration
             $table->decimal('latitud', 10, 8)->nullable();
             $table->decimal('longitud', 11, 8)->nullable();
             $table->boolean('activo')->default(true);
+            $table->unsignedSmallInteger('radio_m')->default(150)->after('longitud');
             $table->timestamps();
         });
     }

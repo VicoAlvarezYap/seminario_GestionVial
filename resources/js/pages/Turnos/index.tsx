@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Search, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, Check, Clock, CornerUpLeft, Search, Users } from 'lucide-react';
 
 type AgenteOpcion = { id: number; nombre: string; apellido: string };
 type TurnoDelDia = { agente_id: number; turno: string };
@@ -14,6 +14,7 @@ type Props = {
     horariosConfig: Record<string, [string, string]>;
     especialConfig: { min_horas: number; max_horas: number };
     turnosDelDia: TurnoDelDia[];
+    urlInicio?: string; // ej: '/admin' o '/dashboard'
 };
 
 const SECUENCIA: Turno[] = ['manana', 'tarde', 'noche'];
@@ -32,6 +33,7 @@ export default function TurnosIndex({
     horariosConfig,
     especialConfig,
     turnosDelDia,
+    urlInicio = '/pagina_principal',
 }: Props) {
     const [paso, setPaso] = useState(0); // 0 fecha, 1 jornada, 2 agentes (el 3 es la página de tareas)
     const [fecha, setFecha] = useState(fechaInicial);
@@ -49,8 +51,8 @@ export default function TurnosIndex({
     const bloques: Turno[] = esNormal ? SECUENCIA : ['especial'];
     const esUltimoBloque = turno === bloques[bloques.length - 1];
     const agentesDelBloque = seleccion[turno];
+    const jornadaCompleta = bloques.some((t) => seleccion[t].length > 0);
     const bloqueCompleto = agentesDelBloque.length > 0;
-    const jornadaCompleta = bloques.every((t) => seleccion[t].length > 0);
 
     const ocupados = useMemo(() => new Set(turnosDelDia.map((t) => t.agente_id)), [turnosDelDia]);
 
@@ -60,11 +62,9 @@ export default function TurnosIndex({
         return agentesDisponibles.filter((a) => `${a.apellido} ${a.nombre}`.toLowerCase().includes(q));
     }, [agentesDisponibles, busqueda]);
 
-    // Un agente solo puede estar en un bloque por día
     const bloqueDeAgente = (id: number): Turno | null =>
         bloques.find((t) => t !== turno && seleccion[t].includes(id)) ?? null;
 
-    // ---------- helpers ----------
     const reiniciar = (msg = '') => {
         setPaso(0);
         setTurno('manana');
@@ -74,16 +74,33 @@ export default function TurnosIndex({
         setMensaje(msg);
     };
 
+    // Cancelar lleva al inicio de la aplicación
+    const irAlInicio = () => {
+        if (urlInicio) {
+            router.visit(urlInicio);
+        } else {
+            reiniciar();
+        }
+    };
+
+    // Volver a la última página que visitó el usuario antes de esta vista
+    const volverUltimaPagina = () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            irAlInicio();
+        }
+    };
+
     const cambiarJornada = (valor: Jornada) => {
         setTipoJornada(valor);
         setSeleccion(VACIA);
         setErrores({});
     };
 
-    // ---------- navegación (nada se guarda hasta el último paso) ----------
     const irAJornada = () => {
         setMensaje('');
-        setSeleccion(VACIA); // los agentes ocupados cambian con la fecha
+        setSeleccion(VACIA);
         router.get(
             '/admin/turnos',
             { fecha },
@@ -107,7 +124,7 @@ export default function TurnosIndex({
         e.preventDefault();
         if (paso === 0 && fecha) irAJornada();
         else if (paso === 1) irAAgentes();
-        else if (paso === 2 && !esUltimoBloque && bloqueCompleto) {
+        else if (paso === 2 && !esUltimoBloque) {
             setTurno(SECUENCIA[SECUENCIA.indexOf(turno) + 1]);
             setBusqueda('');
             setErrores({});
@@ -124,18 +141,19 @@ export default function TurnosIndex({
         setPaso((p) => Math.max(0, p - 1));
     };
 
-    // ---------- guardar todo junto ----------
     const guardar = (irATareas: boolean) => {
         router.post(
             '/admin/turnos/jornada',
             {
                 fecha,
                 ir_a_tareas: irATareas,
-                bloques: bloques.map((t) => ({
-                    turno: t,
-                    agente_ids: seleccion[t],
-                    ...(!esNormal && { hora_inicio_prog: horaInicio, hora_fin_prog: horaFin }),
-                })),
+                bloques: bloques
+                    .filter((t) => seleccion[t].length > 0)
+                    .map((t) => ({
+                        turno: t,
+                        agente_ids: seleccion[t],
+                        ...(!esNormal && { hora_inicio_prog: horaInicio, hora_fin_prog: horaFin }),
+                    })),
             },
             {
                 preserveScroll: true,
@@ -145,7 +163,6 @@ export default function TurnosIndex({
                 },
                 onError: (errs) => setErrores(errs as Record<string, string>),
                 onSuccess: () => {
-                    // Si va a tareas, el servidor redirige a la otra página
                     if (!irATareas) {
                         reiniciar(esNormal ? 'Jornada guardada correctamente.' : 'Turno especial guardado correctamente.');
                     }
@@ -161,7 +178,7 @@ export default function TurnosIndex({
             [turno]: marcado ? [...prev[turno], id] : prev[turno].filter((x) => x !== id),
         }));
 
-    const siguienteDeshabilitado = procesando || (paso === 0 && !fecha) || (paso === 2 && !bloqueCompleto);
+    const siguienteDeshabilitado = procesando || (paso === 0 && !fecha);
     const guardarDeshabilitado =
         procesando || !jornadaCompleta || (!esNormal && (!horaInicio || !horaFin));
 
@@ -174,26 +191,16 @@ export default function TurnosIndex({
             )}
 
             <form onSubmit={siguiente} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-                {/* ENCABEZADO */}
+                {/* ENCABEZADO: sin X, solo título y pasos con números más grandes */}
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b px-6 py-5">
-                    <div className="flex items-center gap-4">
-                        <button
-                            type="button"
-                            onClick={() => reiniciar()}
-                            aria-label="Cancelar y volver al inicio"
-                            className="flex size-10 items-center justify-center rounded-lg border hover:bg-accent"
-                        >
-                            <X className="size-4" />
-                        </button>
-                        <div>
-                            <h1 className="text-lg font-semibold leading-tight">Asignación de turnos</h1>
-                            <p className="text-xs text-muted-foreground">
-                                {paso === 0 ? 'Elegí el día de la jornada' : `Jornada del ${fecha}`}
-                            </p>
-                        </div>
+                    <div>
+                        <h1 className="text-xl font-semibold leading-tight">Asignación de turnos</h1>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                            {paso === 0 ? 'Elegí el día de la jornada' : `Jornada del ${fecha}`}
+                        </p>
                     </div>
 
-                    <ol className="flex flex-wrap gap-2">
+                    <ol className="flex flex-wrap items-center gap-2.5">
                         {PASOS.map((nombre, i) => {
                             const activo = i === paso;
                             const hecho = i < paso;
@@ -201,22 +208,20 @@ export default function TurnosIndex({
                                 <li
                                     key={nombre}
                                     aria-current={activo ? 'step' : undefined}
-                                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                                        activo
-                                            ? 'border-primary bg-primary/10 text-primary'
-                                            : 'text-muted-foreground'
-                                    }`}
+                                    className={`flex items-center gap-2.5 rounded-full border px-3.5 py-1.5 text-xs font-medium ${activo
+                                        ? 'border-primary bg-primary/10 text-primary'
+                                        : 'text-muted-foreground'
+                                        }`}
                                 >
                                     <span
-                                        className={`flex size-5 items-center justify-center rounded-full text-[10px] ${
-                                            activo || hecho
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-muted text-muted-foreground'
-                                        }`}
+                                        className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold ${activo || hecho
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'bg-muted text-muted-foreground'
+                                            }`}
                                     >
-                                        {hecho ? <Check className="size-3" /> : i + 1}
+                                        {hecho ? <Check className="size-3.5" /> : i + 1}
                                     </span>
-                                    {nombre}
+                                    <span>{nombre}</span>
                                 </li>
                             );
                         })}
@@ -274,9 +279,8 @@ export default function TurnosIndex({
                                 return (
                                     <label
                                         key={valor}
-                                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 ${
-                                            sel ? 'border-primary bg-primary/10' : 'hover:bg-accent'
-                                        }`}
+                                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 ${sel ? 'border-primary bg-primary/10' : 'hover:bg-accent'
+                                            }`}
                                     >
                                         <input
                                             type="radio"
@@ -322,13 +326,12 @@ export default function TurnosIndex({
                                         {SECUENCIA.map((t) => (
                                             <li
                                                 key={t}
-                                                className={`rounded-md border px-2.5 py-1 ${
-                                                    t === turno
-                                                        ? 'border-primary bg-primary/10 text-primary'
-                                                        : seleccion[t].length > 0
-                                                          ? 'text-foreground'
-                                                          : 'text-muted-foreground'
-                                                }`}
+                                                className={`rounded-md border px-2.5 py-1 ${t === turno
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : seleccion[t].length > 0
+                                                        ? 'text-foreground'
+                                                        : 'text-muted-foreground'
+                                                    }`}
                                             >
                                                 {NOMBRES[t]} ({seleccion[t].length})
                                             </li>
@@ -368,7 +371,7 @@ export default function TurnosIndex({
                                     <span className="text-xs text-muted-foreground">
                                         {agentesDelBloque.length}{' '}
                                         {agentesDelBloque.length === 1 ? 'seleccionado' : 'seleccionados'}
-                                        {!bloqueCompleto && ' (elegí al menos uno)'}
+                                        {!bloqueCompleto && ' (turno sin agentes)'}
                                     </span>
                                 </div>
                                 <div className="relative">
@@ -391,13 +394,12 @@ export default function TurnosIndex({
                                         return (
                                             <label
                                                 key={agente.id}
-                                                className={`flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm ${
-                                                    deshabilitado
-                                                        ? 'cursor-not-allowed bg-muted opacity-50'
-                                                        : marcado
-                                                          ? 'cursor-pointer border-primary bg-primary/10'
-                                                          : 'cursor-pointer hover:bg-accent'
-                                                }`}
+                                                className={`flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm ${deshabilitado
+                                                    ? 'cursor-not-allowed bg-muted opacity-50'
+                                                    : marcado
+                                                        ? 'cursor-pointer border-primary bg-primary/10'
+                                                        : 'cursor-pointer hover:bg-accent'
+                                                    }`}
                                             >
                                                 <input
                                                     type="checkbox"
@@ -431,13 +433,22 @@ export default function TurnosIndex({
 
                 {/* PIE */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-6 py-4">
-                    <button
-                        type="button"
-                        onClick={() => reiniciar()}
-                        className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent"
-                    >
-                        Cancelar
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <button
+                            type="button"
+                            onClick={irAlInicio}
+                            className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={volverUltimaPagina}
+                            className="flex items-center gap-1.5 rounded-lg border bg-background px-3.5 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                            <CornerUpLeft className="size-4" /> Volver
+                        </button>
+                    </div>
 
                     <div className="flex flex-wrap items-center gap-3">
                         {paso > 0 && (

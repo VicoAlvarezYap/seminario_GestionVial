@@ -64,7 +64,7 @@ const NOMBRE_TIPO: Record<string, string> = {
     otro: 'Otro',
 };
 
-// Opciones de los filtros del PDF (a nivel de módulo: no usan estado)
+
 const TURNOS_OPC: [string, string][] = [
     ['manana', 'Mañana'],
     ['tarde', 'Tarde'],
@@ -172,7 +172,7 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo, modo = '
     const [desdeInput, setDesdeInput] = useState(desde);
     const [hastaInput, setHastaInput] = useState(hasta);
 
-    // Filtros del PDF: estado dentro del componente
+  
     const [turnosPdf, setTurnosPdf] = useState<string[]>([]);
     const [seccionesPdf, setSeccionesPdf] = useState<string[]>(['tareas', 'intervenciones']);
     const [agenteFiltro, setAgenteFiltro] = useState<string>(agenteId ? String(agenteId) : '');
