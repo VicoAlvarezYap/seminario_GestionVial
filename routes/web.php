@@ -29,7 +29,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/perfiles/{agente}', [AgenteController::class, 'show'])->name('perfiles.show');
         Route::post('/agentes', [AgenteController::class, 'store'])->name('agentes.store');
         Route::get('turnos/listado', [TurnoTrabajoController::class, 'listado'])->name('turnos.listado');
-        Route::get('/admin/turnos/listado/pdf', [TurnoTrabajoController::class, 'listadoPdf']);
+        Route::get('turnos/listado/pdf', [TurnoTrabajoController::class, 'listadoPdf']);
+        Route::get('turnos/historial', [TurnoTrabajoController::class, 'historial']);
         Route::post('turnos/jornada', [TurnoTrabajoController::class, 'storeJornada']);
         // Licencias
         Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');
@@ -42,8 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/relevos/{relevo}/pdf', [RelevoAdminController::class, 'pdf'])->name('relevos.pdf');
         Route::get('/intervenciones', [IntervencionAdminController::class, 'index'])->name('intervenciones.index');
         Route::get('/intervenciones/{intervencion}/pdf', [IntervencionAdminController::class, 'pdf'])->name('intervenciones.pdf');
-
-
+        
         Route::resource('eventos-operativos', EventoOperativoController::class)->only(['store', 'update', 'destroy']);
         Route::resource('turnos', TurnoTrabajoController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
@@ -54,6 +54,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/mi-perfil/contactos', [ContactoEmergenciaController::class, 'store'])->name('contactos.store');
     Route::put('/mi-perfil/contactos/{contacto}', [ContactoEmergenciaController::class, 'update'])->name('contactos.update');
     Route::delete('/mi-perfil/contactos/{contacto}', [ContactoEmergenciaController::class, 'destroy'])->name('contactos.destroy');
+    
+    //Historial de turno
+    Route::get('/mi-historial-turnos', [TurnoTrabajoController::class, 'miHistorial']);
 
     // Licencias
     Route::controller(LicenciaController::class)->prefix('licencias')->name('licencias.')->group(function () {

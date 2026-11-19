@@ -2,24 +2,23 @@ import { Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { CalendarDays, ChevronDown, ChevronRight, FileDown, Pencil } from 'lucide-react';
 import NavbarAgente from '@/components/navbar-agente';
+import {
+    ESTADOS,
+    NOMBRES,
+    ORDEN,
+    Paginador,
+    fechaLarga,
+    horarioDe,
+    porApellido,
+    type Horarios,
+    type Paginacion,
+    type TurnoRow,
+} from '@/components/turnos-compartidos';
 
 type Turno = 'manana' | 'tarde' | 'noche' | 'especial';
 
-type TurnoRow = {
-    id: number;
-    fecha: string; // YYYY-MM-DD
-    turno: Turno;
-    hora_inicio_prog: string | null;
-    hora_fin_prog: string | null;
-    estado: string;
-    agente: { id: number; nombre: string; apellido: string };
-};
-
-type Horarios = Record<string, [string, string]>;
-
 type Filtros = { desde: string; hasta: string; agente: number | null };
 type AgenteOpcion = { id: number; nombre: string; apellido: string };
-type Paginacion = { actual: number; ultima: number; total: number };
 
 type Props = {
     hoy: string;
@@ -32,51 +31,7 @@ type Props = {
     paginacion: Paginacion;
 };
 
-const ORDEN: Turno[] = ['manana', 'tarde', 'noche', 'especial'];
-const NOMBRES: Record<Turno, string> = {
-    manana: 'Mañana',
-    tarde: 'Tarde',
-    noche: 'Noche',
-    especial: 'Especial',
-};
-const ESTADOS: Record<string, { texto: string; clase: string }> = {
-    programado: { texto: 'Programado', clase: 'bg-muted text-muted-foreground' },
-    en_proceso: {
-        texto: 'En proceso',
-        clase: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-    },
-    cumplido: {
-        texto: 'Cumplido',
-        clase: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    },
-    ausente: { texto: 'Ausente', clase: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
-    abandonado: {
-        texto: 'Abandonado',
-        clase: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-    },
-    reasignado: {
-        texto: 'Reasignado',
-        clase: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-    },
-    cancelado: { texto: 'Cancelado', clase: 'bg-muted text-muted-foreground line-through' },
-};
-
 const hhmm = (s: string | null | undefined) => (s ? s.slice(0, 5) : '');
-
-// Los turnos normales guardan las horas en null: se toman de la configuración
-const horarioDe = (t: TurnoRow, cfg: Horarios) => {
-    const ini = hhmm(t.hora_inicio_prog) || hhmm(cfg[t.turno]?.[0]);
-    const fin = hhmm(t.hora_fin_prog) || hhmm(cfg[t.turno]?.[1]);
-    return ini && fin ? `${ini} a ${fin}` : '';
-};
-
-// Se arma la fecha con año, mes y día para evitar el desfase de zona horaria
-const fechaLarga = (iso: string) => {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
-};
-
-const porApellido = (a: TurnoRow, b: TurnoRow) => a.agente.apellido.localeCompare(b.agente.apellido, 'es');
 
 function TurnoActual({ hoy, turnos, horarios }: { hoy: string; turnos: TurnoRow[]; horarios: Horarios }) {
     const bloques = ORDEN.map((t) => ({
@@ -243,56 +198,6 @@ type ProximosProps = {
     paginacion: Paginacion;
 };
 
-
-
-function Paginador({ actual, ultima, onIr }: { actual: number; ultima: number; onIr: (p: number) => void }) {
-    if (ultima <= 1) return null;
-
-    const paginas = Array.from({ length: ultima }, (_, i) => i + 1).filter(
-        (p) => p === 1 || p === ultima || Math.abs(p - actual) <= 2,
-    );
-
-    const base = 'rounded-lg border px-3 py-1.5 text-sm font-medium';
-
-    return (
-        <nav aria-label="Paginación" className="flex flex-wrap items-center justify-center gap-2 pt-2">
-            <button
-                type="button"
-                disabled={actual === 1}
-                onClick={() => onIr(actual - 1)}
-                className={`${base} bg-background hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-                Anterior
-            </button>
-
-            {paginas.map((p, i) => (
-                <span key={p} className="flex items-center gap-2">
-                    {i > 0 && p - paginas[i - 1] > 1 && <span className="text-muted-foreground">…</span>}
-                    <button
-                        type="button"
-                        aria-current={p === actual ? 'page' : undefined}
-                        onClick={() => onIr(p)}
-                        className={`${base} ${p === actual
-                                ? 'border-primary bg-primary text-primary-foreground'
-                                : 'bg-background hover:bg-accent'
-                            }`}
-                    >
-                        {p}
-                    </button>
-                </span>
-            ))}
-
-            <button
-                type="button"
-                disabled={actual === ultima}
-                onClick={() => onIr(actual + 1)}
-                className={`${base} bg-background hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-                Siguiente
-            </button>
-        </nav>
-    );
-}
 
 function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion }: ProximosProps) {
     const [desde, setDesde] = useState(filtros.desde);

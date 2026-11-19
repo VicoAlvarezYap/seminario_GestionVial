@@ -321,17 +321,18 @@ class TurnoTrabajoController extends Controller
             'agente' => $request->filled('agente') ? (int) $request->input('agente') : null,
         ];
     }
-    private function queryTurnos(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false)
+    private function queryTurnos(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false, ?string $estado = null)
     {
         return TurnoTrabajo::query()
             ->whereDate('fecha', '>=', $desde)
             ->whereDate('fecha', '<=', $hasta)
             ->when($agenteId, fn($q) => $q->where('agente_id', $agenteId))
-            ->when($soloVigentes, fn($q) => $q->whereNotIn('estado_turno', ['cancelado', 'reasignado']));
+            ->when($soloVigentes, fn($q) => $q->whereNotIn('estado_turno', ['cancelado', 'reasignado']))
+            ->when($estado, fn($q) => $q->where('estado_turno', $estado));
     }
-    private function fechasPaginadas(string $desde, string $hasta, ?int $agenteId, int $porPagina = 3): LengthAwarePaginator
+    private function fechasPaginadas(string $desde, string $hasta, ?int $agenteId, int $porPagina = 3, bool $soloVigentes = true, string $orden = 'desc', ?string $estado = null): LengthAwarePaginator
     {
-        $dias = $this->queryTurnos($desde, $hasta, $agenteId, soloVigentes: true)
+        $dias = $this->queryTurnos($desde, $hasta, $agenteId, $soloVigentes, $estado)
             ->selectRaw('DATE(fecha) as dia')
             ->distinct()
             ->orderBy('dia')
@@ -351,13 +352,13 @@ class TurnoTrabajoController extends Controller
         );
     }
 
-    private function turnosEntre(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false, ?array $soloFechas = null): Collection
+    private function turnosEntre(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false, ?array $soloFechas = null, string $orden = 'desc', ?string $estado = null): Collection
     {
 
-        return $this->queryTurnos($desde, $hasta, $agenteId, $soloVigentes)
+        return $this->queryTurnos($desde, $hasta, $agenteId, $soloVigentes, $estado)
             ->with('agente:id,nombre,apellido')
             ->when($soloFechas !== null, fn($q) => $q->whereIn(DB::raw('DATE(fecha)'), $soloFechas))
-            ->orderBy('fecha')
+            ->orderBy('fecha', $orden)
             ->orderByRaw("CASE turno
             WHEN 'manana' THEN 1
             WHEN 'tarde' THEN 2
@@ -379,4 +380,83 @@ class TurnoTrabajoController extends Controller
             })
             ->values();
     }
+    private function filtrosHistorial(Request $request, ?int $agenteForzado = null): array
+    {
+        $request->validate([
+            'desde' => ['nullable', 'date_format:Y-m-d'],
+            'hasta' => ['nullable', 'date_format:Y-m-d'],
+            'agente' => ['nullable', 'integer', 'exists:agentes,id'],
+            'estado' => ['nullable', 'in:programado,en_proceso,cumplido,ausente,abandonado,reasignado,cancelado'],
+        ]);
+
+        $hoy = now()->toDateString();
+        $base = TurnoTrabajo::query()->when($agenteForzado, fn($q) => $q->where('agente_id', $agenteForzado));
+        $primero = TurnoTrabajo::min('fecha');
+        $ultimo = TurnoTrabajo::max('fecha');
+
+        $min = $primero ? Carbon::parse($primero)->toDateString() : $hoy;
+        $max = $ultimo ? Carbon::parse($ultimo)->toDateString() : $hoy;
+
+        $desde = $request->input('desde') ?: $min;
+        $hasta = $request->input('hasta') ?: $max;
+        if ($hasta < $desde) {
+            $hasta = $desde;
+        }
+
+        return [
+            'desde' => $desde,
+            'hasta' => $hasta,
+            'agente' => $agenteForzado ?? ($request->filled('agente') ? (int) $request->input('agente') : null),
+            'estado' => $request->input('estado') ?: null,
+        ];
+    }
+    public function historial(Request $request): Response
+    {
+        return $this->vistaHistorial($request, null, '/admin/turnos/historial', true);
+    }
+
+    public function miHistorial(Request $request): Response
+    {
+        $agenteId = $request->user()->agente?->id; // ajustá según tu relación
+        abort_unless($agenteId, 403);
+
+        return $this->vistaHistorial($request, $agenteId, '/mi-historial-turnos', false);
+    }
+
+    private function vistaHistorial(Request $request, ?int $agenteForzado, string $ruta, bool $esAdmin): Response
+    {
+        $f = $this->filtrosHistorial($request, $agenteForzado);
+
+        $paginador = $this->fechasPaginadas(
+            $f['desde'],
+            $f['hasta'],
+            $f['agente'],
+            porPagina: 10,
+            soloVigentes: false,
+            orden: 'desc',
+            estado: $f['estado'],
+        );
+
+        return Inertia::render('Turnos/historial', [
+            'turnos' => $this->turnosEntre(
+                $f['desde'],
+                $f['hasta'],
+                $f['agente'],
+                soloFechas: $paginador->getCollection()->all(),
+                orden: 'desc',
+                estado: $f['estado'],
+            ),
+            'horariosConfig' => config('turnos.horarios'),
+            'filtros' => $f,
+            'agentes' => $esAdmin ? Agente::orderBy('apellido')->get(['id', 'nombre', 'apellido']) : [],
+            'paginacion' => [
+                'actual' => $paginador->currentPage(),
+                'ultima' => $paginador->lastPage(),
+                'total' => $paginador->total(),
+            ],
+            'ruta' => $ruta,
+            'esAdmin' => $esAdmin,
+        ]);
+    }
+
 }

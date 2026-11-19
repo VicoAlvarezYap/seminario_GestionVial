@@ -28,6 +28,7 @@ const enlacesPersonales: Enlace[] = [
     { titulo: 'Infracciones', href: '/relevos', icono: ClipboardList },
     { titulo: 'Licencias', href: '/licencias', icono: FileText },
     { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound },
+    { titulo: 'Historial de turnos', href: '/mi-historial-turnos', icono: CalendarDays },
 ];
 
 // Solo el rol Administrador
@@ -37,6 +38,7 @@ const enlacesAdmin: Enlace[] = [
     { titulo: 'Gestión de Turnos', href: '/admin/turnos', icono: FileText },
     { titulo: 'Gestión de Infracciones', href: '/admin/relevos', icono: ClipboardList },
     { titulo: 'Ver Turnos', href: '/admin/turnos/listado', icono: CalendarDays },
+    { titulo: 'Historial de Turnos', href: '/admin/turnos/historial', icono: CalendarDays },
     { titulo: 'Gestión de Intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
 ];
 
