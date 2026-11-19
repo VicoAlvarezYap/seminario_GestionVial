@@ -19,6 +19,7 @@ type Horarios = Record<string, [string, string]>;
 
 type Filtros = { desde: string; hasta: string; agente: number | null };
 type AgenteOpcion = { id: number; nombre: string; apellido: string };
+type Paginacion = { actual: number; ultima: number; total: number };
 
 type Props = {
     hoy: string;
@@ -28,6 +29,7 @@ type Props = {
     proximos: TurnoRow[];
     filtros: Filtros;
     agentes: AgenteOpcion[];
+    paginacion: Paginacion;
 };
 
 const ORDEN: Turno[] = ['manana', 'tarde', 'noche', 'especial'];
@@ -238,9 +240,61 @@ type ProximosProps = {
     filtros: Filtros;
     agentes: AgenteOpcion[];
     manana: string;
+    paginacion: Paginacion;
 };
 
-function TurnosProximos({ turnos, horarios, filtros, agentes, manana }: ProximosProps) {
+
+
+function Paginador({ actual, ultima, onIr }: { actual: number; ultima: number; onIr: (p: number) => void }) {
+    if (ultima <= 1) return null;
+
+    const paginas = Array.from({ length: ultima }, (_, i) => i + 1).filter(
+        (p) => p === 1 || p === ultima || Math.abs(p - actual) <= 2,
+    );
+
+    const base = 'rounded-lg border px-3 py-1.5 text-sm font-medium';
+
+    return (
+        <nav aria-label="Paginación" className="flex flex-wrap items-center justify-center gap-2 pt-2">
+            <button
+                type="button"
+                disabled={actual === 1}
+                onClick={() => onIr(actual - 1)}
+                className={`${base} bg-background hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50`}
+            >
+                Anterior
+            </button>
+
+            {paginas.map((p, i) => (
+                <span key={p} className="flex items-center gap-2">
+                    {i > 0 && p - paginas[i - 1] > 1 && <span className="text-muted-foreground">…</span>}
+                    <button
+                        type="button"
+                        aria-current={p === actual ? 'page' : undefined}
+                        onClick={() => onIr(p)}
+                        className={`${base} ${p === actual
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'bg-background hover:bg-accent'
+                            }`}
+                    >
+                        {p}
+                    </button>
+                </span>
+            ))}
+
+            <button
+                type="button"
+                disabled={actual === ultima}
+                onClick={() => onIr(actual + 1)}
+                className={`${base} bg-background hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50`}
+            >
+                Siguiente
+            </button>
+        </nav>
+    );
+}
+
+function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion }: ProximosProps) {
     const [desde, setDesde] = useState(filtros.desde);
     const [hasta, setHasta] = useState(filtros.hasta);
     const [agente, setAgente] = useState(filtros.agente ? String(filtros.agente) : '');
@@ -283,6 +337,15 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana }: Proximos
             return acc;
         }, {}),
     );
+
+    const irAPagina = (page: number) =>
+        irA({
+            desde: filtros.desde,
+            hasta: filtros.hasta,
+            ...(filtros.agente ? { agente: String(filtros.agente) } : {}),
+            page: String(page),
+        });
+
 
     const botonPdf = 'flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium';
 
@@ -371,30 +434,33 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana }: Proximos
                         : 'No hay turnos asignados en el rango elegido.'}
                 </p>
             ) : (
-                porFecha.map(([fecha, items]) => (
-                    <DiaProximo key={fecha} fecha={fecha} items={items} horarios={horarios} />
-                ))
+                <>
+                    {porFecha.map(([fecha, items]) => (
+                        <DiaProximo key={fecha} fecha={fecha} items={items} horarios={horarios} />
+                    ))}
+                    <Paginador actual={paginacion.actual} ultima={paginacion.ultima} onIr={irAPagina} />
+                </>
             )}
         </section>
     );
 }
 
 
-export default function Listado({ hoy, manana, horariosConfig, turnosHoy, proximos, filtros, agentes }: Props) {
+export default function Listado({ hoy, manana, horariosConfig, turnosHoy, proximos, filtros, agentes, paginacion }: Props) {
     return (
         <>
-        <NavbarAgente />
-        <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
-            <TurnoActual hoy={hoy} turnos={turnosHoy} horarios={horariosConfig} />
-            <TurnosProximos
-                turnos={proximos}
-                horarios={horariosConfig}
-                filtros={filtros}
-                agentes={agentes}
-                manana={manana}
-            />
-        </div>
+            <NavbarAgente />
+            <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+                <TurnoActual hoy={hoy} turnos={turnosHoy} horarios={horariosConfig} />
+                <TurnosProximos
+                    turnos={proximos}
+                    horarios={horariosConfig}
+                    filtros={filtros}
+                    agentes={agentes}
+                    manana={manana}
+                    paginacion={paginacion}
+                />
+            </div>
         </>
-        
     );
 }

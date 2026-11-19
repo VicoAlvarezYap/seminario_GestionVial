@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class TurnoTrabajoController extends Controller
 {
@@ -247,14 +248,27 @@ class TurnoTrabajoController extends Controller
         $f = $this->filtrosProximos($request);
         $hoy = now()->toDateString();
 
+        $paginador = $this->fechasPaginadas($f['desde'], $f['hasta'], $f['agente']);
+        $fechas = $paginador->getCollection()->all();
         return Inertia::render('Turnos/listado', [
             'hoy' => $hoy,
             'manana' => now()->addDay()->toDateString(),
             'horariosConfig' => config('turnos.horarios'),
             'turnosHoy' => $this->turnosEntre($hoy, $hoy),
-            'proximos' => $this->turnosEntre($f['desde'], $f['hasta'], $f['agente'], soloVigentes: true),
+            'proximos' => $this->turnosEntre(
+                $f['desde'],
+                $f['hasta'],
+                $f['agente'],
+                soloVigentes: true,
+                soloFechas: $fechas,
+            ),
             'filtros' => $f,
             'agentes' => Agente::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
+            'paginacion' => [
+                'actual' => $paginador->currentPage(),
+                'ultima' => $paginador->lastPage(),
+                'total' => $paginador->total(),
+            ],
         ]);
     }
 
@@ -307,14 +321,42 @@ class TurnoTrabajoController extends Controller
             'agente' => $request->filled('agente') ? (int) $request->input('agente') : null,
         ];
     }
-
-    private function turnosEntre(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false): Collection
+    private function queryTurnos(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false)
     {
-        return TurnoTrabajo::with('agente:id,nombre,apellido')
+        return TurnoTrabajo::query()
             ->whereDate('fecha', '>=', $desde)
             ->whereDate('fecha', '<=', $hasta)
             ->when($agenteId, fn($q) => $q->where('agente_id', $agenteId))
-            ->when($soloVigentes, fn($q) => $q->whereNotIn('estado_turno', ['cancelado', 'reasignado']))
+            ->when($soloVigentes, fn($q) => $q->whereNotIn('estado_turno', ['cancelado', 'reasignado']));
+    }
+    private function fechasPaginadas(string $desde, string $hasta, ?int $agenteId, int $porPagina = 3): LengthAwarePaginator
+    {
+        $dias = $this->queryTurnos($desde, $hasta, $agenteId, soloVigentes: true)
+            ->selectRaw('DATE(fecha) as dia')
+            ->distinct()
+            ->orderBy('dia')
+            ->pluck('dia');
+
+        $total = $dias->count();
+        $ultima = max(1, (int) ceil($total / $porPagina));
+
+        // Si piden una página que no existe, se lleva a la última
+        $pagina = min(max(1, (int) request()->input('page', 1)), $ultima);
+
+        return new LengthAwarePaginator(
+            $dias->forPage($pagina, $porPagina)->values(),
+            $total,
+            $porPagina,
+            $pagina,
+        );
+    }
+
+    private function turnosEntre(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false, ?array $soloFechas = null): Collection
+    {
+
+        return $this->queryTurnos($desde, $hasta, $agenteId, $soloVigentes)
+            ->with('agente:id,nombre,apellido')
+            ->when($soloFechas !== null, fn($q) => $q->whereIn(DB::raw('DATE(fecha)'), $soloFechas))
             ->orderBy('fecha')
             ->orderByRaw("CASE turno
             WHEN 'manana' THEN 1
