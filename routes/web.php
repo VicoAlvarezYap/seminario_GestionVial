@@ -17,6 +17,9 @@ use App\Http\Controllers\Admin\LicenciaAdminController;
 use App\Http\Controllers\Admin\RelevoAdminController;
 use App\Http\Controllers\Admin\IntervencionAdminController;
 use App\Http\Controllers\EventoExcelController;
+use App\Http\Controllers\EventoController;
+
+
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -24,10 +27,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/pagina_principal', [PaginaAgenteController::class, 'index'])->name('pagina_principal');
 
     /* ---------- Administración ---------- */
-    Route::middleware('role:admin|super-admin|Administrador')->prefix('admin')->name('admin.')->group(function () {
+    Route::middleware('role:admin|super-admin|Administrador', 'modo.admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/perfiles', [PerfilController::class, 'index'])->name('perfiles.index');
         Route::get('/perfiles/{agente}', [AgenteController::class, 'show'])->name('perfiles.show');
         Route::post('/agentes', [AgenteController::class, 'store'])->name('agentes.store');
+        //turnos y tareas
+        Route::resource('turnos', TurnoTrabajoController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
         Route::get('turnos/listado', [TurnoTrabajoController::class, 'listado'])->name('turnos.listado');
         Route::get('turnos/listado/pdf', [TurnoTrabajoController::class, 'listadoPdf']);
         Route::get('/turnos/listado/excel', [TurnoTrabajoController::class, 'listadoExcel'])->name('turnos.listado.excel');
@@ -47,15 +53,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/relevos/{relevo}/pdf', [RelevoAdminController::class, 'pdf'])->name('relevos.pdf');
         Route::get('/intervenciones', [IntervencionAdminController::class, 'index'])->name('intervenciones.index');
         Route::get('/intervenciones/{intervencion}/pdf', [IntervencionAdminController::class, 'pdf'])->name('intervenciones.pdf');
-        
+        //eventos
         Route::resource('eventos-operativos', EventoOperativoController::class)->only(['store', 'update', 'destroy']);
-        Route::resource('turnos', TurnoTrabajoController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
-
+        Route::get('/eventos-operativos/crear', [EventoController::class, 'create'])->name('eventos-operativos.create');
+        Route::get('/eventos-operativos/{evento}/editar', [EventoController::class, 'edit'])->name('eventos-operativos.edit');
+        Route::patch('/eventos-operativos/{evento}/cancelar', [EventoOperativoController::class, 'cancelar'])->name('eventos-operativos.cancelar');
+       
+        
         //reportes 
         Route::get('/reportes', [ReportesTurnoController::class, 'index'])->name('reportes.index');
     });
-
+    ///pagina principal de los agentes
+     Route::get('/pagina_principal', [PaginaAgenteController::class, 'index'])->name('pagina_principal');
+     Route::post('/cambiar-modo', [PaginaAgenteController::class, 'cambiarModo'])->name('modo.cambiar');
     // Perfil y contactos de emergencia
     Route::get('/mi-perfil', [AgenteController::class, 'show'])->name('mi-perfil');
     Route::post('/mi-perfil/contactos', [ContactoEmergenciaController::class, 'store'])->name('contactos.store');
@@ -87,7 +97,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/excel', 'excel')->name('excel');
             Route::get('/{reporte}', 'show')->name('show')->where('reporte', '[0-9]+');
         });
-
+    //eventos
+    Route::get('/eventos', [EventoController::class, 'index'])->name('eventos.index');
+    Route::get('/eventos/{evento}', [EventoController::class, 'show'])->name('eventos.show')->whereNumber('evento');
+    Route::get('/eventos/excel', [EventoExcelController::class, 'excel'])->name('eventos.excel');
     // Intervenciones
     Route::controller(IntervencionController::class)->prefix('intervenciones')->name('intervenciones.')->group(function () {
         Route::get('/', 'index')->name('index');

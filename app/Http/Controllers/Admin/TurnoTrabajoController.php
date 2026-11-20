@@ -576,6 +576,9 @@ public function storeTareas(Request $request): RedirectResponse
     $lugarId = null;
     if (! empty($datos['lugar'])) {
         $lugarId = Lugar::firstOrCreate(['nombre' => trim($datos['lugar'])])->id;
+        $nombreLugar = Str::squish(trim($datos['lugar']));
+        $lugarExistente = Lugar::whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombreLugar)])->first();
+        $lugarId = $lugarExistente?->id ?? Lugar::create(['nombre' => $nombreLugar])->id;
     }
     if ($datos['turno'] !== 'especial' && ! empty($datos['hora_inicio']) && ! empty($datos['hora_fin'])) {
     [$desde, $hasta] = config("turnos.horarios.{$datos['turno']}");
@@ -586,6 +589,32 @@ public function storeTareas(Request $request): RedirectResponse
     if (! $dentro($datos['hora_inicio']) || ! $dentro($datos['hora_fin'])) {
         return back()->withErrors([
             'hora_inicio' => "Las horas tienen que estar entre {$desde} y {$hasta}.",
+        ]);
+    }
+}  
+     // Horario permitido según el bloque (el especial toma el de sus turnos)
+if ($datos['turno'] === 'especial') {
+    $turnoRef = TurnoTrabajo::whereIn('id', $datos['turno_ids'])->first();
+    $desde = $turnoRef?->hora_inicio_prog ? substr($turnoRef->hora_inicio_prog, 0, 5) : null;
+    $hasta = $turnoRef?->hora_fin_prog ? substr($turnoRef->hora_fin_prog, 0, 5) : null;
+} else {
+    [$desde, $hasta] = config("turnos.horarios.{$datos['turno']}");
+}
+
+$enRango = fn (string $h) => $desde < $hasta
+    ? $h >= $desde && $h <= $hasta
+    : $h >= $desde || $h <= $hasta; // cruza medianoche
+
+if (! empty($datos['hora_inicio']) && ! empty($datos['hora_fin'])) {
+    if ($datos['hora_inicio'] === $datos['hora_fin']) {
+        throw ValidationException::withMessages([
+            'hora_fin' => 'La hora de fin tiene que ser distinta de la de inicio.',
+        ]);
+    }
+
+    if (! $enRango($datos['hora_inicio']) || ! $enRango($datos['hora_fin'])) {
+        throw ValidationException::withMessages([
+            'hora_inicio' => "El horario de este turno tiene que estar entre {$desde} y {$hasta}.",
         ]);
     }
 }
@@ -609,10 +638,19 @@ public function storeTareas(Request $request): RedirectResponse
         ->pluck('id');
 
     DB::transaction(function () use ($turnoIds, $base) {
-        foreach ($turnoIds as $turnoId) {
+     TurnoTrabajo::whereIn('id', $turnoIds)->lockForUpdate()->get();
+    foreach ($turnoIds as $turnoId) {
+        $existe = Tarea::where('turno_trabajo_id', $turnoId)
+            ->where('titulo', $base['titulo'])
+            ->where('hora_inicio', $base['hora_inicio'])
+            ->where('hora_fin', $base['hora_fin'])
+            ->exists();
+
+        if (! $existe) {
             Tarea::create(['turno_trabajo_id' => $turnoId] + $base);
         }
-    });
+    }
+});
 
     return redirect('/admin/turnos/listado?'.http_build_query(['fecha' => $datos['fecha']]))
         ->with('success', "Tarea asignada a {$turnoIds->count()} agente(s).");

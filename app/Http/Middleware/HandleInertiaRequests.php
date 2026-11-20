@@ -42,7 +42,10 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
                 'roles' => $request->user()?->getRoleNames() ?? [],   // lo que ya tenés
                 'tieneAgente' => $request->user()?->agente_id !== null,
+                
             ],
+            'modo' => $this->modoActual($request),
+            'puedeCambiarModo' => (bool) ($request->user()?->agente_id && $request->user()->hasAnyRole(['Administrador', 'Supervisor'])),
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
@@ -52,4 +55,14 @@ class HandleInertiaRequests extends Middleware
             ],
         ];
     }
+    private function modoActual(Request $request): string
+{
+    $usuario = $request->user();
+
+    if (! $usuario) {
+        return 'agente';
+    }
+
+    return $request->session()->get('modo', $usuario->agente_id ? 'agente' : 'admin');
+}
 }

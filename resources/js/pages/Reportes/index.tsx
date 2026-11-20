@@ -45,7 +45,7 @@ type Props = {
     desde: string;
     hasta: string;
     veTodo: boolean;
-    modo?: 'propios' | 'todos';
+    vista?: 'propios' | 'todos';
     agentes?: { id: number; nombre: string }[];
     agenteId?: number | null;
 };
@@ -167,7 +167,7 @@ function Detalle({ r }: { r: Reporte }) {
     );
 }
 
-export default function ReportesIndex({ reportes, desde, hasta, veTodo, modo = 'todos', agentes = [], agenteId = null }: Props) {
+export default function ReportesIndex({ reportes, desde, hasta, veTodo, vista = 'todos', agentes = [], agenteId = null }: Props) {
     const [abierto, setAbierto] = useState<number | null>(null);
     const [desdeInput, setDesdeInput] = useState(desde);
     const [hastaInput, setHastaInput] = useState(hasta);
@@ -205,7 +205,7 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo, modo = '
             <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
                 <div className="flex items-center gap-2">
                     <FileText className="size-6" />
-                    <h1 className="text-2xl font-bold">{modo === 'propios' ? 'Mis reportes' : 'Reportes de turno (todos los agentes)'}</h1>
+                    <h1 className="text-2xl font-bold">{vista === 'propios' ? 'Mis reportes' : 'Reportes de turno (todos los agentes)'}</h1>
                 </div>
 
                 {/* Filtro de fechas de la pantalla */}

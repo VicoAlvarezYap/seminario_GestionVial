@@ -32,7 +32,7 @@ class ReportesTurnoController extends Controller
         'desde' => $desde,
         'hasta' => $hasta,
         'veTodo' => $this->veTodo($usuario),
-        'modo' => 'todos',
+        'vista' => 'todos',
         'agentes' => $this->listaAgentes(),
         'agenteId' => $agenteId,
     ]);
@@ -54,7 +54,7 @@ class ReportesTurnoController extends Controller
                 'desde' => $desde,
                 'hasta' => $hasta,
                 'veTodo' => false,
-                'modo' => 'propios',
+                'vista' => 'propios',
             ]);
 
             }
