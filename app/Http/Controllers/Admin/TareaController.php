@@ -42,14 +42,22 @@ class TareaController extends Controller
     }
 
     public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
-    {
-        $datos = $request->validated();
-        unset($datos['aplicar_a_grupo']);
-
-        $tarea->update($this->completarDesdeEvento($datos));
-
-        return back()->with('success', 'Tarea actualizada correctamente.');
+{
+    if (in_array($tarea->estado, ['finalizado', 'cancelada'], true)) {
+        return back()->with('error', 'Solo se pueden editar tareas pendientes o en curso.');
     }
+
+    $datos = $request->validated();
+    unset($datos['aplicar_a_grupo']);
+    $datos = $this->completarDesdeEvento($datos);
+
+    $turno = $tarea->turno;
+    $turno->validarHorarioDelBloque($datos['hora_inicio'] ?? null, $datos['hora_fin'] ?? null);
+
+    $tarea->update($datos);
+
+    return back()->with('success', 'Tarea actualizada correctamente.');
+}
 
     public function destroy(Tarea $tarea): RedirectResponse
     {
@@ -77,4 +85,14 @@ class TareaController extends Controller
 
         return $datos;
     }
+ public function cancelar(Tarea $tarea): RedirectResponse
+{
+    if ($tarea->turno?->fichajes()->exists()) {
+        return back()->with('error', 'No se puede cancelar: el turno ya tiene fichajes registrados.');
+    }
+
+    $tarea->update(['estado' => 'cancelada']);
+
+    return back()->with('success', 'Tarea cancelada.');
+}
 }

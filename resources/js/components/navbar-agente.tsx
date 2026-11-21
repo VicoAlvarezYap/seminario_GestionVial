@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     AlertTriangle,
+    ArrowLeftRight,
     Bell,
     CalendarDays,
     ChevronLeft,
@@ -14,9 +15,8 @@ import {
     Moon,
     Settings,
     Sun,
-    ArrowLeftRight,
     UserRound,
-    Users 
+    Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -66,7 +66,6 @@ export default function NavbarAgente() {
     const esSupervisor = roles.includes('supervisor');
     const tieneAgente = props.auth?.tieneAgente ?? false;
 
-    // El modo solo puede ser admin si el usuario realmente tiene rol de administración
     const modo = props.modo === 'admin' && esAdmin ? 'admin' : 'agente';
 
     const { resolvedAppearance, updateAppearance } = useAppearance();
@@ -82,10 +81,9 @@ export default function NavbarAgente() {
         });
     };
 
-    // En modo agente: lo personal (con legajo, o Inicio y Mis reportes para admin/supervisor sin legajo)
     const listaPersonal = tieneAgente
         ? personales
-        : (esAdmin || esSupervisor)
+        : esAdmin || esSupervisor
           ? personales.filter((e) => ['/pagina_principal', '/reportes'].includes(e.href))
           : [];
 
@@ -95,7 +93,7 @@ export default function NavbarAgente() {
 
     const renderEnlace = (e: Enlace) => (
         <Link
-            key={e.href}
+            key={`${e.href}-${e.titulo}`}
             href={e.href}
             title={e.titulo}
             onClick={() => setAbiertoMovil(false)}
@@ -121,8 +119,8 @@ export default function NavbarAgente() {
 
     return (
         <>
-            {/* Barra superior */}
-            <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background px-4">
+            {/* Barra superior: md:-ml-16 la estira hasta el borde izquierdo, sobre el margen del menú */}
+            <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background px-4 md:-ml-16">
                 <button
                     type="button"
                     onClick={() => setAbiertoMovil((v) => !v)}
@@ -172,7 +170,7 @@ export default function NavbarAgente() {
                 </div>
             </header>
 
-            {/* Menú lateral colapsable: solo íconos, o íconos con texto */}
+            {/* Menú lateral: fijo, no empuja el contenido (lo empuja app.tsx con md:pl-16) */}
             <aside
                 className={`fixed bottom-0 left-0 top-14 z-30 flex-col border-r bg-background transition-[width] duration-200 ${
                     abiertoMovil ? 'flex' : 'hidden'

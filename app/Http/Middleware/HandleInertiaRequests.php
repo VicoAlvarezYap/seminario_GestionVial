@@ -45,7 +45,7 @@ class HandleInertiaRequests extends Middleware
                 
             ],
             'modo' => $this->modoActual($request),
-            'puedeCambiarModo' => (bool) ($request->user()?->agente_id && $request->user()->hasAnyRole(['Administrador', 'Supervisor'])),
+            'puedeCambiarModo' => (bool) ($request->user()?->agente_id && $request->user()->hasRole('Administrador')),
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

@@ -15,6 +15,7 @@ type Props = {
     especialConfig: { min_horas: number; max_horas: number };
     turnosDelDia: TurnoDelDia[];
     urlInicio?: string; // ej: '/admin' o '/dashboard'
+    conLicencia: number[];
 };
 
 const SECUENCIA: Turno[] = ['manana', 'tarde', 'noche'];
@@ -34,6 +35,7 @@ export default function TurnosIndex({
     especialConfig,
     turnosDelDia,
     urlInicio = '/pagina_principal',
+    conLicencia,
 }: Props) {
     const [paso, setPaso] = useState(0); // 0 fecha, 1 jornada, 2 agentes (el 3 es la página de tareas)
     const [fecha, setFecha] = useState(fechaInicial);
@@ -55,6 +57,7 @@ export default function TurnosIndex({
     const bloqueCompleto = agentesDelBloque.length > 0;
 
     const ocupados = useMemo(() => new Set(turnosDelDia.map((t) => t.agente_id)), [turnosDelDia]);
+    const conLicenciaSet = useMemo(() => new Set(conLicencia), [conLicencia]);
 
     const agentesFiltrados = useMemo(() => {
         const q = busqueda.trim().toLowerCase();
@@ -107,7 +110,7 @@ export default function TurnosIndex({
             {
                 preserveState: true,
                 preserveScroll: true,
-                only: ['turnosDelDia', 'fechaInicial'],
+                only: ['turnosDelDia', 'fechaInicial', 'conLicencia'],
                 onSuccess: () => setPaso(1),
             },
         );
@@ -388,37 +391,43 @@ export default function TurnosIndex({
                                 <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border p-2">
                                     {agentesFiltrados.map((agente) => {
                                         const yaTieneTurno = ocupados.has(agente.id);
+                                        const bloqueadoPorLicencia = conLicenciaSet.has(agente.id);
+                                        
                                         const enOtro = bloqueDeAgente(agente.id);
-                                        const deshabilitado = yaTieneTurno || enOtro !== null;
+                                        const deshabilitado = yaTieneTurno || bloqueadoPorLicencia || enOtro !== null;
+                                        
                                         const marcado = agentesDelBloque.includes(agente.id);
                                         return (
                                             <label
                                                 key={agente.id}
-                                                className={`flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm ${deshabilitado
-                                                    ? 'cursor-not-allowed bg-muted opacity-50'
-                                                    : marcado
-                                                        ? 'cursor-pointer border-primary bg-primary/10'
-                                                        : 'cursor-pointer hover:bg-accent'
+                                                    className={`flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm ${
+                                                        deshabilitado
+                                                            ? 'cursor-not-allowed bg-muted opacity-50'
+                                                            : marcado
+                                                            ? 'cursor-pointer border-primary bg-primary/10'
+                                                            : 'cursor-pointer hover:bg-accent'
                                                     }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    disabled={deshabilitado}
-                                                    checked={marcado}
-                                                    onChange={(e) => toggleAgente(agente.id, e.target.checked)}
-                                                />
-                                                <span>
-                                                    {agente.apellido}, {agente.nombre}
-                                                </span>
-                                                {(yaTieneTurno || enOtro) && (
-                                                    <span className="ml-auto text-xs font-medium text-red-500">
-                                                        {yaTieneTurno
-                                                            ? 'Ya tiene turno este día'
-                                                            : `Elegido en ${NOMBRES[enOtro as Turno]}`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        disabled={deshabilitado}
+                                                        checked={marcado}
+                                                        onChange={(e) => toggleAgente(agente.id, e.target.checked)}
+                                                    />
+                                                    <span>
+                                                        {agente.apellido}, {agente.nombre}
                                                     </span>
-                                                )}
-                                            </label>
-                                        );
+                                                    {(bloqueadoPorLicencia || yaTieneTurno || enOtro) && (
+                                                        <span className="ml-auto text-xs font-medium text-red-500">
+                                                            {bloqueadoPorLicencia
+                                                                ? 'Con licencia aprobada'
+                                                                : yaTieneTurno
+                                                                ? 'Ya tiene turno este día'
+                                                                : `Elegido en ${NOMBRES[enOtro as Turno]}`}
+                                                        </span>
+                                                    )}
+                                                </label>
+                                                                                            );
                                     })}
                                     {agentesFiltrados.length === 0 && (
                                         <p className="p-3 text-sm text-muted-foreground">

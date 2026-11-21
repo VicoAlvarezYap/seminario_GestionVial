@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import NavbarAgente from '@/components/navbar-agente';
 
 type AgenteBloque = {
@@ -22,6 +22,7 @@ type Props = {
     lugares: Lugar[];
     eventosDelDia: Evento[];
     horariosConfig: Record<'manana' | 'tarde' | 'noche', [string, string]>;
+    turnoPreseleccionado: number | null;
 };
 
 const BLOQUES: { valor: Bloque; etiqueta: string }[] = [
@@ -40,6 +41,8 @@ const NOMBRES: Record<Bloque, string> = {
 
 const enRango = (h: string, desde: string, hasta: string) =>
     desde < hasta ? h >= desde && h <= hasta : h >= desde || h <= hasta; // cruza medianoche
+
+
 
 /** Desplegable con búsqueda: sugiere opciones mientras escribís y acepta texto libre. */
 function CampoConSugerencias({
@@ -105,6 +108,7 @@ export default function AsignarTareas({
     lugares,
     eventosDelDia,
     horariosConfig,
+    turnoPreseleccionado,
 }: Props) {
     const [bloque, setBloque] = useState<Bloque>(() => primerBloqueConAgentes(agentesPorTurno));
     const [seleccion, setSeleccion] = useState<number[]>([]);
@@ -117,7 +121,20 @@ export default function AsignarTareas({
     const [procesando, setProcesando] = useState(false);
     const [mensaje, setMensaje] = useState<string | null>(null);
     const [aviso, setAviso] = useState<string | null>(null);
+     useEffect(() => {
+        if (!turnoPreseleccionado) return;
 
+        const orden: Bloque[] = ['manana', 'tarde', 'noche', 'especial'];
+        const bloqueEncontrado = orden.find((b) =>
+            (agentesPorTurno[b] ?? []).some((a) => a.turno_id === turnoPreseleccionado),
+        );
+
+        if (bloqueEncontrado) {
+            setBloque(bloqueEncontrado);
+            setSeleccion([turnoPreseleccionado]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const agentesDelBloque = agentesPorTurno[bloque] ?? [];
 
     // Estado de cada bloque: cuántos agentes tiene y cuántos ya tienen tarea

@@ -193,7 +193,51 @@ class TurnoTrabajo extends Model
     {
         return $this->fecha->copy()->setTimeFromTimeString($this->horaInicioProg());
     }
+    /**
+ * Devuelve [desde, hasta] del bloque: el horario fijo para mañana/tarde/noche,
+ * o el horario cargado en el turno para el especial.
+ */
+public function rangoDeHoras(): array
+{
+    if ($this->turno === 'especial') {
+        return [
+            $this->hora_inicio_prog ? substr($this->hora_inicio_prog, 0, 5) : null,
+            $this->hora_fin_prog ? substr($this->hora_fin_prog, 0, 5) : null,
+        ];
+    }
 
+    return config("turnos.horarios.{$this->turno}");
+}
+
+/** Valida que inicio y fin estén dentro del bloque. Lanza ValidationException si no. */
+public function validarHorarioDelBloque(?string $inicio, ?string $fin): void
+{
+    if (! $inicio || ! $fin) {
+        return;
+    }
+
+    if ($inicio === $fin) {
+        throw \Illuminate\Validation\ValidationException::withMessages([
+            'hora_fin' => 'La hora de fin tiene que ser distinta de la de inicio.',
+        ]);
+    }
+
+    [$desde, $hasta] = $this->rangoDeHoras();
+
+    if (! $desde || ! $hasta) {
+        return;
+    }
+
+    $dentro = fn (string $h) => $desde < $hasta
+        ? $h >= $desde && $h <= $hasta
+        : $h >= $desde || $h <= $hasta; // cruza medianoche
+
+    if (! $dentro($inicio) || ! $dentro($fin)) {
+        throw \Illuminate\Validation\ValidationException::withMessages([
+            'hora_inicio' => "Las horas tienen que estar entre {$desde} y {$hasta}.",
+        ]);
+    }
+}
     public function finProgramado(): CarbonInterface
     {
         $fin = $this->fecha->copy()->setTimeFromTimeString($this->horaFinProg());

@@ -194,9 +194,9 @@ public function cambiarModo(Request $request): RedirectResponse
 {
     $usuario = $request->user();
     abort_unless(
-        $usuario->agente_id && $usuario->hasAnyRole(['Administrador', 'Supervisor']),
-        403
-    );
+    $usuario->agente_id && $usuario->hasRole('Administrador'),
+    403
+);
 
     $modo = $request->input('modo') === 'admin' ? 'admin' : 'agente';
     $request->session()->put('modo', $modo);

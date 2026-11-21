@@ -59,4 +59,5 @@ class Agente extends Model
             }
         });
     }
+    
 }

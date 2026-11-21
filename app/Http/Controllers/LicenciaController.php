@@ -10,10 +10,11 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\TipoLicencia;
 
 class LicenciaController extends Controller
 {
-    private const MOTIVOS = ['Accidente laboral', 'Familiar enfermo', 'Médico'];
+    
 
     private const PARENTESCOS = ['Cónyuge', 'Hijo', 'Padre', 'Hermano'];
 
@@ -61,15 +62,31 @@ class LicenciaController extends Controller
             ])
             ->values()
             ->all();
-
+        $calle = (string) $agente?->domicilio;
+        preg_match('/^(.*?)\s+(\d+[\w\/-]*)$/u', $calle, $m);
         return Inertia::render('Licencias/index', [
             'licencias' => $licencias,
             'agente' => $agente
-                ? ['nombre' => $agente->nombre, 'apellido' => $agente->apellido]
-                : null,
-            
-            'motivos' => self::MOTIVOS,
+              ? [
+                'nombre' => $agente->nombre,
+                'apellido' => $agente->apellido,
+                'dni' => $agente->numero_documento,
+                'domicilio' => $agente->domicilio,
+            ]
+            : null,
+            'domicilio_sugerido' => [
+                  'calle' => $m[1] ?? (string) $calle,
+                  'numero' => $m[2] ?? '',
+                ],
+            'motivos' => TipoLicencia::where('activo', true)->orderBy('nombre')->pluck('nombre')->all(),
             'parentescos' => self::PARENTESCOS,
+            'tiposLicencia' => TipoLicencia::where('activo', true)->orderBy('nombre')
+                ->get(['nombre', 'requiere_justificante', 'requiere_declaracion_jurada'])
+                    ->map(fn ($t) => [
+                        'nombre' => $t->nombre,
+                        'requiere_justificante' => $t->requiere_justificante,
+                        'requiere_declaracion_jurada' => $t->requiere_declaracion_jurada,
+                    ])->values()->all(),
         ]);
     }
 
@@ -140,8 +157,9 @@ class LicenciaController extends Controller
     private function reglas(Request $request, bool $tieneJustificante): array
     {
         $motivo = $request->input('motivo');
-        $esFamiliar = $motivo === 'Familiar enfermo';
-        $exigePdf = $motivo === 'Médico' && ! $tieneJustificante;
+        $tipo = TipoLicencia::where('nombre', $motivo)->first();
+        $exigePdf = (bool) $tipo?->requiere_justificante && ! $tieneJustificante;
+        $esFamiliar = (bool) $tipo?->requiere_declaracion_jurada;
         $hoy = Carbon::today()->toDateString();
         $unAnioDespues = Carbon::today()->addYear()->toDateString();
 
@@ -149,7 +167,7 @@ class LicenciaController extends Controller
             'domicilio_calle' => ['required', 'string', 'max:120'],
             'domicilio_numero' => ['required', 'string', 'max:10'],
             'domicilio_localidad' => ['required', 'string', 'max:255'],
-            'motivo' => ['required', Rule::in(self::MOTIVOS)],
+            'motivo' => ['required', Rule::exists('tipos_licencia', 'nombre')->where('activo', true)],
             'fecha_inicio' => ['required', 'date', "after_or_equal:{$hoy}", "before_or_equal:{$unAnioDespues}"],
             'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio', "before_or_equal:{$unAnioDespues}"],
             'dj_a_cargo' => [Rule::requiredIf($esFamiliar), 'nullable', 'string', 'max:150'],

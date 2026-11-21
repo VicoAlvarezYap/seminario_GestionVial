@@ -3,7 +3,14 @@ import { useState } from 'react';
 import { CalendarDays, ChevronDown, ChevronRight } from 'lucide-react';
 
 export type Turno = 'manana' | 'tarde' | 'noche' | 'especial';
-
+export type TareaFila = {
+    id: number;
+    titulo: string;
+    lugar: string | null;
+    hora_inicio: string | null;
+    hora_fin: string | null;
+    fecha: string;
+};
 export type TurnoRow = {
     id: number;
     fecha: string;
@@ -12,6 +19,7 @@ export type TurnoRow = {
     hora_fin_prog: string | null;
     estado: string;
     agente: { id: number; nombre: string; apellido: string };
+    tareas: TareaFila[];
 };
 
 export type Horarios = Record<string, [string, string]>;

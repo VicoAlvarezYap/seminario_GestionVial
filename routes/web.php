@@ -41,6 +41,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('turnos/jornada', [TurnoTrabajoController::class, 'storeJornada']);
         Route::get('/turnos/tareas', [TurnoTrabajoController::class, 'asignarTareasForm'])->name('turnos.tareas');
         Route::post('/turnos/tareas', [TurnoTrabajoController::class, 'storeTareas'])->name('turnos.tareas.store');
+        Route::patch('/tareas/{tarea}/cancelar', [TareaController::class, 'cancelar'])->name('tareas.cancelar');
+        Route::get('/turnos/{turno}/detalle', [TurnoTrabajoController::class, 'detalle'])->name('turnos.detalle');
         // Licencias
         Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');
         Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf');

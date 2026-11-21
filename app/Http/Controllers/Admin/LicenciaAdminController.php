@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\LicenciaController;
 use App\Models\HistorialDeLicencias;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,7 +13,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-
+use App\Mail\LicenciaResueltaMail;
+use Illuminate\Support\Facades\Mail;
 class LicenciaAdminController extends Controller
 {
     private const ESTADOS = ['pendiente', 'aprobada', 'rechazada', 'cancelada', 'finalizada'];
@@ -33,30 +35,14 @@ class LicenciaAdminController extends Controller
         ]);
     }
 
-    public function resolver(Request $request, HistorialDeLicencias $licencia): RedirectResponse
-    {
-        $esRechazo = $request->input('accion') === 'rechazada';
 
-        $validos = $request->validate([
-            'accion' => ['required', Rule::in(['aprobada', 'rechazada'])],
-            'observaciones' => [Rule::requiredIf($esRechazo), 'nullable', 'string', 'max:500'],
-        ]);
 
-        // El where evita pisar una licencia que el agente canceló mientras tanto
-        $actualizadas = HistorialDeLicencias::query()
-            ->where('id', $licencia->id)
-            ->where('estado', 'pendiente')
-            ->update([
-                'estado' => $validos['accion'],
-                'observaciones' => $validos['observaciones'] ?? null,
-            ]);
+public function pdf(HistorialDeLicencias $licencia)
+{
+    return $this->pdfDocumento($licencia)->download('licencia-'.$licencia->id.'.pdf');
+}
 
-        abort_if($actualizadas === 0, 409, 'La licencia ya no está pendiente.');
-
-        return back();
-    }
-
-   public function pdf(HistorialDeLicencias $licencia)
+public function pdfDocumento(HistorialDeLicencias $licencia)
 {
     $licencia->load('agente');
 
@@ -66,11 +52,8 @@ class LicenciaAdminController extends Controller
         'd' => $this->aArreglo($licencia),
         'dias' => $dias,
         'generado' => now()->format('d/m/Y H:i'),
-    ])
-        ->setPaper('a4')
-        ->download('licencia-'.$licencia->id.'.pdf');
+    ])->setPaper('a4');
 }
-
     public function justificante(HistorialDeLicencias $licencia)
     {
         abort_unless(
@@ -151,4 +134,38 @@ class LicenciaAdminController extends Controller
             'resoluble' => $l->estado === 'pendiente',
         ];
     }
+    public function resolver(Request $request, HistorialDeLicencias $licencia): RedirectResponse
+{
+    $validos = $request->validate([
+        'accion' => ['required', Rule::in(['aprobada', 'rechazada'])],
+        'observaciones' => [Rule::requiredIf($request->input('accion') === 'rechazada'), 'nullable', 'string', 'max:500'],
+    ]);
+
+    // El where evita pisar una licencia que el agente canceló mientras tanto
+    $actualizadas = HistorialDeLicencias::query()
+        ->where('id', $licencia->id)
+        ->where('estado', 'pendiente')
+        ->update([
+            'estado' => $validos['accion'],
+            'observaciones' => $validos['observaciones'] ?? null,
+        ]);
+
+    abort_if($actualizadas === 0, 409, 'La licencia ya no está pendiente.');
+
+    $licencia->refresh()->load('agente');
+    $agente = $licencia->agente;
+    $destinatario = $agente->correo ?: optional($agente->usuario)->email;
+
+    if (blank($destinatario)) {
+        return back()->with('warning', 'La licencia se resolvió, pero el agente no tiene correo cargado y no se envió el aviso.');
+    }
+
+    $pdf = $this->pdfDocumento($licencia)->output();
+
+    Mail::to($destinatario)->send(
+        new LicenciaResueltaMail($licencia, $pdf, $validos['accion'], $validos['observaciones'] ?? null)
+    );
+
+    return back()->with('success', 'Licencia resuelta y aviso enviado a '.$destinatario.'.');
+}
 }

@@ -1,6 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { CalendarDays, ChevronDown, ChevronRight, FileDown, Pencil } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronRight, FileDown } from 'lucide-react';
 import NavbarAgente from '@/components/navbar-agente';
 import {
     ESTADOS,
@@ -12,6 +12,7 @@ import {
     porApellido,
     type Horarios,
     type Paginacion,
+    type TareaFila,
     type TurnoRow,
 } from '@/components/turnos-compartidos';
 
@@ -32,6 +33,42 @@ type Props = {
 };
 
 const hhmm = (s: string | null | undefined) => (s ? s.slice(0, 5) : '');
+
+function TareasDelTurno({ tareas }: { tareas: TareaFila[] }) {
+    if (tareas.length === 0) {
+        return <p className="pl-4 text-xs text-muted-foreground">Sin tareas asignadas.</p>;
+    }
+
+    return (
+        <ul className="space-y-1 pl-4">
+            {tareas.map((tr) => (
+                <li key={tr.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span>
+                        {tr.titulo}
+                        {tr.lugar && <span className="text-muted-foreground"> · {tr.lugar}</span>}
+                        {tr.hora_inicio && <span className="font-mono text-muted-foreground"> · {tr.hora_inicio}–{tr.hora_fin}</span>}
+                    </span>
+                    <div className="flex gap-1">
+                        <button
+                            type="button"
+                                onClick={() => router.visit(`/admin/turnos/tareas?fecha=${tr.fecha}&editar=${tr.id}`)}
+                                className="rounded border px-2 py-0.5 hover:bg-accent"
+                            >
+                                Editar
+                        </button>
+                        <button type="button" onClick={() => cancelarTarea(tr)} className="rounded border border-red-200 px-2 py-0.5 text-red-700 hover:bg-red-50">Cancelar</button>
+                    </div>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+const cancelarTarea = (tr: TareaFila) => {
+    if (window.confirm(`¿Cancelar la tarea "${tr.titulo}"? Queda registrada como cancelada.`)) {
+        router.patch(`/admin/tareas/${tr.id}/cancelar`, {}, { preserveScroll: true });
+    }
+};
 
 function TurnoActual({ hoy, turnos, horarios }: { hoy: string; turnos: TurnoRow[]; horarios: Horarios }) {
     const bloques = ORDEN.map((t) => ({
@@ -124,24 +161,18 @@ function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow
                         {estado.texto}
                     </span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Link
-                        href={`/admin/turnos/editar?fecha=${fecha}`}
-                        className="flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
-                    >
-                        <Pencil className="size-3.5" /> Editar
-                    </Link>
-                    <button
-                        type="button"
-                        aria-expanded={abierto}
-                        aria-controls={panelId}
-                        onClick={() => setAbierto((v) => !v)}
-                        className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
-                    >
-                        {abierto ? 'Ver menos' : 'Ver más'}
-                        <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
-                    </button>
-                </div>
+                   <div className="flex items-center gap-2">
+                        <button
+                                type="button"
+                                aria-expanded={abierto}
+                                aria-controls={panelId}
+                                onClick={() => setAbierto((v) => !v)}
+                                className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
+                            >
+                                {abierto ? 'Ver menos' : 'Ver más'}
+                                <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                            </button>
+                    </div>
             </div>
 
             {/* Detalle expandido: turno | agentes */}
@@ -163,23 +194,33 @@ function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow
                                         {horarioDe(agentes[0], horarios)}
                                     </p>
                                 </div>
-                                <ul className="space-y-2">
-                                    {agentes.map((t) => (
-                                        <li key={t.id} className="flex items-center justify-between gap-3">
-                                            <span>
-                                                {t.agente.apellido}, {t.agente.nombre}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                disabled
-                                                title="Próximamente"
-                                                className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                                            >
-                                                Ver más <ChevronRight className="size-3.5" />
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
+                                   <ul className="space-y-3">
+                                        {agentes.map((t) => (
+                                                <li key={t.id} className="space-y-2">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                            <span className="font-medium">
+                                                                    {t.agente.apellido}, {t.agente.nombre}
+                                                                </span>
+                                                                <div className="flex gap-2">
+                                                                    <Link
+                                                                        href={`/admin/turnos/tareas?fecha=${t.fecha}&agente=${t.id}`}
+                                                                        className="rounded-lg border px-3 py-1 text-xs font-medium hover:bg-accent"
+                                                                    >
+                                                                        Asignar tarea
+                                                                    </Link>
+                                                                    <Link
+                                                                        href={`/admin/turnos/${t.id}/detalle`}
+                                                                        className="rounded-lg border px-3 py-1 text-xs font-medium hover:bg-accent"
+                                                                    >
+                                                                        Ver turno
+                                                                    </Link>
+                                                                </div>
+                                                    </div>
+
+                                                    <TareasDelTurno tareas={t.tareas} />
+                                                </li>
+                                            ))}
+                                    </ul>
                             </div>
                         ))}
                     </div>
