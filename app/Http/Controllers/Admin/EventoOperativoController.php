@@ -22,7 +22,7 @@ class EventoOperativoController extends Controller
             $this->guardarPuntos($evento, $datos);
         });
 
-        return back()->with('success', 'Evento creado correctamente.');
+        return redirect()->route('eventos.index')->with('success', 'Evento creado correctamente.');
     }
 
     public function update(EventoOperativoRequest $request, EventoOperativo $evento): RedirectResponse
@@ -34,7 +34,7 @@ class EventoOperativoController extends Controller
             $this->guardarPuntos($evento, $datos);
         });
 
-        return back()->with('success', 'Evento actualizado correctamente.');
+        return redirect()->route('eventos.index')->with('success', 'Evento actualizado correctamente.');
     }
 
     public function destroy(EventoOperativo $evento): RedirectResponse
@@ -42,9 +42,14 @@ class EventoOperativoController extends Controller
         // Los puntos del recorrido se borran solos (clave foránea con cascada)
         $evento->delete();
 
-        return back()->with('success', 'Evento eliminado correctamente.');
+        return redirect()->route('eventos.index')->with('success', 'Evento eliminado correctamente.');
     }
+    public function cancelar(EventoOperativo $evento): RedirectResponse
+{
+    $evento->update(['estado' => 'cancelado']);
 
+    return redirect()->route('eventos.index')->with('success', 'Evento cancelado.');
+}
     /**
      * El formulario manda fecha y horas por separado; la tabla guarda fecha y hora juntas.
      * Las coordenadas de inicio y fin salen de la ubicación (evento estático)

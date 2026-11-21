@@ -76,7 +76,7 @@ class FichajeController extends Controller
                     $this->fallar('tipo', 'Este turno ya tiene una entrada registrada.');
                 }
             } else {
-                if (! $turno->fichajes()->entradas()->exists()) {
+                if (!$turno->fichajes()->entradas()->exists()) {
                     $this->fallar('tipo', 'No se puede registrar una salida sin una entrada previa.');
                 }
                 if ($turno->fichajes()->salidas()->exists()) {
@@ -89,12 +89,12 @@ class FichajeController extends Controller
             }
 
             return $turno->fichajes()->create([
-                'tipo'              => $tipo,
-                'registrada_at'     => $registradaAt,
-                'origen'            => $request->input('origen', Fichaje::ORIGEN_WEB),
-                'ip'                => $request->ip(),
-                'registrada_por'    => $user->agente_id,
-                'foto_path'         => $request->file('foto')?->store(
+                'tipo' => $tipo,
+                'registrada_at' => $registradaAt,
+                'origen' => $request->input('origen', Fichaje::ORIGEN_WEB),
+                'ip' => $request->ip(),
+                'registrada_por' => $user->agente_id,
+                'foto_path' => $request->file('foto')?->store(
                     "fichajes/{$turno->id}",
                     config('fichaje.disco_fotos')
                 ),
@@ -106,9 +106,9 @@ class FichajeController extends Controller
         });
 
         $mensaje = match ($fichaje->tipo) {
-            Fichaje::TIPO_ENTRADA           => 'Entrada registrada correctamente.',
+            Fichaje::TIPO_ENTRADA => 'Entrada registrada correctamente.',
             Fichaje::TIPO_SALIDA_ANTICIPADA => 'Salida anticipada registrada. Quedó pendiente de revisión.',
-            default                         => 'Salida registrada correctamente.',
+            default => 'Salida registrada correctamente.',
         };
 
         $redirect = back()->with('success', $mensaje);
@@ -120,7 +120,7 @@ class FichajeController extends Controller
     //Un director puede negar un rechar una salida 
     public function revisar(RevisarFichajeRequest $request, Fichaje $fichaje): RedirectResponse
     {
-        if (! $fichaje->esSalidaAnticipada()) {
+        if (!$fichaje->esSalidaAnticipada()) {
             $this->fallar('fichaje', 'Solo las salidas anticipadas se revisan.');
         }
 
@@ -129,21 +129,21 @@ class FichajeController extends Controller
         }
 
         $fichaje->update([
-            'estado_revision'     => $request->input('estado_revision'),
+            'estado_revision' => $request->input('estado_revision'),
             'comentario_revision' => $request->input('comentario_revision'),
-            'revisada_por'        => $request->user()->agente_id,
-            'revisada_at'         => now(),
+            'revisada_por' => $request->user()->agente_id,
+            'revisada_at' => now(),
         ]);
 
         return back()->with('success', 'Revisión guardada.');
     }
 
-        private function esDirector(Request $request): bool
+    private function esDirector(Request $request): bool
     {
         return $request->user()->hasAnyRole(['Administrador', 'Supervisor']);
     }
 
-    
+
     private function autorizarTurno(Request $request, TurnoTrabajo $turno): void
     {
         abort_unless(
@@ -162,28 +162,31 @@ class FichajeController extends Controller
 
         $motivo = $request->input('motivo_salida');
 
-        if (! $motivo) {
+        if (!$motivo) {
             $this->fallar('motivo_salida', 'Salís antes del horario: indicá el motivo de la salida anticipada.');
         }
 
-        if ($motivo === 'otro' && ! $request->filled('observacion')) {
+        if ($motivo === 'otro' && !$request->filled('observacion')) {
             $this->fallar('observacion', 'Si el motivo es "otro", describilo en la observación.');
         }
 
         return [
-            'tipo'            => Fichaje::TIPO_SALIDA_ANTICIPADA,
-            'motivo_salida'   => $motivo,
-            'observacion'     => $request->input('observacion'),
+            'tipo' => Fichaje::TIPO_SALIDA_ANTICIPADA,
+            'motivo_salida' => $motivo,
+            'observacion' => $request->input('observacion'),
             'estado_revision' => Fichaje::REVISION_PENDIENTE,
         ];
     }
 
     private function datosDeGeolocalizacion(StoreFichajeRequest $request): array
     {
-        if (! $request->filled('latitud')) {
+        if (!$request->filled('latitud')) {
             return [
-                'latitud' => null, 'longitud' => null, 'precision_m' => null,
-                'dentro_de_zona' => null, 'distancia_zona_m' => null,
+                'latitud' => null,
+                'longitud' => null,
+                'precision_m' => null,
+                'dentro_de_zona' => null,
+                'distancia_zona_m' => null,
             ];
         }
 
@@ -196,15 +199,15 @@ class FichajeController extends Controller
         );
 
         return [
-            'latitud'          => $request->input('latitud'),
-            'longitud'         => $request->input('longitud'),
-            'precision_m'      => $request->input('precision_m'),
-            'dentro_de_zona'   => $distancia <= $zona['radio_m'],
+            'latitud' => $request->input('latitud'),
+            'longitud' => $request->input('longitud'),
+            'precision_m' => $request->input('precision_m'),
+            'dentro_de_zona' => $distancia <= $zona['radio_m'],
             'distancia_zona_m' => (int) round($distancia),
         ];
     }
 
-    
+
     private function distanciaEnMetros(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $radioTierra = 6371000;
@@ -221,5 +224,69 @@ class FichajeController extends Controller
     private function fallar(string $campo, string $mensaje): never
     {
         throw ValidationException::withMessages([$campo => $mensaje]);
+    }
+    public function iniciar(Request $request, TurnoTrabajo $turno): RedirectResponse
+    {
+        $agenteId = $request->user()->agente_id;
+
+        // Solo el dueño del turno puede iniciarlo
+        abort_unless($agenteId && $turno->agente_id === $agenteId, 403);
+
+        if (!$turno->fecha->isToday()) {
+            return back()->with('error', 'Solo podés iniciar el turno el día que te corresponde.');
+        }
+
+        if ($turno->estaEnCurso()) {
+            return back()->with('warning', 'Ya iniciaste este turno.');
+        }
+
+        if (!$turno->estaProgramado()) {
+            return back()->with('warning', 'Este turno ya no se puede iniciar.');
+        }
+
+        $datos = $request->validate([
+            'latitud' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitud' => ['nullable', 'numeric', 'between:-180,180'],
+            'precision_m' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $creado = false;
+
+        DB::transaction(function () use ($turno, $datos, $request, $agenteId, &$creado) {
+            $fichaje = Fichaje::firstOrCreate(
+                ['turno_trabajo_id' => $turno->id, 'tipo' => Fichaje::TIPO_ENTRADA],
+                [
+                    'registrada_at' => now(),
+                    'latitud' => $datos['latitud'] ?? null,
+                    'longitud' => $datos['longitud'] ?? null,
+                    'precision_m' => $datos['precision_m'] ?? null,
+                    'origen' => Fichaje::ORIGEN_WEB,
+                    'ip' => $request->ip(),
+                    'registrada_por' => $agenteId,
+                ]
+            );
+
+            if (!$fichaje->wasRecentlyCreated) {
+                return;
+            }
+
+            // Minutos de llegada tarde respecto al horario programado
+            $minutosTarde = 0;
+            if ($turno->hora_inicio_prog) {
+                $programado = Carbon::parse($turno->fecha->toDateString() . ' ' . $turno->hora_inicio_prog);
+                $minutosTarde = $programado->lt(now()) ? (int) $programado->diffInMinutes(now()) : 0;
+            }
+
+            $turno->update([
+                'estado_turno' => 'en_curso',
+                'minutos_tarde' => $minutosTarde,
+            ]);
+
+            $creado = true;
+        });
+
+        return $creado
+            ? back()->with('success', 'Turno iniciado correctamente.')
+            : back()->with('warning', 'Ya iniciaste este turno.');
     }
 }

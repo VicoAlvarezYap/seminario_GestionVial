@@ -109,14 +109,7 @@ class RelevoController extends Controller
 
         return redirect()->route('relevos.index');
     }
-    public function documento(Relevos $relevo)
-{
-    $relevo->load('agente');
 
-    return Pdf::loadView('pdf.relevo', [
-       
-    ])->setPaper('a4');
-}
     public function pdf(Request $request, Relevos $relevo)
     {
         $this->verificarDuenio($request, $relevo);

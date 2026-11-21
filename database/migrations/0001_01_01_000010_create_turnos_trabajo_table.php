@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->foreignId('agente_id')->constrained('agentes')->cascadeOnDelete()->cascadeOnUpdate();
             $table->date('fecha');
             $table->enum('turno', ['manana', 'tarde', 'noche', 'especial']);
-            $table->enum('estado_turno', ['programado', 'cumplido', 'ausente', 'cancelado', 'reasignado', 'abandonado'])
+            $table->enum('estado_turno', ['programado', 'cumplido','en_curso', 'ausente', 'cancelado', 'reasignado', 'abandonado'])
                 ->default('programado');
             $table->uuid('asignacion_id')->nullable()->index();
             $table->time('hora_inicio_prog')->nullable();

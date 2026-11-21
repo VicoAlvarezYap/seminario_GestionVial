@@ -104,19 +104,22 @@ export default function Historial({ turnos, horariosConfig, filtros, agentes, pa
                                 required
                             />
                         </div>
-                        {esAdmin && (
-                            <div className="flex min-w-40 flex-1 flex-col gap-1">
-                                <label htmlFor="h-agente" className={label}>Agente</label>
-                                <select id="h-agente" value={agente} onChange={(e) => setAgente(e.target.value)} className={input}>
-                                    <option value="">Todos los agentes</option>
-                                    {agentes.map((a) => (
-                                        <option key={a.id} value={a.id}>
-                                            {a.apellido}, {a.nombre}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                        <div className="flex min-w-40 flex-1 flex-col gap-1">
+                
+                            {esAdmin && (
+                                <div className="flex min-w-40 flex-1 flex-col gap-1">
+                                    <label htmlFor="h-agente" className={label}>Agente</label>
+                                    <select id="h-agente" value={agente} onChange={(e) => setAgente(e.target.value)} className={input}>
+                                        <option value="">Todos los agentes</option>
+                                        {agentes.map((a) => (
+                                            <option key={a.id} value={a.id}>
+                                                {a.apellido}, {a.nombre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
                         <div className="flex min-w-36 flex-col gap-1">
                             <label htmlFor="h-estado" className={label}>Estado</label>
                             <select id="h-estado" value={estado} onChange={(e) => setEstado(e.target.value)} className={input}>

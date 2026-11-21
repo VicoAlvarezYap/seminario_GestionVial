@@ -55,4 +55,11 @@ class User extends Authenticatable
     {
         return $this->hasRole($nombre);
     }
+    public function esAdmin(): bool
+    {
+        return $this->getRoleNames()
+            ->map(fn($rol) => strtolower($rol))
+            ->intersect(['admin', 'super-admin', 'administrador'])
+            ->isNotEmpty();
+    }
 }

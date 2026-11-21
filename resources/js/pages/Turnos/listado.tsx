@@ -253,20 +253,37 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
 
 
     const botonPdf = 'flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium';
-
+    const excelUrl ='/admin/turnos/listado/excel?' +
+    new URLSearchParams({
+        desde: filtros.desde,
+        hasta: filtros.hasta,
+        ...(filtros.agente ? { agente: String(filtros.agente) } : {}),
+    }).toString();
     return (
         <section className="space-y-4 rounded-2xl border bg-muted/40 p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold">Turnos próximos</h2>
-                {turnos.length > 0 ? (
-                    <a href={pdfUrl} className={`${botonPdf} hover:bg-accent`}>
-                        <FileDown className="size-4" /> Exportar PDF
-                    </a>
-                ) : (
-                    <button type="button" disabled className={`${botonPdf} cursor-not-allowed opacity-50`}>
-                        <FileDown className="size-4" /> Exportar PDF
-                    </button>
-                )}
+                <div className="flex flex-wrap gap-2">
+                    {turnos.length > 0 ? (
+                        <>
+                            <a href={pdfUrl} className={`${botonPdf} hover:bg-accent`}>
+                                <FileDown className="size-4" /> Exportar PDF
+                            </a>
+                            <a href={excelUrl} className={`${botonPdf} hover:bg-accent`}>
+                                <FileDown className="size-4" /> Exportar Excel
+                            </a>
+                        </>
+                    ) : (
+                        <>
+                            <button type="button" disabled className={`${botonPdf} cursor-not-allowed opacity-50`}>
+                                <FileDown className="size-4" /> Exportar PDF
+                            </button>
+                            <button type="button" disabled className={`${botonPdf} cursor-not-allowed opacity-50`}>
+                                <FileDown className="size-4" /> Exportar Excel
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Filtros */}

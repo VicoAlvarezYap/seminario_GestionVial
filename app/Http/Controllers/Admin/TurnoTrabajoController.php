@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\TurnoTrabajoRequest;
 use App\Models\Agente;
 use Inertia\Inertia;
+use App\Models\Fichaje;
 use Illuminate\Http\Request;
 use App\Models\TurnoTrabajo;
 use Inertia\Response;
@@ -135,7 +136,7 @@ class TurnoTrabajoController extends Controller
             'bloques' => ['required', 'array', 'min:1', 'max:3'],
             'bloques.*.turno' => ['required', 'in:manana,tarde,noche,especial'],
             'bloques.*.agente_ids' => ['required', 'array', 'min:1'],
-            'bloques..agente_ids.' => ['integer', 'exists:agentes,id'],
+            'bloques.*.agente_ids.*' => ['integer', 'exists:agentes,id'],
             'bloques.*.hora_inicio_prog' => ['nullable', 'date_format:H:i'],
             'bloques.*.hora_fin_prog' => ['nullable', 'date_format:H:i'],
         ]);
@@ -286,6 +287,26 @@ class TurnoTrabajoController extends Controller
                 'total' => $paginador->total(),
             ],
         ]);
+    }
+    public function listadoExcel(Request $request)
+    {
+        $f = $this->filtrosProximos($request);
+
+        $turnos = $this->turnosEntre(
+            $f['desde'],
+            $f['hasta'],
+            $f['agente'],
+            soloVigentes: true,
+        );
+
+        // turnosEntre devuelve arreglos; el exportador espera modelos, así que los reconstruimos
+        $modelos = TurnoTrabajo::with('agente:id,nombre,apellido')
+            ->whereIn('id', $turnos->pluck('id'))
+            ->orderBy('fecha')
+            ->orderByRaw("CASE turno WHEN 'manana' THEN 1 WHEN 'tarde' THEN 2 WHEN 'noche' THEN 3 ELSE 4 END")
+            ->get();
+
+        return TurnosExcel::descargar($modelos, "turnos-{$f['desde']}-a-{$f['hasta']}.xlsx");
     }
     public function listadoPdf(Request $request)
     {
@@ -556,6 +577,9 @@ class TurnoTrabajoController extends Controller
         $lugarId = null;
         if (!empty($datos['lugar'])) {
             $lugarId = Lugar::firstOrCreate(['nombre' => trim($datos['lugar'])])->id;
+            $nombreLugar = Str::squish(trim($datos['lugar']));
+            $lugarExistente = Lugar::whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombreLugar)])->first();
+            $lugarId = $lugarExistente?->id ?? Lugar::create(['nombre' => $nombreLugar])->id;
         }
         if ($datos['turno'] !== 'especial' && !empty($datos['hora_inicio']) && !empty($datos['hora_fin'])) {
             [$desde, $hasta] = config("turnos.horarios.{$datos['turno']}");
@@ -566,6 +590,32 @@ class TurnoTrabajoController extends Controller
             if (!$dentro($datos['hora_inicio']) || !$dentro($datos['hora_fin'])) {
                 return back()->withErrors([
                     'hora_inicio' => "Las horas tienen que estar entre {$desde} y {$hasta}.",
+                ]);
+            }
+        }
+        // Horario permitido según el bloque (el especial toma el de sus turnos)
+        if ($datos['turno'] === 'especial') {
+            $turnoRef = TurnoTrabajo::whereIn('id', $datos['turno_ids'])->first();
+            $desde = $turnoRef?->hora_inicio_prog ? substr($turnoRef->hora_inicio_prog, 0, 5) : null;
+            $hasta = $turnoRef?->hora_fin_prog ? substr($turnoRef->hora_fin_prog, 0, 5) : null;
+        } else {
+            [$desde, $hasta] = config("turnos.horarios.{$datos['turno']}");
+        }
+
+        $enRango = fn(string $h) => $desde < $hasta
+            ? $h >= $desde && $h <= $hasta
+            : $h >= $desde || $h <= $hasta; // cruza medianoche
+
+        if (!empty($datos['hora_inicio']) && !empty($datos['hora_fin'])) {
+            if ($datos['hora_inicio'] === $datos['hora_fin']) {
+                throw ValidationException::withMessages([
+                    'hora_fin' => 'La hora de fin tiene que ser distinta de la de inicio.',
+                ]);
+            }
+
+            if (!$enRango($datos['hora_inicio']) || !$enRango($datos['hora_fin'])) {
+                throw ValidationException::withMessages([
+                    'hora_inicio' => "El horario de este turno tiene que estar entre {$desde} y {$hasta}.",
                 ]);
             }
         }
@@ -589,13 +639,98 @@ class TurnoTrabajoController extends Controller
             ->pluck('id');
 
         DB::transaction(function () use ($turnoIds, $base) {
+            TurnoTrabajo::whereIn('id', $turnoIds)->lockForUpdate()->get();
             foreach ($turnoIds as $turnoId) {
-                Tarea::create(['turno_trabajo_id' => $turnoId] + $base);
+                $existe = Tarea::where('turno_trabajo_id', $turnoId)
+                    ->where('titulo', $base['titulo'])
+                    ->where('hora_inicio', $base['hora_inicio'])
+                    ->where('hora_fin', $base['hora_fin'])
+                    ->exists();
+
+                if (!$existe) {
+                    Tarea::create(['turno_trabajo_id' => $turnoId] + $base);
+                }
             }
         });
 
         return redirect('/admin/turnos/listado?' . http_build_query(['fecha' => $datos['fecha']]))
             ->with('success', "Tarea asignada a {$turnoIds->count()} agente(s).");
+    }
+    public function detalle(TurnoTrabajo $turno): Response
+    {
+        $turno->load([
+            'agente:id,nombre,apellido',
+            'fichajes.revisadaPor:id,nombre,apellido',
+            'reporte',
+            'tareas',
+        ]);
+
+        $fichajes = $turno->fichajes->sortBy('registrada_at')->values();
+        $intervenciones = $turno->intervencionesDelTurno()->orderBy('fecha_hora')->get();
+
+        return Inertia::render('Admin/Turnos/Detalle', [
+            'turno' => [
+                'id' => $turno->id,
+                'fecha' => $turno->fecha->format('d/m/Y'),
+                'agente' => "{$turno->agente->apellido}, {$turno->agente->nombre}",
+                'turno' => $turno->turno,
+                'estado' => $turno->estado_turno,
+                'hora_inicio_prog' => substr($turno->hora_inicio_prog, 0, 5),
+                'hora_fin_prog' => substr($turno->hora_fin_prog, 0, 5),
+                'entrada' => $turno->inicio_real?->format('H:i'),
+                'salida' => $turno->fin_real?->format('H:i'),
+                'minutos_trabajados' => $turno->minutos_trabajados,
+                'minutos_tarde' => $turno->minutos_tarde,
+                'minutos_extra' => $turno->minutos_extra,
+                'minutos_salida_anticipada' => $turno->minutos_salida_anticipada,
+            ],
+            'fichajes' => $fichajes->map(fn(Fichaje $f) => [
+                'id' => $f->id,
+                'tipo' => $f->tipo,
+                'hora' => $f->registrada_at->format('H:i'),
+                'origen' => $f->origen,
+                'ip' => $f->ip,
+                'latitud' => $f->latitud,
+                'longitud' => $f->longitud,
+                'motivo_salida' => $f->motivo_salida,
+                'estado_revision' => $f->estado_revision,
+                'comentario_revision' => $f->comentario_revision,
+                'revisada_por' => $f->revisadaPor
+                    ? "{$f->revisadaPor->apellido}, {$f->revisadaPor->nombre}"
+                    : null,
+                'revisada_at' => $f->revisada_at?->format('d/m/Y H:i'),
+            ])->all(),
+            'reporte' => $turno->reporte,
+            'tareas' => $turno->tareas->map(fn($t) => [
+                'titulo' => $t->titulo_final,
+                'lugar' => $t->lugar_final?->nombre,
+            ])->values()->all(),
+            'intervenciones' => $intervenciones->map(fn($i) => [
+                'id' => $i->id,
+                'hora' => $i->fecha_hora->format('H:i'),
+                'estado' => $i->estado_resolucion,
+                // sumá los campos que quieras mostrar
+            ])->all(),
+            'infracciones' => [], // pendiente
+        ]);
+    }
+
+    public function revisarFichaje(Request $request, Fichaje $fichaje): RedirectResponse
+    {
+        abort_unless($fichaje->esSalidaAnticipada(), 422, 'Solo se revisan salidas anticipadas.');
+
+        $datos = $request->validate([
+            'estado_revision' => ['required', Rule::in([Fichaje::REVISION_JUSTIFICADA, Fichaje::REVISION_INJUSTIFICADA])],
+            'comentario_revision' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $fichaje->update([
+            ...$datos,
+            'revisada_por' => $request->user()->agente_id,
+            'revisada_at' => now(),
+        ]);
+
+        return back()->with('success', 'Revisión guardada.');
     }
 
 

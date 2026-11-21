@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Fichaje extends Model{
     use HasFactory;
+    protected $table = 'fichaje';
 
     public const TIPO_ENTRADA = 'entrada';
     public const TIPO_SALIDA = 'salida';

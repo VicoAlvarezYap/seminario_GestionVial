@@ -16,7 +16,7 @@ class TurnoTrabajo extends Model
     protected $table = 'turnos_trabajo';
 
     public const TURNOS = ['manana', 'tarde', 'noche', 'especial'];
-    public const ESTADOS = ['programado', 'cumplido', 'ausente', 'cancelado', 'reasignado', 'abandonado'];
+    public const ESTADOS = ['programado', 'en_curso', 'cumplido', 'ausente', 'cancelado', 'reasignado', 'abandonado'];
 
     protected $fillable = [
         'agente_id',
@@ -33,10 +33,10 @@ class TurnoTrabajo extends Model
     ];
 
     protected $casts = [
-        'fecha'                     => 'date',
-        'minutos_trabajados'        => 'integer',
-        'minutos_extra'             => 'integer',
-        'minutos_tarde'             => 'integer',
+        'fecha' => 'date',
+        'minutos_trabajados' => 'integer',
+        'minutos_extra' => 'integer',
+        'minutos_tarde' => 'integer',
         'minutos_salida_anticipada' => 'integer',
     ];
 
@@ -44,12 +44,12 @@ class TurnoTrabajo extends Model
     {
         // Al crear, copia el horario del turno (el especial lo define quien lo asigna)
         static::creating(function (TurnoTrabajo $t) {
-            if (! in_array($t->turno, self::TURNOS, true)) {
+            if (!in_array($t->turno, self::TURNOS, true)) {
                 throw new InvalidArgumentException("Turno inválido: {$t->turno}");
             }
 
             if ($t->turno === 'especial') {
-                if (! $t->hora_inicio_prog || ! $t->hora_fin_prog) {
+                if (!$t->hora_inicio_prog || !$t->hora_fin_prog) {
                     throw new InvalidArgumentException('El turno especial necesita hora de inicio y de fin.');
                 }
                 return;
@@ -57,7 +57,7 @@ class TurnoTrabajo extends Model
 
             $horario = config("turnos.horarios.{$t->turno}");
 
-            if (! is_array($horario) || count($horario) < 2) {
+            if (!is_array($horario) || count($horario) < 2) {
                 throw new InvalidArgumentException("No hay horario configurado para el turno {$t->turno}.");
             }
 
@@ -102,18 +102,19 @@ class TurnoTrabajo extends Model
     }
     protected function inicioReal(): Attribute
     {
-        return Attribute::get(fn () => $this->entrada?->registrada_at);
+        return Attribute::get(fn() => $this->entrada?->registrada_at);
     }
 
     /** Fin real = hora del último fichaje de salida. */
     protected function finReal(): Attribute
     {
-        return Attribute::get(fn () => $this->salida?->registrada_at);
+        return Attribute::get(fn() => $this->salida?->registrada_at);
     }
 
-  
+
+
     public function scopeDeAgente(Builder $query, int $agenteId): Builder
-{
+    {
         return $query->where('agente_id', $agenteId);
     }
 
@@ -140,6 +141,11 @@ class TurnoTrabajo extends Model
     public function scopeProgramados(Builder $query): Builder
     {
         return $query->where('estado_turno', 'programado');
+    }
+
+    public function estaEnCurso(): bool
+    {
+         return $this->estado_turno === 'en_curso';
     }
 
     public function scopeConLlegadaTarde(Builder $query): Builder
@@ -174,7 +180,7 @@ class TurnoTrabajo extends Model
 
     public function estadoCalculado(): string
     {
-        return ($this->estaProgramado() && $this->inicio_real && ! $this->fin_real)
+        return ($this->estaProgramado() && $this->inicio_real && !$this->fin_real)
             ? 'en_curso'
             : $this->estado_turno;
     }
@@ -211,17 +217,20 @@ class TurnoTrabajo extends Model
     {
         return $this->hora_fin_prog ?? config("turnos.horarios.{$this->turno}.1", '23:59');
     }
-    public function intervencionesDelTurno()
-{
-    if (! $this->inicio_real || ! $this->fin_real) {
-        return Intervencion::query()->whereRaw('1 = 0');
+    public function intervencionesDelTurno(): Builder
+    {
+        $desde = $this->inicio_real ?? $this->inicioProgramado();
+        $hasta = $this->fin_real ?? $this->finProgramado();
+
+        return Intervencion::query()
+            ->where('estado_resolucion', '!=', 'cancelada')
+            ->where(function (Builder $q) use ($desde, $hasta) {
+                $q->where(fn(Builder $q) => $q
+                    ->whereHas('agentes', fn($a) => $a->where('agentes.id', $this->agente_id))
+                    ->whereBetween('fecha_hora', [$desde, $hasta]))
+                    ->orWhereHas('tarea', fn($t) => $t->where('turno_trabajo_id', $this->id));
+            });
     }
 
-    return Intervencion::query()
-        ->whereBetween('fecha_hora', [$this->inicio_real, $this->fin_real])
-        ->where(function ($q) {
-            $q->where('agente_reporta_id', $this->agente_id)
-                ->orWhereHas('agentes', fn ($a) => $a->where('agentes.id', $this->agente_id));
-        });
-}
+
 }
