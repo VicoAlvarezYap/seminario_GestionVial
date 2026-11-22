@@ -15,6 +15,8 @@ class TurnoTrabajo extends Model
 {
     protected $table = 'turnos_trabajo';
 
+    public const MINUTOS_LIMITE_EDICION = 60;
+
     public const TURNOS = ['manana', 'tarde', 'noche', 'especial'];
     public const ESTADOS = ['programado', 'en_curso', 'cumplido', 'ausente', 'cancelado', 'reasignado', 'abandonado'];
 
@@ -145,7 +147,7 @@ class TurnoTrabajo extends Model
 
     public function estaEnCurso(): bool
     {
-         return $this->estado_turno === 'en_curso';
+        return $this->estado_turno === 'en_curso';
     }
 
     public function scopeConLlegadaTarde(Builder $query): Builder
@@ -198,6 +200,16 @@ class TurnoTrabajo extends Model
     public function inicioProgramado(): CarbonInterface
     {
         return $this->fecha->copy()->setTimeFromTimeString($this->horaInicioProg());
+    }
+    public function limiteEdicion(): CarbonInterface
+    {
+        return $this->inicioProgramado()->subMinutes(self::MINUTOS_LIMITE_EDICION);
+    }
+
+    /** Programado y todavía dentro del plazo (sin consultar la base). */
+    public function enPlazoDeEdicion(): bool
+    {
+        return $this->estaProgramado() && now()->lt($this->limiteEdicion());
     }
 
     public function finProgramado(): CarbonInterface

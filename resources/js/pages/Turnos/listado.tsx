@@ -14,6 +14,8 @@ import {
     type Paginacion,
     type TurnoRow,
 } from '@/components/turnos-compartidos';
+import EditarTurnoModal, { type TurnoEditable } from '@/components/editar-turno-modal';
+import FlashMensajes from '@/components/flash-mensajes';
 
 type Turno = 'manana' | 'tarde' | 'noche' | 'especial';
 
@@ -32,6 +34,7 @@ type Props = {
 };
 
 const hhmm = (s: string | null | undefined) => (s ? s.slice(0, 5) : '');
+
 
 function TurnoActual({ hoy, turnos, horarios }: { hoy: string; turnos: TurnoRow[]; horarios: Horarios }) {
     const bloques = ORDEN.map((t) => ({
@@ -100,7 +103,17 @@ function TurnoActual({ hoy, turnos, horarios }: { hoy: string; turnos: TurnoRow[
     );
 }
 
-function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow[]; horarios: Horarios }) {
+function DiaProximo({
+    fecha,
+    items,
+    horarios,
+    onEditar,
+}: {
+    fecha: string;
+    items: TurnoRow[];
+    horarios: Horarios;
+    onEditar: (t: TurnoRow) => void;
+}) {
     const [abierto, setAbierto] = useState(false);
     const panelId = `dia-${fecha}`;
 
@@ -124,24 +137,16 @@ function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow
                         {estado.texto}
                     </span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Link
-                        href={`/admin/turnos/editar?fecha=${fecha}`}
-                        className="flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
-                    >
-                        <Pencil className="size-3.5" /> Editar
-                    </Link>
-                    <button
-                        type="button"
-                        aria-expanded={abierto}
-                        aria-controls={panelId}
-                        onClick={() => setAbierto((v) => !v)}
-                        className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
-                    >
-                        {abierto ? 'Ver menos' : 'Ver más'}
-                        <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    aria-expanded={abierto}
+                    aria-controls={panelId}
+                    onClick={() => setAbierto((v) => !v)}
+                    className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
+                >
+                    {abierto ? 'Ver menos' : 'Ver más'}
+                    <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                </button>
             </div>
 
             {/* Detalle expandido: turno | agentes */}
@@ -169,14 +174,24 @@ function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow
                                             <span>
                                                 {t.agente.apellido}, {t.agente.nombre}
                                             </span>
-                                            <button
-                                                type="button"
-                                                disabled
-                                                title="Próximamente"
-                                                className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                                            >
-                                                Ver más <ChevronRight className="size-3.5" />
-                                            </button>
+                                            {t.editable ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onEditar(t)}
+                                                    className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1 text-xs font-medium hover:bg-accent"
+                                                >
+                                                    <Pencil className="size-3.5" /> Editar
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    disabled
+                                                    title="No se puede editar: ya empezó o falta menos de una hora"
+                                                    className="flex cursor-not-allowed items-center gap-1 rounded-lg border bg-background px-3 py-1 text-xs font-medium opacity-50"
+                                                >
+                                                    <Pencil className="size-3.5" /> Editar
+                                                </button>
+                                            )}
                                         </li>
                                     ))}
                                 </ul>
@@ -196,20 +211,22 @@ type ProximosProps = {
     agentes: AgenteOpcion[];
     manana: string;
     paginacion: Paginacion;
+    onEditar: (t: TurnoRow) => void;
 };
 
 
-function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion }: ProximosProps) {
+function TurnosProximos({ turnos, horarios, filtros, agentes, manana, paginacion, onEditar  }: ProximosProps) {
     const [desde, setDesde] = useState(filtros.desde);
     const [hasta, setHasta] = useState(filtros.hasta);
     const [agente, setAgente] = useState(filtros.agente ? String(filtros.agente) : '');
-
+    const [editando, setEditando] = useState<TurnoEditable | null>(null);
     // El servidor puede ajustar las fechas: se vuelve a sincronizar
     useEffect(() => {
         setDesde(filtros.desde);
         setHasta(filtros.hasta);
         setAgente(filtros.agente ? String(filtros.agente) : '');
     }, [filtros.desde, filtros.hasta, filtros.agente]);
+
 
     const irA = (params: Record<string, string>) =>
         router.get('/admin/turnos/listado', params, { preserveScroll: true, preserveState: true });
@@ -253,12 +270,12 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
 
 
     const botonPdf = 'flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium';
-    const excelUrl ='/admin/turnos/listado/excel?' +
-    new URLSearchParams({
-        desde: filtros.desde,
-        hasta: filtros.hasta,
-        ...(filtros.agente ? { agente: String(filtros.agente) } : {}),
-    }).toString();
+    const excelUrl = '/admin/turnos/listado/excel?' +
+        new URLSearchParams({
+            desde: filtros.desde,
+            hasta: filtros.hasta,
+            ...(filtros.agente ? { agente: String(filtros.agente) } : {}),
+        }).toString();
     return (
         <section className="space-y-4 rounded-2xl border bg-muted/40 p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -358,7 +375,7 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
             ) : (
                 <>
                     {porFecha.map(([fecha, items]) => (
-                        <DiaProximo key={fecha} fecha={fecha} items={items} horarios={horarios} />
+                        <DiaProximo key={fecha} fecha={fecha} items={items} horarios={horarios} onEditar={onEditar} />
                     ))}
                     <Paginador actual={paginacion.actual} ultima={paginacion.ultima} onIr={irAPagina} />
                 </>
@@ -369,10 +386,13 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
 
 
 export default function Listado({ hoy, manana, horariosConfig, turnosHoy, proximos, filtros, agentes, paginacion }: Props) {
+    const [editando, setEditando] = useState<TurnoEditable | null>(null);
+
     return (
         <>
             <NavbarAgente />
             <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+                <FlashMensajes />
                 <TurnoActual hoy={hoy} turnos={turnosHoy} horarios={horariosConfig} />
                 <TurnosProximos
                     turnos={proximos}
@@ -381,6 +401,13 @@ export default function Listado({ hoy, manana, horariosConfig, turnosHoy, proxim
                     agentes={agentes}
                     manana={manana}
                     paginacion={paginacion}
+                    onEditar={setEditando}
+                />
+                <EditarTurnoModal
+                    turno={editando}
+                    agentes={agentes}
+                    horariosConfig={horariosConfig}
+                    onClose={() => setEditando(null)}
                 />
             </div>
         </>

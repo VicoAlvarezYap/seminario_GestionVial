@@ -14,6 +14,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -94,13 +95,20 @@ class TurnoTrabajoController extends Controller
     public function update(TurnoTrabajoRequest $request, TurnoTrabajo $turno): RedirectResponse
     {
         if (!$turno->estaProgramado() || $turno->fichajes()->exists()) {
-            return back()->with('error', 'No se puede modificar: el turno ya tiene fichajess o no está programado.');
+            return back()->with('error', 'No se puede modificar: el turno ya tiene fichajes o no está programado.');
+        }
+
+        if (!$turno->enPlazoDeEdicion()) {
+            $limite = $turno->limiteEdicion()->format('d/m/Y H:i');
+
+            return back()->with('error', "Ya no se puede modificar: el plazo venció el {$limite} (una hora antes del inicio).");
         }
 
         $datos = $request->validated();
 
-        $duplicado = TurnoTrabajo::where('agente_id', $turno->agente_id)
-            ->where('fecha', $datos['fecha'])
+        // Un agente, un turno por día (igual que al asignar)
+        $duplicado = TurnoTrabajo::where('agente_id', $datos['agente_id'])
+            ->whereDate('fecha', $datos['fecha'])
             ->whereKeyNot($turno->id)
             ->exists();
 
@@ -118,15 +126,54 @@ class TurnoTrabajoController extends Controller
             [$datos['hora_inicio_prog'], $datos['hora_fin_prog']] = $horario;
         }
 
+        // El nuevo horario tampoco puede quedar en el pasado ni dentro de la hora previa
+        $nuevoInicio = Carbon::parse("{$datos['fecha']} {$datos['hora_inicio_prog']}");
+        if ($nuevoInicio->lt(now()->addMinutes(TurnoTrabajo::MINUTOS_LIMITE_EDICION))) {
+            throw ValidationException::withMessages([
+                'fecha' => 'El turno tiene que empezar al menos una hora después de este momento.',
+            ]);
+        }
+        $cambio = $turno->agente_id !== (int) $datos['agente_id']
+            || $turno->fecha->toDateString() !== $datos['fecha']
+            || $turno->turno !== $datos['turno']
+            || substr((string) $turno->hora_inicio_prog, 0, 5) !== substr($datos['hora_inicio_prog'], 0, 5)
+            || substr((string) $turno->hora_fin_prog, 0, 5) !== substr($datos['hora_fin_prog'], 0, 5);
+
+        $conTareas = $cambio && $turno->tareas()->exists();
+        if ($conTareas) {
+            // Las intervenciones protegen a sus tareas (igual que en destroy)
+            if ($turno->tareas()->whereHas('intervenciones')->exists()) {
+                return back()->with('error', 'No se puede modificar: el turno tiene tareas con intervenciones registradas.');
+            }
+
+            // Protege contra tareas agregadas después de abrir el formulario
+            if (!$request->boolean('confirmar_borrado_tareas')) {
+                throw ValidationException::withMessages([
+                    'tareas' => 'Este turno tiene tareas asignadas y se eliminarían al modificarlo. Volvé a abrir el formulario y confirmá.',
+                ]);
+            }
+        }
+
         try {
-            $turno->update($datos);
+            DB::transaction(function () use ($turno, $datos, $conTareas) {
+                if ($conTareas) {
+                    Tarea::where('turno_trabajo_id', $turno->id)->delete();
+                }
+
+                $turno->update(Arr::only($datos, ['agente_id', 'fecha', 'turno', 'hora_inicio_prog', 'hora_fin_prog']));
+            });
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages([
                 'turno' => 'El agente ya tiene ese turno asignado en esa fecha.',
             ]);
         }
 
-        return back()->with('success', 'Turno actualizado correctamente.');
+        return back()->with(
+            'success',
+            $conTareas
+            ? 'Turno actualizado. Se eliminaron sus tareas: asignalas de nuevo.'
+            : 'Turno actualizado correctamente.',
+        );
     }
     public function storeJornada(Request $request): RedirectResponse
     {
@@ -393,6 +440,7 @@ class TurnoTrabajoController extends Controller
 
         return $this->queryTurnos($desde, $hasta, $agenteId, $soloVigentes, $estado)
             ->with('agente:id,nombre,apellido')
+            ->withCount('tareas')
             ->when($soloFechas !== null, fn($q) => $q->whereIn(DB::raw('DATE(fecha)'), $soloFechas))
             ->orderBy('fecha', $orden)
             ->orderByRaw("CASE turno
@@ -412,6 +460,8 @@ class TurnoTrabajoController extends Controller
                     'hora_fin_prog' => $t->hora_fin_prog,
                     'estado' => $estado instanceof \BackedEnum ? $estado->value : (string) $estado,
                     'agente' => $t->agente,
+                    'editable' => $t->enPlazoDeEdicion(),
+                    'tareas_count' => $t->tareas_count,
                 ];
             })
             ->values();
@@ -525,13 +575,12 @@ class TurnoTrabajoController extends Controller
             'lugares' => Lugar::orderBy('nombre')->get(['id', 'nombre']),
             'eventosDelDia' => EventoOperativo::whereDate('fecha_hora_inicio', $fecha)
                 ->orderBy('fecha_hora_inicio')
-                ->get(['id', 'titulo', 'fecha_hora_inicio', 'fecha_hora_fin', 'lugar_id'])
+                ->get(['id', 'titulo', 'fecha_hora_inicio', 'fecha_hora_fin'])
                 ->map(fn(EventoOperativo $e) => [
                     'id' => $e->id,
                     'titulo' => $e->titulo,
                     'hora_inicio' => $e->fecha_hora_inicio->format('H:i'),
-                    'hora_fin' => $e->fecha_hora_fin?->format('H:i'),
-                    'lugar_id' => $e->lugar_id,
+                    'hora_fin' => $e->fecha_hora_fin?->format('H:i')
                 ])
                 ->values()
                 ->all(),
@@ -731,6 +780,27 @@ class TurnoTrabajoController extends Controller
         ]);
 
         return back()->with('success', 'Revisión guardada.');
+    }
+
+    /** Mismo control de duración que ya hacés en storeJornada, para el turno especial. */
+    private function validarDuracionEspecial(string $inicio, string $fin): void
+    {
+        $desde = Carbon::parse($inicio);
+        $hasta = Carbon::parse($fin);
+
+        if ($hasta->lessThanOrEqualTo($desde)) {
+            $hasta->addDay(); // cruza medianoche
+        }
+
+        $horas = $desde->diffInMinutes($hasta) / 60;
+        $min = config('turnos.especial.min_horas');
+        $max = config('turnos.especial.max_horas');
+
+        if ($horas < $min || $horas > $max) {
+            throw ValidationException::withMessages([
+                'hora_fin' => "El turno especial debe durar entre {$min} y {$max} horas.",
+            ]);
+        }
     }
 
 

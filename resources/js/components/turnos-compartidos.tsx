@@ -12,6 +12,8 @@ export type TurnoRow = {
     hora_fin_prog: string | null;
     estado: string;
     agente: { id: number; nombre: string; apellido: string };
+    editable?: boolean;
+    tareas_count?: number;
 };
 
 export type Horarios = Record<string, [string, string]>;
