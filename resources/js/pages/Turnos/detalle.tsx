@@ -1,5 +1,4 @@
 import { Head, Link, router } from '@inertiajs/react';
-import NavbarAgente from '@/components/navbar-agente';
 import type { TareaFila } from '@/components/turnos-compartidos';
 
 type Props = {
@@ -81,7 +80,6 @@ export default function TurnoDetalle({ turno, fichajes, tareas, tieneReporte }: 
     return (
         <>
             <Head title="Detalle del turno" />
-            <NavbarAgente />
 
             <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
                 <Link href="/admin/turnos/listado" className="text-sm text-primary hover:underline">

@@ -186,13 +186,13 @@ export default function TurnosIndex({
         procesando || !jornadaCompleta || (!esNormal && (!horaInicio || !horaFin));
 
     return (
+        
         <div className="mx-auto max-w-3xl p-4 sm:p-6">
             {mensaje && (
                 <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
                     {mensaje}
                 </div>
             )}
-
             <form onSubmit={siguiente} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
                 {/* ENCABEZADO: sin X, solo título y pasos con números más grandes */}
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b px-6 py-5">

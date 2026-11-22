@@ -1,16 +1,12 @@
 import { createInertiaApp } from '@inertiajs/react';
-import type { PropsWithChildren } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
 import AuthLayout from '@/layouts/auth-layout';
-import ConNavbarLayout from '@/layouts/con-navbar-layout';
+
 import SettingsLayout from '@/layouts/settings/layout';
-
+import LayoutConMenu from '@/layouts/layout-con-menu';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-
-// Corre el contenido a la derecha del riel de íconos (w-16) en pantallas medianas y grandes
-const ConMargenMenu = ({ children }: PropsWithChildren) => <div className="md:pl-16">{children}</div>;
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
@@ -21,9 +17,10 @@ void createInertiaApp({
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):
-                return [ConMargenMenu, ConNavbarLayout, SettingsLayout];
+                return [LayoutConMenu, SettingsLayout];
             default:
-                return ConMargenMenu;
+                // Las pantallas del agente y del admin ya muestran NavbarAgente
+                return LayoutConMenu;
         }
     },
     strictMode: true,
@@ -40,4 +37,5 @@ void createInertiaApp({
     },
 });
 
+// This will set light / dark mode on load...
 initializeTheme();

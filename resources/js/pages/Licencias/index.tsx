@@ -1,7 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Plus , Download} from 'lucide-react';
 import { useMemo, useRef, useState, useEffect, type FormEvent, type KeyboardEvent } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 import {
     Dialog,
     DialogContent,
@@ -347,7 +346,6 @@ const abrirNueva = () => {
     return (
         <>
             <Head title="Mis licencias" />
-            <NavbarAgente />
 
             <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
                 <div className="flex items-center justify-between gap-4">

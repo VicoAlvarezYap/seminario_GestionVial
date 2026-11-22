@@ -1,6 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
 import { AlertTriangle, CalendarDays, FileText, Plus } from 'lucide-react';
-import NavbarAgente from '@/components/navbar-agente';
 
 type Props = {
     nombre: string;
@@ -39,7 +38,6 @@ export default function InicioAdmin({
     return (
         <>
             <Head title="Inicio" />
-            <NavbarAgente />
 
             <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
                 <header>

@@ -1,78 +1,33 @@
-import { Link, router, usePage } from '@inertiajs/react';
-import {
-    AlertTriangle,
-    ArrowLeftRight,
-    Bell,
-    CalendarDays,
-    ChevronLeft,
-    ChevronRight,
-    ClipboardCheck,
-    ClipboardList,
-    FileText,
-    LayoutGrid,
-    LogOut,
-    Menu,
-    Moon,
-    Settings,
-    Sun,
-    UserRound,
-    Users,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
-import { useAppearance } from '@/hooks/use-appearance';
+import { ACCIONES, accionesVisibles, type Accion } from '@/components/acciones';
 
-type Enlace = { titulo: string; href: string; icono: LucideIcon };
+type Enlace = Accion;
 
 type PageProps = {
     auth?: { roles?: string[]; tieneAgente?: boolean };
     modo?: 'agente' | 'admin';
-    puedeCambiarModo?: boolean;
 };
 
-const personales: Enlace[] = [
-    { titulo: 'Inicio', href: '/pagina_principal', icono: LayoutGrid },
-    { titulo: 'Mis reportes', href: '/reportes', icono: ClipboardCheck },
-    { titulo: 'Intervenciones', href: '/intervenciones', icono: AlertTriangle },
-    { titulo: 'Infracciones', href: '/relevos', icono: ClipboardList },
-    { titulo: 'Licencias', href: '/licencias', icono: FileText },
-    { titulo: 'Historial de turnos', href: '/mi-historial-turnos', icono: CalendarDays },
-    { titulo: 'Eventos', href: '/eventos', icono: CalendarDays },
-];
+// Estas van abajo del menú, separadas del resto
+const PERFIL = ['/mi-perfil', '/settings/profile'];
 
-const administracion: Enlace[] = [
-    { titulo: 'Inicio', href: '/pagina_principal', icono: LayoutGrid },
-    { titulo: 'Agentes', href: '/admin/perfiles', icono: Users },
-    { titulo: 'Gestión de turnos', href: '/admin/turnos', icono: CalendarDays },
-    { titulo: 'Asignar tarea', href: '/admin/turnos/tareas', icono: ClipboardList },
-    { titulo: 'Ver turnos', href: '/admin/turnos/listado', icono: CalendarDays },
-    { titulo: 'Historial de turnos', href: '/admin/turnos/historial', icono: CalendarDays },
-    { titulo: 'Reportes de turno', href: '/admin/reportes', icono: ClipboardCheck },
-    { titulo: 'Gestión de licencias', href: '/admin/licencias', icono: FileText },
-    { titulo: 'Gestión de infracciones', href: '/admin/relevos', icono: ClipboardList },
-    { titulo: 'Gestión de intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
-    { titulo: 'Eventos', href: '/eventos', icono: CalendarDays },
-];
-
-const cuenta: Enlace[] = [
-    { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound },
-    { titulo: 'Configuración', href: '/settings/profile', icono: Settings },
-];
-
-export default function NavbarAgente() {
+export default function NavbarAgente({
+    abiertoMovil = false,
+    onCerrarMovil,
+}: {
+    abiertoMovil?: boolean;
+    onCerrarMovil?: () => void;
+}) {
     const { url, props } = usePage<PageProps>();
     const roles = (props.auth?.roles ?? []).map((r) => r.toLowerCase());
     const esAdmin = roles.some((r) => ['admin', 'super-admin', 'administrador'].includes(r));
-    const esSupervisor = roles.includes('supervisor');
+    const esGestor = esAdmin || roles.includes('supervisor');
     const tieneAgente = props.auth?.tieneAgente ?? false;
-
     const modo = props.modo === 'admin' && esAdmin ? 'admin' : 'agente';
 
-    const { resolvedAppearance, updateAppearance } = useAppearance();
-    const oscuro = resolvedAppearance === 'dark';
-
     const [expandido, setExpandido] = useState(() => localStorage.getItem('menu-expandido') === 'true');
-    const [abiertoMovil, setAbiertoMovil] = useState(false);
 
     const alternarMenu = () => {
         setExpandido((v) => {
@@ -80,12 +35,6 @@ export default function NavbarAgente() {
             return !v;
         });
     };
-
-    const listaPersonal = tieneAgente
-        ? personales
-        : esAdmin || esSupervisor
-          ? personales.filter((e) => ['/pagina_principal', '/reportes'].includes(e.href))
-          : [];
 
     const mostrarTexto = expandido || abiertoMovil;
 
@@ -96,7 +45,7 @@ export default function NavbarAgente() {
             key={`${e.href}-${e.titulo}`}
             href={e.href}
             title={e.titulo}
-            onClick={() => setAbiertoMovil(false)}
+            onClick={onCerrarMovil}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-accent ${
                 activo(e.href) ? 'bg-accent font-medium' : ''
             } ${mostrarTexto ? '' : 'justify-center'}`}
@@ -117,83 +66,33 @@ export default function NavbarAgente() {
         </div>
     );
 
+    const visibles = accionesVisibles(modo, { tieneAgente, esGestor }).filter((a) => !PERFIL.includes(a.href));
+    const cuenta = ACCIONES.filter((a) => PERFIL.includes(a.href));
+
     return (
-        <>
-            {/* Barra superior: md:-ml-16 la estira hasta el borde izquierdo, sobre el margen del menú */}
-            <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background px-4 md:-ml-16">
+        <aside
+            className={`${
+                abiertoMovil ? 'fixed inset-y-14 left-0 z-30 flex' : 'hidden'
+            } shrink-0 flex-col border-r bg-background transition-[width] duration-200 md:sticky md:top-14 md:flex md:h-[calc(100vh-3.5rem)] md:self-start ${
+                expandido ? 'w-60' : 'w-16'
+            }`}
+        >
+            <div className={`flex border-b p-2 ${expandido ? 'justify-end' : 'justify-center'}`}>
                 <button
                     type="button"
-                    onClick={() => setAbiertoMovil((v) => !v)}
-                    aria-label="Abrir menú"
-                    className="rounded-lg p-2 hover:bg-accent md:hidden"
+                    onClick={alternarMenu}
+                    aria-label={expandido ? 'Contraer menú' : 'Expandir menú'}
+                    className="hidden rounded-lg p-2 hover:bg-accent md:block"
                 >
-                    <Menu className="size-5" />
+                    {expandido ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
                 </button>
+            </div>
 
-                <span className="text-lg font-semibold">Gestion Vial</span>
+            <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+                {visibles.length > 0 && seccion(modo === 'admin' ? 'Administración' : 'Mi trabajo', visibles)}
+            </nav>
 
-                <div className="flex items-center gap-2">
-                    {props.puedeCambiarModo && (
-                        <button
-                            type="button"
-                            onClick={() => router.post('/cambiar-modo', { modo: modo === 'admin' ? 'agente' : 'admin' })}
-                            className="flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm font-medium hover:bg-accent"
-                        >
-                            <span className="flex size-7 items-center justify-center rounded-full bg-muted">
-                                <ArrowLeftRight className="size-3.5" />
-                            </span>
-                            {modo === 'admin' ? 'Modo agente' : 'Modo admin'}
-                        </button>
-                    )}
-
-                    <button
-                        type="button"
-                        onClick={() => updateAppearance(oscuro ? 'light' : 'dark')}
-                        aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                        className="flex size-9 items-center justify-center rounded-full border hover:bg-accent"
-                    >
-                        {oscuro ? <Sun className="size-4" /> : <Moon className="size-4" />}
-                    </button>
-
-                    <span className="flex size-9 items-center justify-center" aria-hidden="true">
-                        <Bell className="size-5" />
-                    </span>
-
-                    <button
-                        type="button"
-                        onClick={() => router.post('/logout')}
-                        aria-label="Cerrar sesión"
-                        className="rounded-lg p-2 hover:bg-accent"
-                    >
-                        <LogOut className="size-5" />
-                    </button>
-                </div>
-            </header>
-
-            {/* Menú lateral: fijo, no empuja el contenido (lo empuja app.tsx con md:pl-16) */}
-            <aside
-                className={`fixed bottom-0 left-0 top-14 z-30 flex-col border-r bg-background transition-[width] duration-200 ${
-                    abiertoMovil ? 'flex' : 'hidden'
-                } md:flex ${expandido ? 'w-60' : 'w-16'}`}
-            >
-                <div className={`flex border-b p-2 ${expandido ? 'justify-end' : 'justify-center'}`}>
-                    <button
-                        type="button"
-                        onClick={alternarMenu}
-                        aria-label={expandido ? 'Contraer menú' : 'Expandir menú'}
-                        className="hidden rounded-lg p-2 hover:bg-accent md:block"
-                    >
-                        {expandido ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
-                    </button>
-                </div>
-
-                <nav className="flex-1 space-y-1 overflow-y-auto p-2">
-                    {modo === 'agente' && listaPersonal.length > 0 && seccion('Mi trabajo', listaPersonal)}
-                    {modo === 'admin' && seccion('Administración', administracion)}
-                </nav>
-
-                <div className="space-y-1 border-t p-2">{cuenta.map(renderEnlace)}</div>
-            </aside>
-        </>
+            <div className="space-y-1 border-t p-2">{cuenta.map(renderEnlace)}</div>
+        </aside>
     );
 }

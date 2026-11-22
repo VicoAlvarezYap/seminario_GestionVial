@@ -1,6 +1,5 @@
 import { Head, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 
 type AgenteBloque = {
     turno_id: number;
@@ -279,7 +278,6 @@ export default function AsignarTareas({
     return (
         <>
             <Head title="Asignar tarea" />
-            <NavbarAgente />
 
             <div className="mx-auto max-w-2xl p-4 sm:p-6">
                 <div className="space-y-6 rounded-2xl border bg-card p-6 shadow-sm">

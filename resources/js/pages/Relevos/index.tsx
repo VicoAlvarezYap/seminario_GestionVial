@@ -1,7 +1,6 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Download, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 import {
     Dialog,
     DialogContent,
@@ -739,7 +738,6 @@ export default function ActasIndex({
     return (
         <>
             <Head title="Mis infracciones" />
-            <NavbarAgente />
 
             <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
                 <div className="flex items-center justify-between gap-4">

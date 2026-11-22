@@ -1,5 +1,4 @@
 import { Head, Link } from '@inertiajs/react';
-import NavbarAgente from '@/components/navbar-agente';
 
 type Punto = { orden: number; latitud: string; longitud: string; descripcion_referencia: string | null };
 
@@ -41,7 +40,6 @@ export default function EventoShow({ evento, gestiona }: Props) {
     return (
         <>
             <Head title={evento.titulo} />
-            <NavbarAgente />
 
             <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">

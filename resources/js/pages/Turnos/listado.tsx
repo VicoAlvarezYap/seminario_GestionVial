@@ -1,7 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { CalendarDays, ChevronDown, ChevronRight, FileDown } from 'lucide-react';
-import NavbarAgente from '@/components/navbar-agente';
 import {
     ESTADOS,
     NOMBRES,
@@ -412,7 +411,6 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
 export default function Listado({ hoy, manana, horariosConfig, turnosHoy, proximos, filtros, agentes, paginacion }: Props) {
     return (
         <>
-            <NavbarAgente />
             <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
                 <TurnoActual hoy={hoy} turnos={turnosHoy} horarios={horariosConfig} />
                 <TurnosProximos

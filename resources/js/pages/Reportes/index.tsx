@@ -1,7 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { useState } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 import { parseFecha } from '@/lib/fechas';
 
 type Tarea = {
@@ -200,7 +199,6 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo, vista = 
     return (
         <>
             <Head title="Mis reportes" />
-            <NavbarAgente />
 
             <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
                 <div className="flex items-center gap-2">

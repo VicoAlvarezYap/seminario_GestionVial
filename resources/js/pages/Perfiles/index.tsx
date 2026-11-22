@@ -1,8 +1,7 @@
-import { Head, Link } from '@inertiajs/react'; 
+﻿import { Head, Link } from '@inertiajs/react'; 
 import { Mail, Phone, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import FormAgente from '@/components/form-agente';
-import NavbarAgente from '@/components/navbar-agente';
 
 type ContactoEmergencia = {
     id: number;
@@ -20,7 +19,7 @@ type PerfilAgente = {
     domicilio: string;
     celular: string ;
     correo: string;
-    contactos_emergencia?: ContactoEmergencia[]; // 👈 Opcional por si viene de la lista
+    contactos_emergencia?: ContactoEmergencia[]; 
 };
 
 type Props = {
@@ -51,7 +50,7 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
                         {a.apellido}, {a.nombre}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                        {a.rango } · Doc. {a.documento || '—'}
+                        {a.rango} · Doc. {a.documento || '—'}
                     </p>
                 </div>
             </div>
@@ -93,7 +92,6 @@ export default function PerfilesIndex({ agentes }: Props) {
     return (
         <>
             <Head title="Perfiles" />
-            <NavbarAgente />
 
             <main className="flex flex-col gap-4 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">

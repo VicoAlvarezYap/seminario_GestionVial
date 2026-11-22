@@ -1,5 +1,4 @@
 import { Head, usePage } from '@inertiajs/react';
-import NavbarAgente from '@/components/navbar-agente';
 
 type Props = {
     nombreUsuario: string;
@@ -9,7 +8,6 @@ export default function PaginaAgente({ nombreUsuario }: Props) {
     return (
         <>
             <Head title="Página Principal" />
-            <NavbarAgente />
 
             <main className="p-6 max-w-4xl mx-auto space-y-6">
                 <div className="p-6 bg-card border rounded-lg shadow-sm space-y-2">

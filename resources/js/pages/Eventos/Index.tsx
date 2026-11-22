@@ -1,6 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 
 type Fila = {
     id: number;
@@ -147,7 +146,6 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
     return (
         <>
             <Head title="Eventos" />
-            <NavbarAgente />
 
             <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">

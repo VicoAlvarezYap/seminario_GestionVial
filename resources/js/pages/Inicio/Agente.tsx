@@ -1,6 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { CalendarDays, FileText, AlertTriangle, Play, ChevronRight } from 'lucide-react';
-import NavbarAgente from '@/components/navbar-agente';
 
 type TurnoHoy = {
     id: number;
@@ -54,7 +53,6 @@ export default function InicioAgente({ agente, turnoHoy, turnosSemana, novedades
     return (
         <>
             <Head title="Inicio" />
-            <NavbarAgente />
 
             <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
                 <header>

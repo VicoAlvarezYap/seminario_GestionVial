@@ -1,7 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { Download, Search } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 import {
     Dialog,
     DialogContent,
@@ -108,7 +107,6 @@ export default function AdminRelevosIndex({ relevos, filtros, infracciones }: Pr
     return (
         <>
             <Head title="Relevos - Administración" />
-            <NavbarAgente />
 
             <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
                 <div>
