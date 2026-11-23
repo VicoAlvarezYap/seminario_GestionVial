@@ -9,7 +9,7 @@ use App\Models\Tarea;
 use App\Models\TurnoTrabajo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Validation\ValidationException;
 class TareaController extends Controller
 {
     /**
@@ -41,7 +41,7 @@ class TareaController extends Controller
             : 'Tarea creada correctamente.');
     }
 
-    public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
+public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
 {
     if (in_array($tarea->estado, ['finalizado', 'cancelada'], true)) {
         return back()->with('error', 'Solo se pueden editar tareas pendientes o en curso.');
@@ -51,8 +51,24 @@ class TareaController extends Controller
     unset($datos['aplicar_a_grupo']);
     $datos = $this->completarDesdeEvento($datos);
 
-    $turno = $tarea->turno;
-    $turno->validarHorarioDelBloque($datos['hora_inicio'] ?? null, $datos['hora_fin'] ?? null);
+    if (! empty($datos['hora_inicio']) && ! empty($datos['hora_fin'])) {
+        $tarea->turno->validarHorarioDelBloque($datos['hora_inicio'], $datos['hora_fin']);
+
+            $choca = Tarea::where('turno_trabajo_id', $tarea->turno_trabajo_id)
+            ->where('estado', '!=', 'cancelada')
+            ->whereKeyNot($tarea->id)
+            ->where('hora_inicio', '<', $datos['hora_fin'])
+            ->where('hora_fin', '>', $datos['hora_inicio'])
+            ->first();
+
+        if ($choca) {
+            $tramo = substr($choca->hora_inicio, 0, 5).' a '.substr($choca->hora_fin, 0, 5);
+
+            throw ValidationException::withMessages([
+                'hora_inicio' => "Se superpone con la tarea «{$choca->titulo}» ({$tramo}) de este agente. Cambiá la hora o cancelá esa tarea.",
+            ]);
+        }
+    }
 
     $tarea->update($datos);
 

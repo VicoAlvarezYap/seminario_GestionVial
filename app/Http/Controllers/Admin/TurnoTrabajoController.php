@@ -108,43 +108,37 @@ private function agentesConLicencia(string $fecha): array
         );
     }
 
-    public function update(TurnoTrabajoRequest $request, TurnoTrabajo $turno): RedirectResponse
-    {
-        if (!$turno->estaProgramado() || $turno->fichajes()->exists()) {
-            return back()->with('error', 'No se puede modificar: el turno ya tiene fichajess o no está programado.');
-        }
+    public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
+{
+    if (in_array($tarea->estado, ['finalizado', 'cancelada'], true)) {
+        return back()->with('error', 'Solo se pueden editar tareas pendientes o en curso.');
+    }
 
-        $datos = $request->validated();
+    $datos = $request->validated();
+    unset($datos['aplicar_a_grupo']);
+    $datos = $this->completarDesdeEvento($datos);
 
-        $duplicado = TurnoTrabajo::where('agente_id', $turno->agente_id)
-             ->where('fecha', $datos['fecha'])
-            ->whereKeyNot($turno->id)
+    if (! empty($datos['hora_inicio']) && ! empty($datos['hora_fin'])) {
+        $tarea->turno->validarHorarioDelBloque($datos['hora_inicio'], $datos['hora_fin']);
+
+        $haySolape = Tarea::where('turno_trabajo_id', $tarea->turno_trabajo_id)
+            ->where('estado', '!=', 'cancelada')
+            ->whereKeyNot($tarea->id)
+            ->where('hora_inicio', '<', $datos['hora_fin'])
+            ->where('hora_fin', '>', $datos['hora_inicio'])
             ->exists();
 
-        if ($duplicado) {
+        if ($haySolape) {
             throw ValidationException::withMessages([
-                'fecha' => 'El agente ya tiene un turno asignado en esa fecha.',
+                'hora_inicio' => 'Ese horario se superpone con otra tarea de este agente. Cambiá la hora o cancelá la otra tarea.',
             ]);
         }
-
-        if ($datos['turno'] !== 'especial') {
-            $horario = config("turnos.horarios.{$datos['turno']}");
-
-            abort_unless(is_array($horario) && count($horario) >= 2, 500, 'Horario de turno no configurado.');
-
-            [$datos['hora_inicio_prog'], $datos['hora_fin_prog']] = $horario;
-        }
-
-        try {
-            $turno->update($datos);
-        } catch (UniqueConstraintViolationException) {
-            throw ValidationException::withMessages([
-                'turno' => 'El agente ya tiene ese turno asignado en esa fecha.',
-            ]);
-        }
-
-        return back()->with('success', 'Turno actualizado correctamente.');
     }
+
+    $tarea->update($datos);
+
+    return back()->with('success', 'Tarea actualizada correctamente.');
+}
   public function storeJornada(Request $request): RedirectResponse
 {
     $datos = $request->validate([
@@ -545,6 +539,12 @@ public function asignarTareasForm(Request $request): Response
                 'tiene_tarea' => $x->tareas()->exists(),
                 'hora_inicio' => $x->hora_inicio_prog ? substr($x->hora_inicio_prog, 0, 5) : null,
                 'hora_fin' => $x->hora_fin_prog ? substr($x->hora_fin_prog, 0, 5) : null,
+                'tareas' => $x->tareas()->where('estado', '!=', 'cancelada')->get()
+                ->map(fn ($t) => [
+                    'titulo' => $t->titulo_final,
+                    'hora_inicio' => substr($t->hora_inicio, 0, 5),
+                    'hora_fin' => substr($t->hora_fin, 0, 5),
+                ])->values()->all(),
             ])
             ->values()
             ->all(),
@@ -573,7 +573,7 @@ public function asignarTareasForm(Request $request): Response
     ]);
 }
 
-/** Crea la tarea en cada turno seleccionado. Si hay bloques sin tarea, avisa antes. */
+/** Crea la tarea en cada turno seleccionado. Valida horario y solapamiento. */
 public function storeTareas(Request $request): RedirectResponse
 {
     $datos = $request->validate([
@@ -605,33 +605,20 @@ public function storeTareas(Request $request): RedirectResponse
             'mensaje' => "Hay agentes en {$nombres} que todavía no tienen tareas asignadas. ¿Seguir de todos modos?",
         ]);
     }
-    
-    // El lugar se busca por nombre; si no existe, se crea (lo escrito libre también funciona)
+
+    // Horario del bloque (el método valida fin distinto de inicio y rango del bloque)
+    $turnoRef = TurnoTrabajo::whereIn('id', $datos['turno_ids'])->first();
+    if ($turnoRef) {
+        $turnoRef->validarHorarioDelBloque($datos['hora_inicio'] ?? null, $datos['hora_fin'] ?? null);
+    }
+
+    // Lugar: se busca sin distinguir mayúsculas; si no existe, se crea
     $lugarId = null;
     if (! empty($datos['lugar'])) {
-        $lugarId = Lugar::firstOrCreate(['nombre' => trim($datos['lugar'])])->id;
         $nombreLugar = Str::squish(trim($datos['lugar']));
-        $lugarExistente = Lugar::whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombreLugar)])->first();
-        $lugarId = $lugarExistente?->id ?? Lugar::create(['nombre' => $nombreLugar])->id;
+        $lugarId = Lugar::whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombreLugar)])->value('id')
+            ?? Lugar::create(['nombre' => $nombreLugar])->id;
     }
-    if ($datos['turno'] !== 'especial' && ! empty($datos['hora_inicio']) && ! empty($datos['hora_fin'])) {
-    [$desde, $hasta] = config("turnos.horarios.{$datos['turno']}");
-    
-
-$turnoRef = TurnoTrabajo::whereIn('id', $datos['turno_ids'])->first();
-if ($turnoRef) {
-    $turnoRef->validarHorarioDelBloque($datos['hora_inicio'] ?? null, $datos['hora_fin'] ?? null);
-}
-
-     // Horario permitido según el bloque (el especial toma el de sus turnos)
-if ($datos['turno'] === 'especial') {
-    $turnoRef = TurnoTrabajo::whereIn('id', $datos['turno_ids'])->first();
-    $desde = $turnoRef?->hora_inicio_prog ? substr($turnoRef->hora_inicio_prog, 0, 5) : null;
-    $hasta = $turnoRef?->hora_fin_prog ? substr($turnoRef->hora_fin_prog, 0, 5) : null;
-} else {
-    [$desde, $hasta] = config("turnos.horarios.{$datos['turno']}");
-}
-
 
     // Si hay evento, lo que falte (lugar y horas) se toma de él
     $evento = ! empty($datos['evento_operativo_id'])
@@ -646,31 +633,59 @@ if ($datos['turno'] === 'especial') {
         'hora_fin' => $datos['hora_fin'] ?? $evento?->fecha_hora_fin?->format('H:i'),
     ];
 
-    // Solo se asigna a los turnos del bloque elegido, que pertenezcan a la fecha
+    // Solo los turnos del bloque elegido, de la fecha indicada
     $turnoIds = TurnoTrabajo::whereDate('fecha', $datos['fecha'])
         ->where('turno', $datos['turno'])
         ->whereIn('id', $datos['turno_ids'])
         ->pluck('id');
 
     DB::transaction(function () use ($turnoIds, $base) {
-     TurnoTrabajo::whereIn('id', $turnoIds)->lockForUpdate()->get();
-    foreach ($turnoIds as $turnoId) {
-        $existe = Tarea::where('turno_trabajo_id', $turnoId)
-            ->where('titulo', $base['titulo'])
-            ->where('hora_inicio', $base['hora_inicio'])
-            ->where('hora_fin', $base['hora_fin'])
-            ->exists();
+        // Bloquea los turnos para que dos cargas simultáneas no se pisen
+        TurnoTrabajo::whereIn('id', $turnoIds)->lockForUpdate()->get();
 
-        if (! $existe) {
+        foreach ($turnoIds as $turnoId) {
+            $existe = Tarea::where('turno_trabajo_id', $turnoId)
+                ->where('titulo', $base['titulo'])
+                ->where('hora_inicio', $base['hora_inicio'])
+                ->where('hora_fin', $base['hora_fin'])
+                ->exists();
+
+            if ($existe) {
+                continue;
+            }
+
+            // Regla de superposición: el agente no puede tener dos tareas en el mismo horario
+           if ($base['hora_inicio'] && $base['hora_fin']) {
+                 $choca = Tarea::where('turno_trabajo_id', $turnoId)
+                    ->where('estado', '!=', 'cancelada')
+                    ->where('hora_inicio', '<', $base['hora_fin'])
+                    ->where('hora_fin', '>', $base['hora_inicio'])
+                    ->exists();
+
+                if ($choca) {
+                    $turnoAgente = TurnoTrabajo::with('agente:id,nombre,apellido')->find($turnoId);
+                    $nombre = "{$turnoAgente->agente->apellido}, {$turnoAgente->agente->nombre}";
+
+                    $ocupadas = Tarea::where('turno_trabajo_id', $turnoId)
+                        ->where('estado', '!=', 'cancelada')
+                        ->orderBy('hora_inicio')
+                        ->get()
+                        ->map(fn ($t) => '«'.$t->titulo.'» ('.substr($t->hora_inicio, 0, 5).' a '.substr($t->hora_fin, 0, 5).')')
+                        ->implode(', ');
+
+                    throw ValidationException::withMessages([
+                        'hora_inicio' => "{$nombre} ya tiene ocupado: {$ocupadas}. Elegí otro horario o quitá a este agente de la tarea.",
+                    ]);
+                }
+            }
+
             Tarea::create(['turno_trabajo_id' => $turnoId] + $base);
         }
-    }
-});
- 
+    });
 
     return redirect('/admin/turnos/listado?'.http_build_query(['fecha' => $datos['fecha']]))
         ->with('success', "Tarea asignada a {$turnoIds->count()} agente(s).");
-}}
+}
 private function fallarPorLicencia(array $agenteIds): never
 {
     $nombres = Agente::whereIn('id', $agenteIds)->get()

@@ -1,5 +1,8 @@
 import { Head, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import Toast from '@/components/toast';
+
+type TareaOcupada = { titulo: string; hora_inicio: string; hora_fin: string };
 
 type AgenteBloque = {
     turno_id: number;
@@ -8,6 +11,7 @@ type AgenteBloque = {
     tiene_tarea: boolean;
     hora_inicio: string | null;
     hora_fin: string | null;
+    tareas?: TareaOcupada[];
 };
 
 type Evento = { id: number; titulo: string; hora_inicio: string; hora_fin: string | null; lugar_id: number | null };
@@ -120,6 +124,14 @@ export default function AsignarTareas({
     const [procesando, setProcesando] = useState(false);
     const [mensaje, setMensaje] = useState<string | null>(null);
     const [aviso, setAviso] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ tipo: 'error' | 'exito'; titulo: string; detalles: string[] } | null>(null);
+    
+    useEffect(() => {
+    if (toast?.tipo !== 'exito') return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+    }, [toast]);
+
      useEffect(() => {
         if (!turnoPreseleccionado) return;
 
@@ -146,7 +158,7 @@ export default function AsignarTareas({
     };
 
     // Agentes del bloque que todavía no tienen tarea, son los que se pueden elegir
-    const disponibles = agentesDelBloque.filter((a) => !a.tiene_tarea);
+    const disponibles = agentesDelBloque;
     const todosMarcados = disponibles.length > 0 && seleccion.length === disponibles.length;
 
     const eventoElegido = eventosDelDia.find((e) => String(e.id) === eventoId) ?? null;
@@ -171,13 +183,7 @@ export default function AsignarTareas({
 
     const horasIguales = horaInicio !== '' && horaInicio === horaFin;
 
-    const puedeGuardar =
-        seleccion.length > 0 &&
-        titulo.trim() !== '' &&
-        horaValida(horaInicio) &&
-        horaValida(horaFin) &&
-        !horasIguales &&
-        !procesando;
+
 
     // Cambiar de bloque limpia todo lo cargado en el anterior
     const cambiarBloque = (valor: Bloque) => {
@@ -239,7 +245,11 @@ export default function AsignarTareas({
                     setAviso(null);
                     setMensaje(null);
                 },
-                onError: (errs) => setErrores(errs as Record<string, string>),
+               onError: (errs) => {
+                            const lista = Object.values(errs as Record<string, string>);
+                        setErrores(errs as Record<string, string>);
+                        setToast({ tipo: 'error', titulo: 'No se pudo guardar la tarea', detalles: lista });
+                    },
                 onFinish: () => setProcesando(false),
                 onSuccess: (page) => {
                     const confirmar = (page.props as { flash?: { confirmar_seguir?: { mensaje: string } } })
@@ -247,6 +257,7 @@ export default function AsignarTareas({
                     const cantidad = seleccion.length;
                     const tituloGuardado = titulo.trim();
                     const horario = horaInicio && horaFin ? ` ${horaInicio}–${horaFin}` : '';
+                    
 
                     setMensaje(
                         `${cantidad} ${cantidad === 1 ? 'agente' : 'agentes'} de ${NOMBRES[bloque]} con la tarea "${tituloGuardado}"${horario}.`,
@@ -258,6 +269,7 @@ export default function AsignarTareas({
 
                     // Guardado: limpia el formulario para seguir con otro bloque
                     setMensaje(`Tarea asignada a ${NOMBRES[bloque]}.`);
+                    setToast({ tipo: 'exito', titulo: 'Tarea asignada', detalles: [] });
                     setSeleccion([]);
                     setTitulo('');
                     setLugar('');
@@ -274,7 +286,30 @@ export default function AsignarTareas({
             router.get('/admin/turnos/listado', { fecha }, { preserveScroll: true });
         }
     };
+    const conflictos = (inicio: string, fin: string): string[] => {
+    if (!inicio || !fin) return [];
+    return agentesDelBloque
+        .filter((a) => seleccion.includes(a.turno_id))
+        .flatMap((a) => {
+            const ocupadas = a.tareas ?? [];
+            const choca = ocupadas.some((t) => inicio < t.hora_fin && fin > t.hora_inicio);
+            if (!choca) return [];
+            const lista = ocupadas
+                .map((t) => `«${t.titulo}» (${t.hora_inicio} a ${t.hora_fin})`)
+                .join(', ');
+            return [`${a.nombre} ya tiene: ${lista}`];
+        });
+};
 
+const listaConflictos = conflictos(horaInicio, horaFin);
+    const puedeGuardar =
+        seleccion.length > 0 &&
+        titulo.trim() !== '' &&
+        horaValida(horaInicio) &&
+        horaValida(horaFin) &&
+        !horasIguales &&
+        !procesando &&
+        listaConflictos.length === 0;
     return (
         <>
             <Head title="Asignar tarea" />
@@ -357,7 +392,7 @@ export default function AsignarTareas({
                                     >
                                         {b.etiqueta}
                                         {sinAgentes && <span className="text-xs">sin agentes</span>}
-                                        {!sinAgentes && completo && <span aria-label="con tarea">✓</span>}
+                                        
                                         {!sinAgentes && !completo && conTarea > 0 && (
                                             <span className="text-xs text-muted-foreground">
                                                 {conTarea}/{total} con tarea
@@ -391,26 +426,19 @@ export default function AsignarTareas({
                         ) : (
                             <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border p-2">
                                 {agentesDelBloque.map((a) => (
-                                    <label
+                                   <label
                                         key={a.turno_id}
-                                        className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm ${
-                                            a.tiene_tarea
-                                                ? 'cursor-not-allowed opacity-60'
-                                                : 'cursor-pointer hover:bg-accent'
-                                        }`}
+                                        className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent"
                                     >
                                         <input
                                             type="checkbox"
-                                            disabled={a.tiene_tarea}
                                             checked={seleccion.includes(a.turno_id)}
                                             onChange={(e) => toggleAgente(a.turno_id, e.target.checked)}
                                         />
                                         <span>{a.nombre}</span>
-                                        {a.tiene_tarea && (
-                                            <span className="ml-auto text-xs text-muted-foreground">
-                                                ✓ ya tiene tarea
-                                            </span>
-                                        )}
+                                        <span className="ml-auto text-xs text-muted-foreground">
+                                            {a.tareas?.length ?? 0} tarea(s)
+                                        </span>
                                     </label>
                                 ))}
                             </div>
@@ -513,6 +541,11 @@ export default function AsignarTareas({
                                 El evento empieza fuera del horario de {NOMBRES[bloque]}. Elegí otro bloque o cambiá la hora.
                             </p>
                         )}
+                        {listaConflictos.map((c) => (
+                            <p key={c} className="col-span-2 text-xs text-red-600">
+                                    {c}
+                                </p>
+                            ))}
                     </div>
                      {faltantes.length > 0 && !procesando && (
                             <p className="text-xs text-muted-foreground">
@@ -539,6 +572,14 @@ export default function AsignarTareas({
                     </div>
                 </div>
             </div>
+            {toast && (
+    <Toast
+        tipo={toast.tipo}
+        titulo={toast.titulo}
+        detalles={toast.detalles}
+        onCerrar={() => setToast(null)}
+    />
+)}
         </>
     );
 }

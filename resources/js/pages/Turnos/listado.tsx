@@ -35,27 +35,35 @@ const hhmm = (s: string | null | undefined) => (s ? s.slice(0, 5) : '');
 
 function TareasDelTurno({ tareas }: { tareas: TareaFila[] }) {
     if (tareas.length === 0) {
-        return <p className="pl-4 text-xs text-muted-foreground">Sin tareas asignadas.</p>;
+        return <p className="text-xs italic text-muted-foreground">Sin tareas asignadas todavía.</p>;
     }
 
     return (
-        <ul className="space-y-1 pl-4">
+        <ul className="divide-y rounded-md border bg-muted/30">
             {tareas.map((tr) => (
-                <li key={tr.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span>
-                        {tr.titulo}
-                        {tr.lugar && <span className="text-muted-foreground"> · {tr.lugar}</span>}
-                        {tr.hora_inicio && <span className="font-mono text-muted-foreground"> · {tr.hora_inicio}–{tr.hora_fin}</span>}
-                    </span>
-                    <div className="flex gap-1">
+                <li key={tr.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs">
+                    <div className="min-w-0">
+                        <p className="font-medium text-foreground">{tr.titulo}</p>
+                        <p className="text-muted-foreground">
+                            {tr.hora_inicio && <span className="font-mono">{tr.hora_inicio}–{tr.hora_fin}</span>}
+                            {tr.lugar && <span> · {tr.lugar}</span>}
+                        </p>
+                    </div>
+                    <div className="flex gap-1.5">
                         <button
                             type="button"
-                                onClick={() => router.visit(`/admin/turnos/tareas?fecha=${tr.fecha}&editar=${tr.id}`)}
-                                className="rounded border px-2 py-0.5 hover:bg-accent"
-                            >
-                                Editar
+                            onClick={() => router.visit(`/admin/turnos/tareas?fecha=${tr.fecha}&editar=${tr.id}`)}
+                            className="rounded-md border bg-background px-2.5 py-1 font-medium hover:bg-accent"
+                        >
+                            Editar tarea
                         </button>
-                        <button type="button" onClick={() => cancelarTarea(tr)} className="rounded border border-red-200 px-2 py-0.5 text-red-700 hover:bg-red-50">Cancelar</button>
+                        <button
+                            type="button"
+                            onClick={() => cancelarTarea(tr)}
+                            className="rounded-md border bg-background px-2.5 py-1 font-medium text-muted-foreground hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                        >
+                            Cancelar tarea
+                        </button>
                     </div>
                 </li>
             ))}
@@ -140,7 +148,6 @@ function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow
     const [abierto, setAbierto] = useState(false);
     const panelId = `dia-${fecha}`;
 
-    // Título del día: el estado de sus turnos (si hay mezcla, "programado")
     const clave = items.every((t) => t.estado === items[0].estado) ? items[0].estado : 'programado';
     const estado = ESTADOS[clave] ?? ESTADOS.programado;
 
@@ -151,7 +158,6 @@ function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow
 
     return (
         <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            {/* Fila cerrada */}
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
                 <div className="flex flex-wrap items-center gap-3">
                     <CalendarDays className="size-4 text-muted-foreground" />
@@ -160,69 +166,80 @@ function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow
                         {estado.texto}
                     </span>
                 </div>
-                   <div className="flex items-center gap-2">
-                        <button
-                                type="button"
-                                aria-expanded={abierto}
-                                aria-controls={panelId}
-                                onClick={() => setAbierto((v) => !v)}
-                                className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
-                            >
-                                {abierto ? 'Ver menos' : 'Ver más'}
-                                <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
-                            </button>
-                    </div>
+                <button
+                    type="button"
+                    aria-expanded={abierto}
+                    aria-controls={panelId}
+                    onClick={() => setAbierto((v) => !v)}
+                    className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
+                >
+                    {abierto ? 'Ver menos' : 'Ver más'}
+                    <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                </button>
             </div>
 
-            {/* Detalle expandido: turno | agentes */}
             {abierto && (
-                <div id={panelId} className="border-t">
-                    <div className="grid grid-cols-[6.5rem_1fr] gap-4 bg-muted/30 px-5 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[10rem_1fr]">
-                        <span>Turno</span>
-                        <span>Agentes</span>
-                    </div>
-                    <div className="divide-y">
-                        {bloques.map(({ turno, agentes }) => (
-                            <div
-                                key={turno}
-                                className="grid grid-cols-[6.5rem_1fr] gap-4 px-5 py-3 text-sm sm:grid-cols-[10rem_1fr]"
-                            >
+                <div id={panelId} className="space-y-6 border-t bg-muted/20 px-5 py-4">
+                    {bloques.map(({ turno, agentes }) => (
+                        <section key={turno} className="space-y-3">
+                            <div className="flex flex-wrap items-end justify-between gap-2 border-b pb-2">
                                 <div>
-                                    <p className="font-medium">{NOMBRES[turno]}</p>
+                                    <p className="font-semibold">{NOMBRES[turno]}</p>
                                     <p className="font-mono text-xs text-muted-foreground">
                                         {horarioDe(agentes[0], horarios)}
                                     </p>
                                 </div>
-                                   <ul className="space-y-3">
-                                        {agentes.map((t) => (
-                                                <li key={t.id} className="space-y-2">
-                                                    <div className="flex items-center justify-between gap-3">
-                                                            <span className="font-medium">
-                                                                    {t.agente.apellido}, {t.agente.nombre}
-                                                                </span>
-                                                                <div className="flex gap-2">
-                                                                    <Link
-                                                                        href={`/admin/turnos/tareas?fecha=${t.fecha}&agente=${t.id}`}
-                                                                        className="rounded-lg border px-3 py-1 text-xs font-medium hover:bg-accent"
-                                                                    >
-                                                                        Asignar tarea
-                                                                    </Link>
-                                                                    <Link
-                                                                        href={`/admin/turnos/${t.id}/detalle`}
-                                                                        className="rounded-lg border px-3 py-1 text-xs font-medium hover:bg-accent"
-                                                                    >
-                                                                        Ver turno
-                                                                    </Link>
-                                                                </div>
-                                                    </div>
-
-                                                    <TareasDelTurno tareas={t.tareas} />
-                                                </li>
-                                            ))}
-                                    </ul>
+                                <Link
+                                    href={`/admin/turnos/tareas?fecha=${fecha}&bloque=${turno}`}
+                                    className="rounded-lg border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                                >
+                                    + Asignar tarea grupal
+                                </Link>
                             </div>
-                        ))}
-                    </div>
+
+                            <div className="space-y-3">
+                                {agentes.map((t) => (
+                                    <article key={t.id} className="space-y-3 rounded-lg border bg-background p-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">
+                                                    {t.agente.apellido}, {t.agente.nombre}
+                                                </span>
+                                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                                    {t.tareas.length} tarea(s)
+                                                </span>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2">
+                                                <Link
+                                                    href={`/admin/turnos/tareas?fecha=${t.fecha}&agente=${t.id}`}
+                                                    className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
+                                                >
+                                                    Asignar tarea
+                                                </Link>
+                                                <Link
+                                                    href={`/admin/turnos/${t.id}/detalle`}
+                                                    className="rounded-lg border bg-background px-3 py-1 text-xs font-medium hover:bg-accent"
+                                                >
+                                                    Ver turno
+                                                </Link>
+                                                <button
+                                                    type="button"
+                                                    disabled
+                                                    title="Próximamente"
+                                                    className="rounded-lg border bg-background px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    Editar turno
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <TareasDelTurno tareas={t.tareas} />
+                                    </article>
+                                ))}
+                            </div>
+                        </section>
+                    ))}
                 </div>
             )}
         </div>
