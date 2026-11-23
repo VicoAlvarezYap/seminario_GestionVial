@@ -122,7 +122,7 @@ export default function InicioAdmin({
                                 <Link href="/admin/turnos/tareas" className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-accent">
                                     <FileText className="size-4" /> Asignar tarea
                                 </Link>
-                                <Link href="/admin/eventos-operativos" className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-accent">
+                                <Link href="/admin/eventos-operativos/crear" className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-accent">
                                     <Plus className="size-4" /> Crear evento
                                 </Link>
                             </div>
@@ -132,7 +132,7 @@ export default function InicioAdmin({
                             {eventosMes.length === 0 ? (
                                 <div className="space-y-3 text-sm">
                                     <p className="text-muted-foreground">No hay eventos este mes.</p>
-                                    <Link href="/admin/eventos-operativos" className="inline-flex items-center gap-1 text-primary hover:underline">
+                                    <Link href="/admin/eventos-operativos/crear" className="inline-flex items-center gap-1 text-primary hover:underline">
                                         <Plus className="size-4" /> Crear el primero
                                     </Link>
                                 </div>
