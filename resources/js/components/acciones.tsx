@@ -29,7 +29,7 @@ export const ACCIONES: Accion[] = [
     { titulo: 'Historial de turnos', href: '/mi-historial-turnos', icono: CalendarDays, modo: 'agente', requiereLegajo: true },
     { titulo: 'Eventos', href: '/eventos', icono: CalendarDays, modo: 'ambos' },
     { titulo: 'Agentes', href: '/admin/perfiles', icono: Users, modo: 'admin' },
-    { titulo: 'Gestión de turnos', href: '/admin/turnos', icono: CalendarDays, modo: 'admin' },
+    { titulo: 'Asignar de turnos', href: '/admin/turnos', icono: CalendarDays, modo: 'admin' },
     { titulo: 'Asignar tarea', href: '/admin/turnos/tareas', icono: ClipboardList, modo: 'admin' },
     { titulo: 'Ver turnos', href: '/admin/turnos/listado', icono: CalendarDays, modo: 'admin' },
     { titulo: 'Historial de turnos (admin)', href: '/admin/turnos/historial', icono: CalendarDays, modo: 'admin' },
@@ -38,7 +38,9 @@ export const ACCIONES: Accion[] = [
     { titulo: 'Gestión de infracciones', href: '/admin/relevos', icono: ClipboardList, modo: 'admin' },
     { titulo: 'Gestión de intervenciones', href: '/admin/intervenciones', icono: AlertTriangle, modo: 'admin' },
     { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound, modo: 'ambos' },
+    {titulo: 'Dashboard', href: '/dashboard', icono:FileText,modo:'admin'},
     { titulo: 'Configuración', href: '/settings/profile', icono: Settings, modo: 'ambos' },
+    
 ];
 
 /** Acciones que puede ver un usuario en un modo dado. Es la única regla, la usan el menú y el buscador. */

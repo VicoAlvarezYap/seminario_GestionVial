@@ -20,6 +20,8 @@ export type TurnoRow = {
     estado: string;
     agente: { id: number; nombre: string; apellido: string };
     tareas: TareaFila[];
+    editable?: boolean;
+    tareas_count?: number;
 };
 
 export type Horarios = Record<string, [string, string]>;

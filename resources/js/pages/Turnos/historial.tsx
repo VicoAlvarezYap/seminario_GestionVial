@@ -8,6 +8,7 @@ import {
     type Paginacion,
     type TurnoRow,
 } from '@/components/turnos-compartidos';
+import EditarTurnoModal, { type TurnoEditable } from '@/components/editar-turno-modal';
 
 type Filtros = { desde: string; hasta: string; agente: number | null; estado: string | null };
 type AgenteOpcion = { id: number; nombre: string; apellido: string };

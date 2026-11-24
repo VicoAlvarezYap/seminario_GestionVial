@@ -18,13 +18,13 @@ use App\Http\Controllers\Admin\RelevoAdminController;
 use App\Http\Controllers\Admin\IntervencionAdminController;
 use App\Http\Controllers\EventoExcelController;
 use App\Http\Controllers\EventoController;
-
-
+use App\Http\Controllers\Admin\DashboardController;
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
     Route::get('/pagina_principal', [PaginaAgenteController::class, 'index'])->name('pagina_principal');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     /* ---------- Administración ---------- */
     Route::middleware('role:admin|super-admin|Administrador', 'modo.admin')->prefix('admin')->name('admin.')->group(function () {
@@ -38,11 +38,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('turnos/listado/pdf', [TurnoTrabajoController::class, 'listadoPdf']);
         Route::get('/turnos/listado/excel', [TurnoTrabajoController::class, 'listadoExcel'])->name('turnos.listado.excel');
         Route::get('turnos/historial', [TurnoTrabajoController::class, 'historial']);
+        Route::get('turnos/{turno}/detalle', [TurnoTrabajoController::class, 'detalle'])->name('turnos.detalle');
+        Route::patch('turnos/fichajes/{fichaje}/revision', [TurnoTrabajoController::class, 'revisarFichaje'])->name('turnos.fichajes.revisar');
         Route::post('turnos/jornada', [TurnoTrabajoController::class, 'storeJornada']);
         Route::get('/turnos/tareas', [TurnoTrabajoController::class, 'asignarTareasForm'])->name('turnos.tareas');
         Route::post('/turnos/tareas', [TurnoTrabajoController::class, 'storeTareas'])->name('turnos.tareas.store');
         Route::patch('/tareas/{tarea}/cancelar', [TareaController::class, 'cancelar'])->name('tareas.cancelar');
-        Route::get('/turnos/{turno}/detalle', [TurnoTrabajoController::class, 'detalle'])->name('turnos.detalle');
+        
         // Licencias
         Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');
         Route::get('/licencias/{licencia}/pdf', [LicenciaAdminController::class, 'pdf'])->name('licencias.pdf');
@@ -73,7 +75,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/mi-perfil/contactos', [ContactoEmergenciaController::class, 'store'])->name('contactos.store');
     Route::put('/mi-perfil/contactos/{contacto}', [ContactoEmergenciaController::class, 'update'])->name('contactos.update');
     Route::delete('/mi-perfil/contactos/{contacto}', [ContactoEmergenciaController::class, 'destroy'])->name('contactos.destroy');
-    
+
     //Historial de turno
     Route::get('/mi-historial-turnos', [TurnoTrabajoController::class, 'miHistorial']);
 
@@ -113,6 +115,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/{intervencion}/informar', 'informar')->name('informar');
     });
 
+    Route::post('/turnos/{turno}/iniciar', [PaginaAgenteController::class, 'iniciar'])->name('turnos.iniciar');
+    Route::post('/turnos/{turno}/finalizar', [PaginaAgenteController::class, 'finalizar'])->name('turnos.finalizar');
+    Route::post('/turnos/{turno}/abandonar', [PaginaAgenteController::class, 'abandonar'])->name('turnos.abandonar');
     Route::post('lugares', [LugarController::class, 'store'])->name('lugares.store');
 
 });

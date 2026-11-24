@@ -1,6 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { CalendarDays, ChevronDown, ChevronRight, FileDown } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronRight, FileDown, Pencil } from 'lucide-react';
 import {
     ESTADOS,
     NOMBRES,
@@ -14,8 +14,8 @@ import {
     type TareaFila,
     type TurnoRow,
 } from '@/components/turnos-compartidos';
-
-type Turno = 'manana' | 'tarde' | 'noche' | 'especial';
+import EditarTurnoModal, { type TurnoEditable } from '@/components/editar-turno-modal';
+import FlashMensajes from '@/components/flash-mensajes';
 
 type Filtros = { desde: string; hasta: string; agente: number | null };
 type AgenteOpcion = { id: number; nombre: string; apellido: string };
@@ -30,8 +30,6 @@ type Props = {
     agentes: AgenteOpcion[];
     paginacion: Paginacion;
 };
-
-const hhmm = (s: string | null | undefined) => (s ? s.slice(0, 5) : '');
 
 function TareasDelTurno({ tareas }: { tareas: TareaFila[] }) {
     if (tareas.length === 0) {
@@ -121,9 +119,7 @@ function TurnoActual({ hoy, turnos, horarios }: { hoy: string; turnos: TurnoRow[
                                             <span className="text-sm font-medium">
                                                 {t.agente.apellido}, {t.agente.nombre}
                                             </span>
-                                            <span
-                                                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${estado.clase}`}
-                                            >
+                                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${estado.clase}`}>
                                                 {estado.texto}
                                             </span>
                                         </div>
@@ -144,7 +140,17 @@ function TurnoActual({ hoy, turnos, horarios }: { hoy: string; turnos: TurnoRow[
     );
 }
 
-function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow[]; horarios: Horarios }) {
+function DiaProximo({
+    fecha,
+    items,
+    horarios,
+    onEditar,
+}: {
+    fecha: string;
+    items: TurnoRow[];
+    horarios: Horarios;
+    onEditar: (t: TurnoRow) => void;
+}) {
     const [abierto, setAbierto] = useState(false);
     const panelId = `dia-${fecha}`;
 
@@ -223,14 +229,24 @@ function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow
                                                 >
                                                     Ver turno
                                                 </Link>
-                                                <button
-                                                    type="button"
-                                                    disabled
-                                                    title="Próximamente"
-                                                    className="rounded-lg border bg-background px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    Editar turno
-                                                </button>
+                                                {t.editable ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onEditar(t)}
+                                                        className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1 text-xs font-medium hover:bg-accent"
+                                                    >
+                                                        <Pencil className="size-3.5" /> Editar turno
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        disabled
+                                                        title="No se puede editar: ya empezó o falta menos de una hora"
+                                                        className="flex cursor-not-allowed items-center gap-1 rounded-lg border bg-background px-3 py-1 text-xs font-medium opacity-50"
+                                                    >
+                                                        <Pencil className="size-3.5" /> Editar turno
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
 
@@ -253,15 +269,14 @@ type ProximosProps = {
     agentes: AgenteOpcion[];
     manana: string;
     paginacion: Paginacion;
+    onEditar: (t: TurnoRow) => void;
 };
 
-
-function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion }: ProximosProps) {
+function TurnosProximos({ turnos, horarios, filtros, agentes, manana, paginacion, onEditar }: ProximosProps) {
     const [desde, setDesde] = useState(filtros.desde);
     const [hasta, setHasta] = useState(filtros.hasta);
     const [agente, setAgente] = useState(filtros.agente ? String(filtros.agente) : '');
 
-    // El servidor puede ajustar las fechas: se vuelve a sincronizar
     useEffect(() => {
         setDesde(filtros.desde);
         setHasta(filtros.hasta);
@@ -283,7 +298,6 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
         if (hasta < valor) setHasta(valor);
     };
 
-    // El PDF usa los filtros ya aplicados (los que se ven en pantalla)
     const pdfUrl =
         '/admin/turnos/listado/pdf?' +
         new URLSearchParams({
@@ -292,7 +306,14 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
             ...(filtros.agente ? { agente: String(filtros.agente) } : {}),
         }).toString();
 
-    // Agrupar por fecha
+    const excelUrl =
+        '/admin/turnos/listado/excel?' +
+        new URLSearchParams({
+            desde: filtros.desde,
+            hasta: filtros.hasta,
+            ...(filtros.agente ? { agente: String(filtros.agente) } : {}),
+        }).toString();
+
     const porFecha = Object.entries(
         turnos.reduce<Record<string, TurnoRow[]>>((acc, t) => {
             (acc[t.fecha] ??= []).push(t);
@@ -308,14 +329,8 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
             page: String(page),
         });
 
-
     const botonPdf = 'flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium';
-    const excelUrl ='/admin/turnos/listado/excel?' +
-    new URLSearchParams({
-        desde: filtros.desde,
-        hasta: filtros.hasta,
-        ...(filtros.agente ? { agente: String(filtros.agente) } : {}),
-    }).toString();
+
     return (
         <section className="space-y-4 rounded-2xl border bg-muted/40 p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -343,7 +358,6 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
                 </div>
             </div>
 
-            {/* Filtros */}
             <form onSubmit={aplicar} className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1">
                     <label htmlFor="filtro-desde" className="text-xs font-medium text-muted-foreground">
@@ -415,7 +429,7 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
             ) : (
                 <>
                     {porFecha.map(([fecha, items]) => (
-                        <DiaProximo key={fecha} fecha={fecha} items={items} horarios={horarios} />
+                        <DiaProximo key={fecha} fecha={fecha} items={items} horarios={horarios} onEditar={onEditar} />
                     ))}
                     <Paginador actual={paginacion.actual} ultima={paginacion.ultima} onIr={irAPagina} />
                 </>
@@ -424,21 +438,28 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion 
     );
 }
 
-
 export default function Listado({ hoy, manana, horariosConfig, turnosHoy, proximos, filtros, agentes, paginacion }: Props) {
+    const [editando, setEditando] = useState<TurnoEditable | null>(null);
+
     return (
-        <>
-            <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
-                <TurnoActual hoy={hoy} turnos={turnosHoy} horarios={horariosConfig} />
-                <TurnosProximos
-                    turnos={proximos}
-                    horarios={horariosConfig}
-                    filtros={filtros}
-                    agentes={agentes}
-                    manana={manana}
-                    paginacion={paginacion}
-                />
-            </div>
-        </>
+        <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+            <FlashMensajes />
+            <TurnoActual hoy={hoy} turnos={turnosHoy} horarios={horariosConfig} />
+            <TurnosProximos
+                turnos={proximos}
+                horarios={horariosConfig}
+                filtros={filtros}
+                agentes={agentes}
+                manana={manana}
+                paginacion={paginacion}
+                onEditar={setEditando}
+            />
+            <EditarTurnoModal
+                turno={editando}
+                agentes={agentes}
+                horariosConfig={horariosConfig}
+                onClose={() => setEditando(null)}
+            />
+        </div>
     );
 }

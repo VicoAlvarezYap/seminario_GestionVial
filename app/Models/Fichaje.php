@@ -11,6 +11,7 @@ class Fichaje extends Model
 {
     use HasFactory;
     protected $table = 'fichaje';
+
     public const TIPO_ENTRADA = 'entrada';
     public const TIPO_SALIDA = 'salida';
     public const TIPO_SALIDA_ANTICIPADA = 'salida_anticipada';

@@ -1,5 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { CalendarDays, FileText, AlertTriangle, Play, ChevronRight } from 'lucide-react';
+import NavbarAgente from '@/components/navbar-agente';
+import CierreTurno from '@/components/cierre-turno';
+import FlashMensajes from '@/components/flash-mensajes';
 
 type TurnoHoy = {
     id: number;
@@ -9,6 +12,8 @@ type TurnoHoy = {
     hora_fin: string | null;
     tareas: { titulo: string; lugar: string | null }[];
     puede_fichar: boolean;
+    hora_entrada: string | null;
+    horario_cumplido: boolean;
 } | null;
 
 type Props = {
@@ -49,16 +54,18 @@ export default function InicioAgente({ agente, turnoHoy, turnosSemana, novedades
             router.post(`/turnos/${turnoHoy.id}/iniciar`, {}, { preserveScroll: true });
         }
     };
-    
+
     return (
         <>
             <Head title="Inicio" />
+           
 
             <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
+                <FlashMensajes />
                 <header>
                     <h1 className="text-2xl font-bold">Hola, {agente.nombre}</h1>
                     <p className="text-sm text-muted-foreground">Resumen de tu trabajo</p>
-                     
+
                 </header>
 
                 <div className="grid gap-6 lg:grid-cols-3">
@@ -66,7 +73,9 @@ export default function InicioAgente({ agente, turnoHoy, turnosSemana, novedades
                         {/* Turno de hoy: lo más importante de la pantalla */}
                         <Tarjeta titulo="Tu turno de hoy">
                             {turnoHoy ? (
+
                                 <>
+
                                     <div className="flex flex-wrap items-baseline justify-between gap-3">
                                         <p className="text-lg font-semibold">
                                             {NOMBRE_TURNO[turnoHoy.turno] ?? turnoHoy.turno}
@@ -97,6 +106,22 @@ export default function InicioAgente({ agente, turnoHoy, turnosSemana, novedades
                                         >
                                             <Play className="size-4" /> Iniciar turno
                                         </button>
+                                    )}
+                                    {turnoHoy.estado === 'en_curso' && (
+                                        <div className="space-y-3">
+                                            <p className="text-sm font-medium text-green-700">
+                                                Turno en curso{turnoHoy.hora_entrada && <> · iniciaste a las {turnoHoy.hora_entrada}</>}
+                                            </p>
+                                            <CierreTurno turnoId={turnoHoy.id} horarioCumplido={turnoHoy.horario_cumplido} />
+                                        </div>
+                                    )}
+
+                                    {turnoHoy.estado === 'cumplido' && (
+                                        <p className="text-sm font-medium text-green-700">Turno finalizado. ¡Buen trabajo!</p>
+                                    )}
+
+                                    {turnoHoy.estado === 'abandonado' && (
+                                        <p className="text-sm font-medium text-red-700">Turno cerrado por abandono. Queda pendiente de revisión.</p>
                                     )}
                                 </>
                             ) : (

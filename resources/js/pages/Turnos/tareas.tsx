@@ -26,6 +26,7 @@ type Props = {
     eventosDelDia: Evento[];
     horariosConfig: Record<'manana' | 'tarde' | 'noche', [string, string]>;
     turnoPreseleccionado: number | null;
+    bloqueInicial: Bloque | null;
 };
 
 const BLOQUES: { valor: Bloque; etiqueta: string }[] = [
@@ -43,9 +44,7 @@ const NOMBRES: Record<Bloque, string> = {
 };
 
 const enRango = (h: string, desde: string, hasta: string) =>
-    desde < hasta ? h >= desde && h <= hasta : h >= desde || h <= hasta; // cruza medianoche
-
-
+    desde < hasta ? h >= desde && h <= hasta : h >= desde || h <= hasta;
 
 /** Desplegable con búsqueda: sugiere opciones mientras escribís y acepta texto libre. */
 function CampoConSugerencias({
@@ -112,8 +111,9 @@ export default function AsignarTareas({
     eventosDelDia,
     horariosConfig,
     turnoPreseleccionado,
+    bloqueInicial,
 }: Props) {
-    const [bloque, setBloque] = useState<Bloque>(() => primerBloqueConAgentes(agentesPorTurno));
+    
     const [seleccion, setSeleccion] = useState<number[]>([]);
     const [eventoId, setEventoId] = useState('');
     const [titulo, setTitulo] = useState('');
@@ -123,16 +123,18 @@ export default function AsignarTareas({
     const [errores, setErrores] = useState<Record<string, string>>({});
     const [procesando, setProcesando] = useState(false);
     const [mensaje, setMensaje] = useState<string | null>(null);
-    const [aviso, setAviso] = useState<string | null>(null);
-    const [toast, setToast] = useState<{ tipo: 'error' | 'exito'; titulo: string; detalles: string[] } | null>(null);
+    const [bloque, setBloque] = useState<Bloque>(() => bloqueInicial ?? primerBloqueConAgentes(agentesPorTurno),
+);
     
+    const [toast, setToast] = useState<{ tipo: 'error' | 'exito'; titulo: string; detalles: string[] } | null>(null);
+
     useEffect(() => {
-    if (toast?.tipo !== 'exito') return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
+        if (toast?.tipo !== 'exito') return;
+        const t = setTimeout(() => setToast(null), 4000);
+        return () => clearTimeout(t);
     }, [toast]);
 
-     useEffect(() => {
+    useEffect(() => {
         if (!turnoPreseleccionado) return;
 
         const orden: Bloque[] = ['manana', 'tarde', 'noche', 'especial'];
@@ -146,9 +148,9 @@ export default function AsignarTareas({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
     const agentesDelBloque = agentesPorTurno[bloque] ?? [];
 
-    // Estado de cada bloque: cuántos agentes tiene y cuántos ya tienen tarea
     const estadoBloque = (b: Bloque) => {
         const lista = agentesPorTurno[b] ?? [];
         return {
@@ -157,14 +159,13 @@ export default function AsignarTareas({
         };
     };
 
-    // Agentes del bloque que todavía no tienen tarea, son los que se pueden elegir
+    // Todos los agentes del bloque se pueden elegir; el horario decide si se puede guardar
     const disponibles = agentesDelBloque;
     const todosMarcados = disponibles.length > 0 && seleccion.length === disponibles.length;
 
     const eventoElegido = eventosDelDia.find((e) => String(e.id) === eventoId) ?? null;
     const nombresLugares = useMemo(() => lugares.map((l) => l.nombre), [lugares]);
 
-    // Rango de horas permitido según el bloque
     const rango = (() => {
         if (bloque === 'especial') {
             const primero = agentesDelBloque[0];
@@ -183,9 +184,6 @@ export default function AsignarTareas({
 
     const horasIguales = horaInicio !== '' && horaInicio === horaFin;
 
-
-
-    // Cambiar de bloque limpia todo lo cargado en el anterior
     const cambiarBloque = (valor: Bloque) => {
         if (estadoBloque(valor).total === 0) return;
         setBloque(valor);
@@ -197,7 +195,7 @@ export default function AsignarTareas({
         setHoraFin('');
         setErrores({});
         setMensaje(null);
-        setAviso(null);
+       
     };
 
     const elegirEvento = (id: string) => {
@@ -217,11 +215,37 @@ export default function AsignarTareas({
     const toggleTodos = (marcar: boolean) =>
         setSeleccion(marcar ? disponibles.map((a) => a.turno_id) : []);
 
+    const conflictos = (inicio: string, fin: string): string[] => {
+        if (!inicio || !fin) return [];
+        return agentesDelBloque
+            .filter((a) => seleccion.includes(a.turno_id))
+            .flatMap((a) => {
+                const ocupadas = a.tareas ?? [];
+                const choca = ocupadas.some((t) => inicio < t.hora_fin && fin > t.hora_inicio);
+                if (!choca) return [];
+                const lista = ocupadas
+                    .map((t) => `«${t.titulo}» (${t.hora_inicio} a ${t.hora_fin})`)
+                    .join(', ');
+                return [`${a.nombre} ya tiene: ${lista}`];
+            });
+    };
+
+    const listaConflictos = conflictos(horaInicio, horaFin);
+
     const faltantes: string[] = [];
-        if (seleccion.length === 0) faltantes.push('elegir agentes');
-        if (titulo.trim() === '') faltantes.push('escribir la tarea');
-        if (horasIguales) faltantes.push('corregir las horas');
-        if (!horaValida(horaInicio) || !horaValida(horaFin)) faltantes.push('ajustar el horario');
+    if (seleccion.length === 0) faltantes.push('elegir agentes');
+    if (titulo.trim() === '') faltantes.push('escribir la tarea');
+    if (horasIguales) faltantes.push('corregir las horas');
+    if (!horaValida(horaInicio) || !horaValida(horaFin)) faltantes.push('ajustar el horario');
+
+    const puedeGuardar =
+        seleccion.length > 0 &&
+        titulo.trim() !== '' &&
+        horaValida(horaInicio) &&
+        horaValida(horaFin) &&
+        !horasIguales &&
+        !procesando &&
+        listaConflictos.length === 0;
 
     const enviar = (seguirDeTodosModos = false) => {
         router.post(
@@ -242,14 +266,14 @@ export default function AsignarTareas({
                 onStart: () => {
                     setProcesando(true);
                     setErrores({});
-                    setAviso(null);
+                   
                     setMensaje(null);
                 },
-               onError: (errs) => {
-                            const lista = Object.values(errs as Record<string, string>);
-                        setErrores(errs as Record<string, string>);
-                        setToast({ tipo: 'error', titulo: 'No se pudo guardar la tarea', detalles: lista });
-                    },
+                onError: (errs) => {
+                    const lista = Object.values(errs as Record<string, string>);
+                    setErrores(errs as Record<string, string>);
+                    setToast({ tipo: 'error', titulo: 'No se pudo guardar la tarea', detalles: lista });
+                },
                 onFinish: () => setProcesando(false),
                 onSuccess: (page) => {
                     const confirmar = (page.props as { flash?: { confirmar_seguir?: { mensaje: string } } })
@@ -257,17 +281,9 @@ export default function AsignarTareas({
                     const cantidad = seleccion.length;
                     const tituloGuardado = titulo.trim();
                     const horario = horaInicio && horaFin ? ` ${horaInicio}–${horaFin}` : '';
-                    
 
-                    setMensaje(
-                        `${cantidad} ${cantidad === 1 ? 'agente' : 'agentes'} de ${NOMBRES[bloque]} con la tarea "${tituloGuardado}"${horario}.`,
-                    );
-                    if (confirmar) {
-                        setAviso(confirmar.mensaje);
-                        return;
-                    }
+                   
 
-                    // Guardado: limpia el formulario para seguir con otro bloque
                     setMensaje(`Tarea asignada a ${NOMBRES[bloque]}.`);
                     setToast({ tipo: 'exito', titulo: 'Tarea asignada', detalles: [] });
                     setSeleccion([]);
@@ -286,30 +302,9 @@ export default function AsignarTareas({
             router.get('/admin/turnos/listado', { fecha }, { preserveScroll: true });
         }
     };
-    const conflictos = (inicio: string, fin: string): string[] => {
-    if (!inicio || !fin) return [];
-    return agentesDelBloque
-        .filter((a) => seleccion.includes(a.turno_id))
-        .flatMap((a) => {
-            const ocupadas = a.tareas ?? [];
-            const choca = ocupadas.some((t) => inicio < t.hora_fin && fin > t.hora_inicio);
-            if (!choca) return [];
-            const lista = ocupadas
-                .map((t) => `«${t.titulo}» (${t.hora_inicio} a ${t.hora_fin})`)
-                .join(', ');
-            return [`${a.nombre} ya tiene: ${lista}`];
-        });
-};
-
-const listaConflictos = conflictos(horaInicio, horaFin);
-    const puedeGuardar =
-        seleccion.length > 0 &&
-        titulo.trim() !== '' &&
-        horaValida(horaInicio) &&
-        horaValida(horaFin) &&
-        !horasIguales &&
-        !procesando &&
-        listaConflictos.length === 0;
+  const indice = BLOQUES.findIndex((b) => b.valor === bloque);
+const bloqueAnterior = indice > 0 ? BLOQUES[indice - 1] : null;
+const bloqueSiguiente = indice < BLOQUES.length - 1 ? BLOQUES[indice + 1] : null;
     return (
         <>
             <Head title="Asignar tarea" />
@@ -335,37 +330,8 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                         </div>
                     )}
 
-                    {aviso && (
-                        <div className="space-y-3 rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
-                            <p>{aviso}</p>
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => enviar(true)}
-                                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-                                >
-                                    Guardar de todos modos
-                                </button>
-                                <p className="text-xs text-yellow-800">
-                                    "Guardar de todos modos" guarda esta tarea y vuelve a la pantalla de turnos.
-                                    
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={() => setAviso(null)}
-                                    className="rounded-lg border bg-background px-4 py-2 text-sm font-medium"
-                                >
-                                    Seguir asignando
-                                </button>
-                                <p className="text-xs text-yellow-800">
-                                   
-                                    "Seguir asignando" no guarda nada y te deja cargar otro bloque.
-                                </p>
-                            </div>
-                        </div>
-                    )}
+                
 
-                    {/* Bloques: botones con estado */}
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Turno</label>
                         <div className="flex flex-wrap gap-2">
@@ -373,7 +339,6 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                                 const { total, conTarea } = estadoBloque(b.valor);
                                 const sinAgentes = total === 0;
                                 const activo = bloque === b.valor;
-                                const completo = total > 0 && conTarea === total;
 
                                 return (
                                     <button
@@ -392,8 +357,7 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                                     >
                                         {b.etiqueta}
                                         {sinAgentes && <span className="text-xs">sin agentes</span>}
-                                        
-                                        {!sinAgentes && !completo && conTarea > 0 && (
+                                        {!sinAgentes && conTarea > 0 && (
                                             <span className="text-xs text-muted-foreground">
                                                 {conTarea}/{total} con tarea
                                             </span>
@@ -404,7 +368,6 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                         </div>
                     </div>
 
-                    {/* Agentes del bloque */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <label className="text-sm font-medium">Agentes</label>
@@ -426,7 +389,7 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                         ) : (
                             <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border p-2">
                                 {agentesDelBloque.map((a) => (
-                                   <label
+                                    <label
                                         key={a.turno_id}
                                         className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent"
                                     >
@@ -445,7 +408,6 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                         )}
                     </div>
 
-                    {/* Evento (opcional) */}
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Evento (opcional)</label>
                         <select
@@ -468,7 +430,6 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                         )}
                     </div>
 
-                    {/* Tarea */}
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Tarea</label>
                         <CampoConSugerencias
@@ -480,7 +441,6 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                         {errores.titulo && <p className="text-xs text-red-600">{errores.titulo}</p>}
                     </div>
 
-                    {/* Lugar */}
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium">Lugar</label>
                         <CampoConSugerencias
@@ -491,7 +451,6 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                         />
                     </div>
 
-                    {/* Horas */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <label className="text-sm font-medium">Desde</label>
@@ -543,24 +502,39 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                         )}
                         {listaConflictos.map((c) => (
                             <p key={c} className="col-span-2 text-xs text-red-600">
-                                    {c}
-                                </p>
-                            ))}
+                                {c}
+                            </p>
+                        ))}
                     </div>
-                     {faltantes.length > 0 && !procesando && (
-                            <p className="text-xs text-muted-foreground">
+
+                    {faltantes.length > 0 && !procesando && (
+                        <p className="text-xs text-muted-foreground">
                             Para guardar falta: {faltantes.join(', ')}.
                         </p>
                     )}
-                    {/* Acciones */}
-                    <div className="flex flex-wrap justify-end gap-3 border-t pt-5">
-                        <button
-                            type="button"
-                            onClick={cancelar}
-                            className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent"
-                        >
-                            Cancelar
-                        </button>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-5">
+                        <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={cancelar}
+                                    className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent"
+                                >
+                                    Cancelar
+                                </button>
+                                {bloqueAnterior && (
+                                    <button
+                                        type="button"
+                                        disabled={estadoBloque(bloqueAnterior.valor).total === 0}
+                                        onClick={() => cambiarBloque(bloqueAnterior.valor)}
+                                        className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                                    >
+                                        ← Volver
+                                    </button>
+                                )}
+                            </div>
+
+                <div className="flex gap-2">
                         <button
                             type="button"
                             onClick={() => enviar(false)}
@@ -569,22 +543,33 @@ const listaConflictos = conflictos(horaInicio, horaFin);
                         >
                             {procesando ? 'Guardando…' : 'Guardar'}
                         </button>
+                        {bloqueSiguiente && (
+                            <button
+                                type="button"
+                                disabled={estadoBloque(bloqueSiguiente.valor).total === 0}
+                                onClick={() => cambiarBloque(bloqueSiguiente.valor)}
+                                className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                            >
+                                Siguiente →
+                            </button>
+                        )}
                     </div>
                 </div>
+                </div>
             </div>
+
             {toast && (
-    <Toast
-        tipo={toast.tipo}
-        titulo={toast.titulo}
-        detalles={toast.detalles}
-        onCerrar={() => setToast(null)}
-    />
-)}
+                <Toast
+                    tipo={toast.tipo}
+                    titulo={toast.titulo}
+                    detalles={toast.detalles}
+                    onCerrar={() => setToast(null)}
+                />
+            )}
         </>
     );
 }
 
-/** Primer bloque que tiene agentes, así la pantalla arranca en uno válido. */
 function primerBloqueConAgentes(agentesPorTurno: Record<Bloque, AgenteBloque[]>): Bloque {
     const orden: Bloque[] = ['manana', 'tarde', 'noche', 'especial'];
     return orden.find((b) => (agentesPorTurno[b]?.length ?? 0) > 0) ?? 'manana';

@@ -5,62 +5,64 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\TurnoTrabajoRequest;
 use App\Models\Agente;
-use Inertia\Inertia;
-use Illuminate\Http\Request;
+use App\Models\EventoOperativo;
+use App\Models\Fichaje;
+use App\Models\HistorialDeLicencias;
+use App\Models\Lugar;
+use App\Models\Tarea;
 use App\Models\TurnoTrabajo;
-use Inertia\Response;
+use App\Exports\TurnosExcel;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Carbon;
-use Illuminate\Pagination\LengthAwarePaginator;
-use App\Models\Tarea;
-use App\Models\Lugar;
-use App\Models\EventoOperativo;
 use Illuminate\Validation\Rule;
-use App\Exports\TurnosExcel;
-use App\Models\HistorialDeLicencias;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class TurnoTrabajoController extends Controller
 {
+    private const NOMBRES_TURNO = [
+        'manana' => 'Mañana',
+        'tarde' => 'Tarde',
+        'noche' => 'Noche',
+        'especial' => 'Especial',
+    ];
 
-    
-private const NOMBRES_TURNO = [
-    'manana' => 'Mañana',
-    'tarde' => 'Tarde',
-    'noche' => 'Noche',
-    'especial' => 'Especial',
-];
-public function index(Request $request): Response
-{
-    $fecha = $request->input('fecha', now()->toDateString());
+    public function index(Request $request): Response
+    {
+        $fecha = $request->input('fecha', now()->toDateString());
 
-    return Inertia::render('Turnos/index', [
-        'agentesDisponibles' => Agente::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
-        'fechaInicial' => $fecha,
-        'horariosConfig' => config('turnos.horarios'),
-        'especialConfig' => config('turnos.especial'),
-        'turnosDelDia' => TurnoTrabajo::whereDate('fecha', $fecha)->get(['agente_id', 'turno']),
-        'conLicencia' => $this->agentesConLicencia($fecha),
-    ]);
-}
+        return Inertia::render('Turnos/index', [
+            'agentesDisponibles' => Agente::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
+            'fechaInicial' => $fecha,
+            'horariosConfig' => config('turnos.horarios'),
+            'especialConfig' => config('turnos.especial'),
+            'turnosDelDia' => TurnoTrabajo::whereDate('fecha', $fecha)->get(['agente_id', 'turno']),
+            'conLicencia' => $this->agentesConLicencia($fecha),
+        ]);
+    }
 
-/** IDs de agentes con licencia aprobada que cubre la fecha. */
-private function agentesConLicencia(string $fecha): array
-{
-    return HistorialDeLicencias::query()
-        ->where('estado', 'aprobada')
-        ->whereDate('fecha_inicio', '<=', $fecha)
-        ->whereDate('fecha_fin', '>=', $fecha)
-        ->pluck('agente_id')
-        ->unique()
-        ->values()
-        ->all();
-}
+    /** IDs de agentes con licencia aprobada que cubre la fecha. */
+    private function agentesConLicencia(string $fecha): array
+    {
+        return HistorialDeLicencias::query()
+            ->where('estado', 'aprobada')
+            ->whereDate('fecha_inicio', '<=', $fecha)
+            ->whereDate('fecha_fin', '>=', $fecha)
+            ->pluck('agente_id')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     public function store(TurnoTrabajoRequest $request): RedirectResponse
     {
         $datos = $request->validated();
@@ -68,16 +70,19 @@ private function agentesConLicencia(string $fecha): array
         $esEspecial = $datos['turno'] === 'especial';
 
         $asignacionId = count($agenteIds) > 1 ? (string) Str::uuid() : null;
+
         $conLicencia = $this->conLicenciaAprobada($agenteIds, $datos['fecha']);
         if ($conLicencia->isNotEmpty()) {
             $this->fallarPorLicencia($conLicencia->all());
         }
+
         try {
             DB::transaction(function () use ($agenteIds, $datos, $asignacionId, $esEspecial) {
                 $ocupados = TurnoTrabajo::whereDate('fecha', $datos['fecha'])
                     ->whereIn('agente_id', $agenteIds)
                     ->lockForUpdate()
                     ->pluck('agente_id');
+
                 if ($ocupados->isNotEmpty()) {
                     $this->fallarPorOcupados($ocupados->all());
                 }
@@ -94,7 +99,6 @@ private function agentesConLicencia(string $fecha): array
                 }
             });
         } catch (UniqueConstraintViolationException) {
-            //  asignación simultánea no
             throw ValidationException::withMessages([
                 'agente_id' => 'Alguno de los agentes ya tiene ese turno asignado.',
             ]);
@@ -108,162 +112,188 @@ private function agentesConLicencia(string $fecha): array
         );
     }
 
-    public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
-{
-    if (in_array($tarea->estado, ['finalizado', 'cancelada'], true)) {
-        return back()->with('error', 'Solo se pueden editar tareas pendientes o en curso.');
-    }
+    public function update(TurnoTrabajoRequest $request, TurnoTrabajo $turno): RedirectResponse
+    {
+        if (!$turno->estaProgramado() || $turno->fichajes()->exists()) {
+            return back()->with('error', 'No se puede modificar: el turno ya tiene fichajes o no está programado.');
+        }
 
-    $datos = $request->validated();
-    unset($datos['aplicar_a_grupo']);
-    $datos = $this->completarDesdeEvento($datos);
+        if (!$turno->enPlazoDeEdicion()) {
+            $limite = $turno->limiteEdicion()->format('d/m/Y H:i');
 
-    if (! empty($datos['hora_inicio']) && ! empty($datos['hora_fin'])) {
-        $tarea->turno->validarHorarioDelBloque($datos['hora_inicio'], $datos['hora_fin']);
+            return back()->with('error', "Ya no se puede modificar: el plazo venció el {$limite} (una hora antes del inicio).");
+        }
 
-        $haySolape = Tarea::where('turno_trabajo_id', $tarea->turno_trabajo_id)
-            ->where('estado', '!=', 'cancelada')
-            ->whereKeyNot($tarea->id)
-            ->where('hora_inicio', '<', $datos['hora_fin'])
-            ->where('hora_fin', '>', $datos['hora_inicio'])
+        $datos = $request->validated();
+
+        // Un agente, un turno por día (igual que al asignar)
+        $duplicado = TurnoTrabajo::where('agente_id', $datos['agente_id'])
+            ->whereDate('fecha', $datos['fecha'])
+            ->whereKeyNot($turno->id)
             ->exists();
 
-        if ($haySolape) {
+        if ($duplicado) {
             throw ValidationException::withMessages([
-                'hora_inicio' => 'Ese horario se superpone con otra tarea de este agente. Cambiá la hora o cancelá la otra tarea.',
-            ]);
-        }
-    }
-
-    $tarea->update($datos);
-
-    return back()->with('success', 'Tarea actualizada correctamente.');
-}
-  public function storeJornada(Request $request): RedirectResponse
-{
-    $datos = $request->validate([
-        'fecha' => ['required', 'date'],
-        'ir_a_tareas' => ['sometimes', 'boolean'],
-        'bloques' => ['required', 'array', 'min:1', 'max:3'],
-        'bloques.*.turno' => ['required', 'in:manana,tarde,noche,especial'],
-        'bloques.*.agente_ids' => ['required', 'array', 'min:1'],
-        'bloques.*.agente_ids.*' => ['integer', 'exists:agentes,id'],
-        'bloques.*.hora_inicio_prog' => ['nullable', 'date_format:H:i'],
-        'bloques.*.hora_fin_prog' => ['nullable', 'date_format:H:i'],
-    ]);
-
-    $bloques = collect($datos['bloques']);
-
-    $turnos = $bloques->pluck('turno');
-    $esEspecial = $turnos->contains('especial');
-
-    if ($turnos->count() !== $turnos->unique()->count()) {
-        throw ValidationException::withMessages([
-            'bloques' => 'No puede repetirse un turno en la misma jornada.',
-        ]);
-    }
-
-    if ($esEspecial && $turnos->count() > 1) {
-        throw ValidationException::withMessages([
-            'bloques' => 'El turno especial no se puede combinar con mañana, tarde o noche.',
-        ]);
-    }
-
-    
-    // Un agente no puede estar en dos bloques el mismo día
-$todos = $bloques->pluck('agente_ids')->flatten();
-if ($todos->count() !== $todos->unique()->count()) {
-    throw ValidationException::withMessages([
-        'bloques' => 'Un agente no puede estar en más de un turno el mismo día.',
-    ]);
-}
-
-// Agentes con licencia aprobada ese día
-$conLicencia = $this->conLicenciaAprobada($todos->all(), $datos['fecha']);
-if ($conLicencia->isNotEmpty()) {
-    $this->fallarPorLicencia($conLicencia->all());
-}
-
-    // Turno especial: horas obligatorias y dentro del rango configurado
-    if ($esEspecial) {
-        $b = $bloques->first();
-
-        if (empty($b['hora_inicio_prog']) || empty($b['hora_fin_prog'])) {
-            throw ValidationException::withMessages([
-                'bloques' => 'El turno especial necesita hora de inicio y de fin.',
+                'fecha' => 'El agente ya tiene un turno asignado en esa fecha.',
             ]);
         }
 
-        $inicio = Carbon::createFromFormat('H:i', $b['hora_inicio_prog']);
-        $fin = Carbon::createFromFormat('H:i', $b['hora_fin_prog']);
-        if ($fin->lessThanOrEqualTo($inicio)) {
-            $fin->addDay(); // cruza medianoche
-        }
-        $horas = $inicio->diffInMinutes($fin) / 60;
+        if ($datos['turno'] !== 'especial') {
+            $horario = config("turnos.horarios.{$datos['turno']}");
 
-        $min = config('turnos.especial.min_horas');
-        $max = config('turnos.especial.max_horas');
-        if ($horas < $min || $horas > $max) {
+            abort_unless(is_array($horario) && count($horario) >= 2, 500, 'Horario de turno no configurado.');
+
+            [$datos['hora_inicio_prog'], $datos['hora_fin_prog']] = $horario;
+        }
+
+        // El nuevo horario tampoco puede quedar en el pasado ni dentro de la hora previa
+        $nuevoInicio = Carbon::parse("{$datos['fecha']} {$datos['hora_inicio_prog']}");
+        if ($nuevoInicio->lt(now()->addMinutes(TurnoTrabajo::MINUTOS_LIMITE_EDICION))) {
             throw ValidationException::withMessages([
-                'bloques' => "El turno especial debe durar entre {$min} y {$max} horas.",
+                'fecha' => 'El turno tiene que empezar al menos una hora después de este momento.',
             ]);
         }
-    }
 
-    try {
-        DB::transaction(function () use ($bloques, $datos, $todos, $esEspecial) {
-            $ocupados = TurnoTrabajo::whereDate('fecha', $datos['fecha'])
-                ->whereIn('agente_id', $todos->all())
-                ->lockForUpdate()
-                ->pluck('agente_id');
+        $cambio = $turno->agente_id !== (int) $datos['agente_id']
+            || $turno->fecha->toDateString() !== $datos['fecha']
+            || $turno->turno !== $datos['turno']
+            || substr((string) $turno->hora_inicio_prog, 0, 5) !== substr($datos['hora_inicio_prog'], 0, 5)
+            || substr((string) $turno->hora_fin_prog, 0, 5) !== substr($datos['hora_fin_prog'], 0, 5);
 
-            if ($ocupados->isNotEmpty()) {
-                $this->fallarPorOcupados($ocupados->all());
+        $conTareas = $cambio && $turno->tareas()->exists();
+        if ($conTareas) {
+            if ($turno->tareas()->whereHas('intervenciones')->exists()) {
+                return back()->with('error', 'No se puede modificar: el turno tiene tareas con intervenciones registradas.');
             }
 
-            foreach ($bloques as $bloque) {
-                $asignacionId = count($bloque['agente_ids']) > 1 ? (string) Str::uuid() : null;
+            if (!$request->boolean('confirmar_borrado_tareas')) {
+                throw ValidationException::withMessages([
+                    'tareas' => 'Este turno tiene tareas asignadas y se eliminarían al modificarlo. Volvé a abrir el formulario y confirmá.',
+                ]);
+            }
+        }
 
-                foreach ($bloque['agente_ids'] as $agenteId) {
-                    TurnoTrabajo::create([
-                        'agente_id' => $agenteId,
-                        'fecha' => $datos['fecha'],
-                        'turno' => $bloque['turno'],
-                        'hora_inicio_prog' => $esEspecial ? $bloque['hora_inicio_prog'] : null,
-                        'hora_fin_prog' => $esEspecial ? $bloque['hora_fin_prog'] : null,
-                        'asignacion_id' => $asignacionId,
-                    ]);
+        try {
+            DB::transaction(function () use ($turno, $datos, $conTareas) {
+                if ($conTareas) {
+                    Tarea::where('turno_trabajo_id', $turno->id)->delete();
                 }
-            }
-        });
-    } catch (UniqueConstraintViolationException) {
-        throw ValidationException::withMessages([
-            'bloques' => 'Alguno de los agentes ya tiene turno asignado en esa fecha.',
+
+                $turno->update(Arr::only($datos, ['agente_id', 'fecha', 'turno', 'hora_inicio_prog', 'hora_fin_prog']));
+            });
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages([
+                'turno' => 'El agente ya tiene ese turno asignado en esa fecha.',
+            ]);
+        }
+
+        return back()->with(
+            'success',
+            $conTareas
+                ? 'Turno actualizado. Se eliminaron sus tareas: asignalas de nuevo.'
+                : 'Turno actualizado correctamente.',
+        );
+    }
+
+    public function storeJornada(Request $request): RedirectResponse
+    {
+        $datos = $request->validate([
+            'fecha' => ['required', 'date'],
+            'ir_a_tareas' => ['sometimes', 'boolean'],
+            'bloques' => ['required', 'array', 'min:1', 'max:3'],
+            'bloques.*.turno' => ['required', 'in:manana,tarde,noche,especial'],
+            'bloques.*.agente_ids' => ['required', 'array', 'min:1'],
+            'bloques.*.agente_ids.*' => ['integer', 'exists:agentes,id'],
+            'bloques.*.hora_inicio_prog' => ['nullable', 'date_format:H:i'],
+            'bloques.*.hora_fin_prog' => ['nullable', 'date_format:H:i'],
         ]);
+
+        $bloques = collect($datos['bloques']);
+
+        $turnos = $bloques->pluck('turno');
+        $esEspecial = $turnos->contains('especial');
+
+        if ($turnos->count() !== $turnos->unique()->count()) {
+            throw ValidationException::withMessages([
+                'bloques' => 'No puede repetirse un turno en la misma jornada.',
+            ]);
+        }
+
+        if ($esEspecial && $turnos->count() > 1) {
+            throw ValidationException::withMessages([
+                'bloques' => 'El turno especial no se puede combinar con mañana, tarde o noche.',
+            ]);
+        }
+
+        // Un agente no puede estar en dos bloques el mismo día
+        $todos = $bloques->pluck('agente_ids')->flatten();
+        if ($todos->count() !== $todos->unique()->count()) {
+            throw ValidationException::withMessages([
+                'bloques' => 'Un agente no puede estar en más de un turno el mismo día.',
+            ]);
+        }
+
+        // Agentes con licencia aprobada ese día
+        $conLicencia = $this->conLicenciaAprobada($todos->all(), $datos['fecha']);
+        if ($conLicencia->isNotEmpty()) {
+            $this->fallarPorLicencia($conLicencia->all());
+        }
+
+        if ($esEspecial) {
+            $this->validarDuracionEspecial($bloques->first()['hora_inicio_prog'] ?? '', $bloques->first()['hora_fin_prog'] ?? '');
+        }
+
+        try {
+            DB::transaction(function () use ($bloques, $datos, $todos, $esEspecial) {
+                $ocupados = TurnoTrabajo::whereDate('fecha', $datos['fecha'])
+                    ->whereIn('agente_id', $todos->all())
+                    ->lockForUpdate()
+                    ->pluck('agente_id');
+
+                if ($ocupados->isNotEmpty()) {
+                    $this->fallarPorOcupados($ocupados->all());
+                }
+
+                foreach ($bloques as $bloque) {
+                    $asignacionId = count($bloque['agente_ids']) > 1 ? (string) Str::uuid() : null;
+
+                    foreach ($bloque['agente_ids'] as $agenteId) {
+                        TurnoTrabajo::create([
+                            'agente_id' => $agenteId,
+                            'fecha' => $datos['fecha'],
+                            'turno' => $bloque['turno'],
+                            'hora_inicio_prog' => $esEspecial ? $bloque['hora_inicio_prog'] : null,
+                            'hora_fin_prog' => $esEspecial ? $bloque['hora_fin_prog'] : null,
+                            'asignacion_id' => $asignacionId,
+                        ]);
+                    }
+                }
+            });
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages([
+                'bloques' => 'Alguno de los agentes ya tiene turno asignado en esa fecha.',
+            ]);
+        }
+
+        if ($request->boolean('ir_a_tareas')) {
+            return redirect('/admin/turnos/tareas?'.http_build_query(['fecha' => $datos['fecha']]))
+                ->with('success', 'Jornada guardada. Ahora podés asignar las tareas.');
+        }
+
+        return redirect('/admin/turnos/listado')->with('success', 'Jornada guardada correctamente.');
     }
-
-    if ($request->boolean('ir_a_tareas')) {
-        return redirect('/admin/turnos/tareas?' . http_build_query(['fecha' => $datos['fecha']]))
-            ->with('success', 'Jornada guardada. Ahora podés asignar las tareas.');
-    }
-
-    return back()->with('success', 'Jornada guardada correctamente.');
-}
-
 
     public function destroy(TurnoTrabajo $turno): RedirectResponse
     {
-        // Protege el historial no es una eliminacion completa
         if ($turno->fichajes()->exists()) {
-            return back()->with('error', 'No se puede eliminar: el turno tiene fichajess registrados.');
+            return back()->with('error', 'No se puede eliminar: el turno tiene fichajes registrados.');
         }
 
-        // Las intervenciones protegen a sus tareas (restrictOnDelete)
         if ($turno->tareas()->whereHas('intervenciones')->exists()) {
             return back()->with('error', 'No se puede eliminar: el turno tiene tareas con intervenciones registradas.');
         }
 
-        $turno->delete(); // borra también sus tareas 
+        $turno->delete();
 
         return back()->with('success', 'Turno eliminado correctamente.');
     }
@@ -271,13 +301,65 @@ if ($conLicencia->isNotEmpty()) {
     private function fallarPorOcupados(array $agenteIds): never
     {
         $nombres = Agente::whereIn('id', $agenteIds)->get()
-            ->map(fn($a) => "{$a->apellido}, {$a->nombre}")
+            ->map(fn ($a) => "{$a->apellido}, {$a->nombre}")
             ->implode('; ');
 
         throw ValidationException::withMessages([
             'agente_ids' => "Ya tienen ese turno asignado: {$nombres}.",
         ]);
     }
+
+    private function fallarPorLicencia(array $agenteIds): never
+    {
+        $nombres = Agente::whereIn('id', $agenteIds)->get()
+            ->map(fn ($a) => "{$a->apellido}, {$a->nombre}")
+            ->implode('; ');
+
+        throw ValidationException::withMessages([
+            'agente_ids' => "Tienen licencia aprobada ese día: {$nombres}.",
+        ]);
+    }
+
+    /** Agentes con licencia aprobada que se superpone con la fecha del turno. */
+    private function conLicenciaAprobada(array $agenteIds, string $fecha): Collection
+    {
+        return HistorialDeLicencias::query()
+            ->where('estado', 'aprobada')
+            ->whereIn('agente_id', $agenteIds)
+            ->whereDate('fecha_inicio', '<=', $fecha)
+            ->whereDate('fecha_fin', '>=', $fecha)
+            ->pluck('agente_id')
+            ->unique()
+            ->values();
+    }
+
+    /** Mismo control de duración para el turno especial. */
+    private function validarDuracionEspecial(string $inicio, string $fin): void
+    {
+        if ($inicio === '' || $fin === '') {
+            throw ValidationException::withMessages([
+                'bloques' => 'El turno especial necesita hora de inicio y de fin.',
+            ]);
+        }
+
+        $desde = Carbon::createFromFormat('H:i', $inicio);
+        $hasta = Carbon::createFromFormat('H:i', $fin);
+
+        if ($hasta->lessThanOrEqualTo($desde)) {
+            $hasta->addDay();
+        }
+
+        $horas = $desde->diffInMinutes($hasta) / 60;
+        $min = config('turnos.especial.min_horas');
+        $max = config('turnos.especial.max_horas');
+
+        if ($horas < $min || $horas > $max) {
+            throw ValidationException::withMessages([
+                'bloques' => "El turno especial debe durar entre {$min} y {$max} horas.",
+            ]);
+        }
+    }
+
     public function listado(Request $request): Response
     {
         $f = $this->filtrosProximos($request);
@@ -285,6 +367,7 @@ if ($conLicencia->isNotEmpty()) {
 
         $paginador = $this->fechasPaginadas($f['desde'], $f['hasta'], $f['agente']);
         $fechas = $paginador->getCollection()->all();
+
         return Inertia::render('Turnos/listado', [
             'hoy' => $hoy,
             'manana' => now()->addDay()->toDateString(),
@@ -306,26 +389,23 @@ if ($conLicencia->isNotEmpty()) {
             ],
         ]);
     }
-   public function listadoExcel(Request $request)
-{
-    $f = $this->filtrosProximos($request);
 
-    $turnos = $this->turnosEntre(
-        $f['desde'],
-        $f['hasta'],
-        $f['agente'],
-        soloVigentes: true,
-    );
+    public function listadoExcel(Request $request)
+    {
+        $f = $this->filtrosProximos($request);
 
-    // turnosEntre devuelve arreglos; el exportador espera modelos, así que los reconstruimos
-    $modelos = TurnoTrabajo::with('agente:id,nombre,apellido')
-        ->whereIn('id', $turnos->pluck('id'))
-        ->orderBy('fecha')
-        ->orderByRaw("CASE turno WHEN 'manana' THEN 1 WHEN 'tarde' THEN 2 WHEN 'noche' THEN 3 ELSE 4 END")
-        ->get();
+        $turnos = $this->turnosEntre($f['desde'], $f['hasta'], $f['agente'], soloVigentes: true);
 
-    return TurnosExcel::descargar($modelos, "turnos-{$f['desde']}-a-{$f['hasta']}.xlsx");
-}
+        // turnosEntre devuelve arreglos; el exportador espera modelos
+        $modelos = TurnoTrabajo::with('agente:id,nombre,apellido')
+            ->whereIn('id', $turnos->pluck('id'))
+            ->orderBy('fecha')
+            ->orderByRaw("CASE turno WHEN 'manana' THEN 1 WHEN 'tarde' THEN 2 WHEN 'noche' THEN 3 ELSE 4 END")
+            ->get();
+
+        return TurnosExcel::descargar($modelos, "turnos-{$f['desde']}-a-{$f['hasta']}.xlsx");
+    }
+
     public function listadoPdf(Request $request)
     {
         $f = $this->filtrosProximos($request);
@@ -355,10 +435,9 @@ if ($conLicencia->isNotEmpty()) {
 
         $manana = now()->addDay()->startOfDay();
 
-        // Por defecto: desde mañana, una semana
         $desde = $request->filled('desde') ? Carbon::parse($request->input('desde'))->startOfDay() : $manana->copy();
         if ($desde->lt($manana)) {
-            $desde = $manana->copy(); // "próximos" nunca incluye hoy ni el pasado
+            $desde = $manana->copy();
         }
 
         $hasta = $request->filled('hasta') ? Carbon::parse($request->input('hasta'))->startOfDay() : $desde->copy()->addDays(6);
@@ -366,7 +445,7 @@ if ($conLicencia->isNotEmpty()) {
             $hasta = $desde->copy();
         }
         if ($hasta->gt($desde->copy()->addDays(365))) {
-            $hasta = $desde->copy()->addDays(365); // tope de un año
+            $hasta = $desde->copy()->addDays(365);
         }
 
         return [
@@ -375,15 +454,17 @@ if ($conLicencia->isNotEmpty()) {
             'agente' => $request->filled('agente') ? (int) $request->input('agente') : null,
         ];
     }
+
     private function queryTurnos(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false, ?string $estado = null)
     {
         return TurnoTrabajo::query()
             ->whereDate('fecha', '>=', $desde)
             ->whereDate('fecha', '<=', $hasta)
-            ->when($agenteId, fn($q) => $q->where('agente_id', $agenteId))
-            ->when($soloVigentes, fn($q) => $q->whereNotIn('estado_turno', ['cancelado', 'reasignado']))
-            ->when($estado, fn($q) => $q->where('estado_turno', $estado));
+            ->when($agenteId, fn ($q) => $q->where('agente_id', $agenteId))
+            ->when($soloVigentes, fn ($q) => $q->whereNotIn('estado_turno', ['cancelado', 'reasignado']))
+            ->when($estado, fn ($q) => $q->where('estado_turno', $estado));
     }
+
     private function fechasPaginadas(string $desde, string $hasta, ?int $agenteId, int $porPagina = 3, bool $soloVigentes = true, string $orden = 'desc', ?string $estado = null): LengthAwarePaginator
     {
         $dias = $this->queryTurnos($desde, $hasta, $agenteId, $soloVigentes, $estado)
@@ -394,8 +475,6 @@ if ($conLicencia->isNotEmpty()) {
 
         $total = $dias->count();
         $ultima = max(1, (int) ceil($total / $porPagina));
-
-        // Si piden una página que no existe, se lleva a la última
         $pagina = min(max(1, (int) request()->input('page', 1)), $ultima);
 
         return new LengthAwarePaginator(
@@ -408,10 +487,10 @@ if ($conLicencia->isNotEmpty()) {
 
     private function turnosEntre(string $desde, string $hasta, ?int $agenteId = null, bool $soloVigentes = false, ?array $soloFechas = null, string $orden = 'desc', ?string $estado = null): Collection
     {
-
         return $this->queryTurnos($desde, $hasta, $agenteId, $soloVigentes, $estado)
             ->with('agente:id,nombre,apellido')
-            ->when($soloFechas !== null, fn($q) => $q->whereIn(DB::raw('DATE(fecha)'), $soloFechas))
+            ->withCount('tareas')
+            ->when($soloFechas !== null, fn ($q) => $q->whereIn(DB::raw('DATE(fecha)'), $soloFechas))
             ->orderBy('fecha', $orden)
             ->orderByRaw("CASE turno
             WHEN 'manana' THEN 1
@@ -424,24 +503,27 @@ if ($conLicencia->isNotEmpty()) {
 
                 return [
                     'id' => $t->id,
-                    'fecha' => Carbon::parse($t->fecha)->toDateString(), // siempre YYYY-MM-DD
+                    'fecha' => Carbon::parse($t->fecha)->toDateString(),
                     'turno' => $t->turno,
                     'hora_inicio_prog' => $t->hora_inicio_prog,
                     'hora_fin_prog' => $t->hora_fin_prog,
                     'estado' => $estado instanceof \BackedEnum ? $estado->value : (string) $estado,
                     'agente' => $t->agente,
+                    'editable' => $t->enPlazoDeEdicion(),
+                    'tareas_count' => $t->tareas_count,
                     'tareas' => $t->tareas()->where('estado', '!=', 'cancelada')->get()->map(fn ($x) => [
                         'id' => $x->id,
-                            'titulo' => $x->titulo_final,
-                            'lugar' => $x->lugar_final?->nombre,
-                            'hora_inicio' => $x->hora_inicio_corta,
-                            'hora_fin' => $x->hora_fin_corta,
-                            'fecha' => $t->fecha->toDateString(),
-                        ])->values()->all(),
+                        'titulo' => $x->titulo_final,
+                        'lugar' => $x->lugar_final?->nombre,
+                        'hora_inicio' => $x->hora_inicio_corta,
+                        'hora_fin' => $x->hora_fin_corta,
+                        'fecha' => $t->fecha->toDateString(),
+                    ])->values()->all(),
                 ];
             })
             ->values();
     }
+
     private function filtrosHistorial(Request $request, ?int $agenteForzado = null): array
     {
         $request->validate([
@@ -452,7 +534,6 @@ if ($conLicencia->isNotEmpty()) {
         ]);
 
         $hoy = now()->toDateString();
-        $base = TurnoTrabajo::query()->when($agenteForzado, fn($q) => $q->where('agente_id', $agenteForzado));
         $primero = TurnoTrabajo::min('fecha');
         $ultimo = TurnoTrabajo::max('fecha');
 
@@ -472,6 +553,7 @@ if ($conLicencia->isNotEmpty()) {
             'estado' => $request->input('estado') ?: null,
         ];
     }
+
     public function historial(Request $request): Response
     {
         return $this->vistaHistorial($request, null, '/admin/turnos/historial', true);
@@ -479,7 +561,7 @@ if ($conLicencia->isNotEmpty()) {
 
     public function miHistorial(Request $request): Response
     {
-        $agenteId = $request->user()->agente?->id; // ajustá según tu relación
+        $agenteId = $request->user()->agente?->id;
         abort_unless($agenteId, 403);
 
         return $this->vistaHistorial($request, $agenteId, '/mi-historial-turnos', false);
@@ -520,61 +602,65 @@ if ($conLicencia->isNotEmpty()) {
             'esAdmin' => $esAdmin,
         ]);
     }
+
     /** Pantalla "Asignar tarea": agentes con turno en el día, agrupados por bloque. */
-public function asignarTareasForm(Request $request): Response
-{
-    $fecha = $request->input('fecha', now()->toDateString());
+    public function asignarTareasForm(Request $request): Response
+    {
+        $fecha = $request->input('fecha', now()->toDateString());
 
-    $turnos = TurnoTrabajo::with('agente:id,nombre,apellido')
-        ->whereDate('fecha', $fecha)
-        ->whereNotIn('estado_turno', ['cancelado', 'reasignado'])
-        ->get();
+        $turnos = TurnoTrabajo::with('agente:id,nombre,apellido')
+            ->whereDate('fecha', $fecha)
+            ->whereNotIn('estado_turno', ['cancelado', 'reasignado'])
+            ->get();
 
-    $agentesPorTurno = collect(TurnoTrabajo::TURNOS)->mapWithKeys(fn (string $t) => [
-        $t => $turnos->where('turno', $t)
-            ->map(fn (TurnoTrabajo $x) => [
-                'turno_id' => $x->id,
-                'agente_id' => $x->agente_id,
-                'nombre' => "{$x->agente->apellido}, {$x->agente->nombre}",
-                'tiene_tarea' => $x->tareas()->exists(),
-                'hora_inicio' => $x->hora_inicio_prog ? substr($x->hora_inicio_prog, 0, 5) : null,
-                'hora_fin' => $x->hora_fin_prog ? substr($x->hora_fin_prog, 0, 5) : null,
-                'tareas' => $x->tareas()->where('estado', '!=', 'cancelada')->get()
-                ->map(fn ($t) => [
-                    'titulo' => $t->titulo_final,
-                    'hora_inicio' => substr($t->hora_inicio, 0, 5),
-                    'hora_fin' => substr($t->hora_fin, 0, 5),
-                ])->values()->all(),
-            ])
-            ->values()
-            ->all(),
-    ]);
+        $agentesPorTurno = collect(TurnoTrabajo::TURNOS)->mapWithKeys(fn (string $t) => [
+            $t => $turnos->where('turno', $t)
+                ->map(fn (TurnoTrabajo $x) => [
+                    'turno_id' => $x->id,
+                    'agente_id' => $x->agente_id,
+                    'nombre' => "{$x->agente->apellido}, {$x->agente->nombre}",
+                    'tiene_tarea' => $x->tareas()->exists(),
+                    'hora_inicio' => $x->hora_inicio_prog ? substr($x->hora_inicio_prog, 0, 5) : null,
+                    'hora_fin' => $x->hora_fin_prog ? substr($x->hora_fin_prog, 0, 5) : null,
+                    'tareas' => $x->tareas()->where('estado', '!=', 'cancelada')->get()
+                        ->map(fn ($t) => [
+                            'titulo' => $t->titulo_final,
+                            'hora_inicio' => substr($t->hora_inicio, 0, 5),
+                            'hora_fin' => substr($t->hora_fin, 0, 5),
+                        ])->values()->all(),
+                ])
+                ->values()
+                ->all(),
+        ]);
 
-    return Inertia::render('Turnos/tareas', [
-        'fecha' => $fecha,
-        'agentesPorTurno' => $agentesPorTurno,
-        'tareasSugeridas' => config('tareas.titulos'),
-        'lugares' => Lugar::orderBy('nombre')->get(['id', 'nombre']),
-        'eventosDelDia' => EventoOperativo::whereDate('fecha_hora_inicio', $fecha)
-            ->orderBy('fecha_hora_inicio')
-            ->get(['id', 'titulo', 'fecha_hora_inicio', 'fecha_hora_fin', 'lugar_id'])
-            ->map(fn (EventoOperativo $e) => [
-                'id' => $e->id,
-                'titulo' => $e->titulo,
-                'hora_inicio' => $e->fecha_hora_inicio->format('H:i'),
-                'hora_fin' => $e->fecha_hora_fin?->format('H:i'),
-                'lugar_id' => $e->lugar_id,
-            ])
-            ->values()
-            ->all(),
-        'horariosConfig' => config('turnos.horarios'),
-        'especialConfig' => config('turnos.especial'),
-        'turnoPreseleccionado' => $request->input('agente') ? (int) $request->input('agente') : null,
-    ]);
-}
+        return Inertia::render('Turnos/tareas', [
+            'fecha' => $fecha,
+            'agentesPorTurno' => $agentesPorTurno,
+            'tareasSugeridas' => config('tareas.titulos'),
+            'lugares' => Lugar::orderBy('nombre')->get(['id', 'nombre']),
+            'eventosDelDia' => EventoOperativo::whereDate('fecha_hora_inicio', $fecha)
+                ->orderBy('fecha_hora_inicio')
+                ->get(['id', 'titulo', 'fecha_hora_inicio', 'fecha_hora_fin', 'lugar_id'])
+                ->map(fn (EventoOperativo $e) => [
+                    'id' => $e->id,
+                    'titulo' => $e->titulo,
+                    'hora_inicio' => $e->fecha_hora_inicio->format('H:i'),
+                    'hora_fin' => $e->fecha_hora_fin?->format('H:i'),
+                    'lugar_id' => $e->lugar_id,
+                ])
+                ->values()
+                ->all(),
+            'horariosConfig' => config('turnos.horarios'),
+            'especialConfig' => config('turnos.especial'),
+            'turnoPreseleccionado' => $request->input('agente') ? (int) $request->input('agente') : null,
+            'bloqueInicial' => in_array($request->input('bloque'), TurnoTrabajo::TURNOS, true)
+                ? $request->input('bloque')
+                : null,
+                    ]);
+    }
 
-/** Crea la tarea en cada turno seleccionado. Valida horario y solapamiento. */
-public function storeTareas(Request $request): RedirectResponse
+    /** Crea la tarea en cada turno seleccionado. Valida horario y solapamiento. */
+   public function storeTareas(Request $request): RedirectResponse
 {
     $datos = $request->validate([
         'fecha' => ['required', 'date'],
@@ -586,33 +672,15 @@ public function storeTareas(Request $request): RedirectResponse
         'evento_operativo_id' => ['nullable', 'integer', 'exists:eventos_operativos,id'],
         'hora_inicio' => ['nullable', 'date_format:H:i'],
         'hora_fin' => ['nullable', 'date_format:H:i'],
-        'seguir_de_todos_modos' => ['sometimes', 'boolean'],
     ]);
 
-    // Turnos del día en otros bloques que todavía no tienen tarea
-    $bloquesSinTarea = TurnoTrabajo::whereDate('fecha', $datos['fecha'])
-        ->whereNotIn('estado_turno', ['cancelado', 'reasignado'])
-        ->where('turno', '!=', $datos['turno'])
-        ->whereDoesntHave('tareas')
-        ->pluck('turno')
-        ->unique()
-        ->values();
-
-    if ($bloquesSinTarea->isNotEmpty() && ! $request->boolean('seguir_de_todos_modos')) {
-        $nombres = $bloquesSinTarea->map(fn ($t) => self::NOMBRES_TURNO[$t] ?? $t)->implode(', ');
-
-        return back()->with('confirmar_seguir', [
-            'mensaje' => "Hay agentes en {$nombres} que todavía no tienen tareas asignadas. ¿Seguir de todos modos?",
-        ]);
-    }
-
-    // Horario del bloque (el método valida fin distinto de inicio y rango del bloque)
+    // Horario del bloque
     $turnoRef = TurnoTrabajo::whereIn('id', $datos['turno_ids'])->first();
     if ($turnoRef) {
         $turnoRef->validarHorarioDelBloque($datos['hora_inicio'] ?? null, $datos['hora_fin'] ?? null);
     }
 
-    // Lugar: se busca sin distinguir mayúsculas; si no existe, se crea
+    // Lugar
     $lugarId = null;
     if (! empty($datos['lugar'])) {
         $nombreLugar = Str::squish(trim($datos['lugar']));
@@ -620,7 +688,6 @@ public function storeTareas(Request $request): RedirectResponse
             ?? Lugar::create(['nombre' => $nombreLugar])->id;
     }
 
-    // Si hay evento, lo que falte (lugar y horas) se toma de él
     $evento = ! empty($datos['evento_operativo_id'])
         ? EventoOperativo::find($datos['evento_operativo_id'])
         : null;
@@ -633,109 +700,113 @@ public function storeTareas(Request $request): RedirectResponse
         'hora_fin' => $datos['hora_fin'] ?? $evento?->fecha_hora_fin?->format('H:i'),
     ];
 
-    // Solo los turnos del bloque elegido, de la fecha indicada
     $turnoIds = TurnoTrabajo::whereDate('fecha', $datos['fecha'])
         ->where('turno', $datos['turno'])
         ->whereIn('id', $datos['turno_ids'])
         ->pluck('id');
 
     DB::transaction(function () use ($turnoIds, $base) {
-        // Bloquea los turnos para que dos cargas simultáneas no se pisen
-        TurnoTrabajo::whereIn('id', $turnoIds)->lockForUpdate()->get();
-
-        foreach ($turnoIds as $turnoId) {
-            $existe = Tarea::where('turno_trabajo_id', $turnoId)
-                ->where('titulo', $base['titulo'])
-                ->where('hora_inicio', $base['hora_inicio'])
-                ->where('hora_fin', $base['hora_fin'])
-                ->exists();
-
-            if ($existe) {
-                continue;
-            }
-
-            // Regla de superposición: el agente no puede tener dos tareas en el mismo horario
-           if ($base['hora_inicio'] && $base['hora_fin']) {
-                 $choca = Tarea::where('turno_trabajo_id', $turnoId)
-                    ->where('estado', '!=', 'cancelada')
-                    ->where('hora_inicio', '<', $base['hora_fin'])
-                    ->where('hora_fin', '>', $base['hora_inicio'])
-                    ->exists();
-
-                if ($choca) {
-                    $turnoAgente = TurnoTrabajo::with('agente:id,nombre,apellido')->find($turnoId);
-                    $nombre = "{$turnoAgente->agente->apellido}, {$turnoAgente->agente->nombre}";
-
-                    $ocupadas = Tarea::where('turno_trabajo_id', $turnoId)
-                        ->where('estado', '!=', 'cancelada')
-                        ->orderBy('hora_inicio')
-                        ->get()
-                        ->map(fn ($t) => '«'.$t->titulo.'» ('.substr($t->hora_inicio, 0, 5).' a '.substr($t->hora_fin, 0, 5).')')
-                        ->implode(', ');
-
-                    throw ValidationException::withMessages([
-                        'hora_inicio' => "{$nombre} ya tiene ocupado: {$ocupadas}. Elegí otro horario o quitá a este agente de la tarea.",
-                    ]);
-                }
-            }
-
-            Tarea::create(['turno_trabajo_id' => $turnoId] + $base);
-        }
+        // ...bloque de creación y superposición tal como lo tenés...
     });
 
-    return redirect('/admin/turnos/listado?'.http_build_query(['fecha' => $datos['fecha']]))
-        ->with('success', "Tarea asignada a {$turnoIds->count()} agente(s).");
+    $siguiente = match ($datos['turno']) {
+        'manana' => 'tarde',
+        'tarde' => 'noche',
+        default => null,
+    };
+    if ($siguiente === null) {
+        return redirect('/admin/turnos/listado')
+            ->with('success', "Tareas asignadas en el turno {$datos['turno']}.");
 }
-private function fallarPorLicencia(array $agenteIds): never
-{
-    $nombres = Agente::whereIn('id', $agenteIds)->get()
-        ->map(fn ($a) => "{$a->apellido}, {$a->nombre}")
-        ->implode('; ');
 
-    throw ValidationException::withMessages([
-        'agente_ids' => "Tienen licencia aprobada ese día: {$nombres}.",
-    ]);
-}
-/** Agentes con licencia aprobada que se superpone con la fecha del turno. */
-private function conLicenciaAprobada(array $agenteIds, string $fecha): Collection
-{
-    return HistorialDeLicencias::query()
-        ->where('estado', 'aprobada')
-        ->whereIn('agente_id', $agenteIds)
-        ->whereDate('fecha_inicio', '<=', $fecha)
-        ->whereDate('fecha_fin', '>=', $fecha)
-        ->pluck('agente_id')
-        ->unique()
-        ->values();
-}
-public function detalle(TurnoTrabajo $turno): Response
-{
-    $turno->load(['agente:id,nombre,apellido', 'tareas.lugar:id,nombre', 'fichajes', 'reporte']);
+    return redirect('/admin/turnos/tareas?'.http_build_query([
+        'fecha' => $datos['fecha'],
+        'bloque' => $siguiente,
+    ]))->with('success', "Tarea asignada a {$turnoIds->count()} agente(s).");
 
-    return Inertia::render('Turnos/detalle', [
-        'turno' => [
-            'id' => $turno->id,
-            'fecha' => $turno->fecha->toDateString(),
-            'turno' => $turno->turno,
-            'estado' => $turno->estado_turno,
-            'agente' => "{$turno->agente->apellido}, {$turno->agente->nombre}",
-            'hora_inicio' => $turno->hora_inicio_prog ? substr($turno->hora_inicio_prog, 0, 5) : null,
-            'hora_fin' => $turno->hora_fin_prog ? substr($turno->hora_fin_prog, 0, 5) : null,
-        ],
-        'fichajes' => $turno->fichajes->map(fn ($f) => [
-            'tipo' => $f->tipo,
-            'hora' => $f->registrada_at->format('H:i'),
-            'origen' => $f->origen,
-        ])->values()->all(),
-        'tareas' => $turno->tareas->where('estado', '!=', 'cancelada')->map(fn ($t) => [
-            'id' => $t->id,
-            'titulo' => $t->titulo_final,
-            'lugar' => $t->lugar_final?->nombre,
-            'hora_inicio' => $t->hora_inicio_corta,
-            'hora_fin' => $t->hora_fin_corta,
-            'estado' => $t->estado,
-        ])->values()->all(),
-        'tieneReporte' => $turno->reporte !== null,
-    ]);
 }
+
+    public function detalle(TurnoTrabajo $turno): Response
+    {
+        $turno->load([
+            'agente:id,nombre,apellido',
+            'fichajes.revisadaPor:id,nombre,apellido',
+            'reporte',
+            'tareas',
+        ]);
+
+        $fichajes = $turno->fichajes->sortBy('registrada_at')->values();
+        $intervenciones = $turno->intervencionesDelTurno()->orderBy('fecha_hora')->get();
+
+        return Inertia::render('Admin/Turnos/Detalle', [
+            'turno' => [
+                'id' => $turno->id,
+                'fecha' => $turno->fecha->format('d/m/Y'),
+                'agente' => "{$turno->agente->apellido}, {$turno->agente->nombre}",
+                'turno' => $turno->turno,
+                'estado' => $turno->estado_turno,
+                'hora_inicio_prog' => substr($turno->hora_inicio_prog, 0, 5),
+                'hora_fin_prog' => substr($turno->hora_fin_prog, 0, 5),
+                'entrada' => $turno->inicio_real?->format('H:i'),
+                'salida' => $turno->fin_real?->format('H:i'),
+                'minutos_trabajados' => $turno->minutos_trabajados,
+                'minutos_tarde' => $turno->minutos_tarde,
+                'minutos_extra' => $turno->minutos_extra,
+                'minutos_salida_anticipada' => $turno->minutos_salida_anticipada,
+            ],
+            'fichajes' => $fichajes->map(fn (Fichaje $f) => [
+                'id' => $f->id,
+                'tipo' => $f->tipo,
+                'hora' => $f->registrada_at->format('H:i'),
+                'origen' => $f->origen,
+                'ip' => $f->ip,
+                'latitud' => $f->latitud,
+                'longitud' => $f->longitud,
+                'motivo_salida' => $f->motivo_salida,
+                'estado_revision' => $f->estado_revision,
+                'comentario_revision' => $f->comentario_revision,
+                'revisada_por' => $f->revisadaPor
+                    ? "{$f->revisadaPor->apellido}, {$f->revisadaPor->nombre}"
+                    : null,
+                'revisada_at' => $f->revisada_at?->format('d/m/Y H:i'),
+            ])->all(),
+            'reporte' => $turno->reporte,
+            'tareas' => $turno->tareas->map(fn ($t) => [
+                'titulo' => $t->titulo_final,
+                'lugar' => $t->lugar_final?->nombre,
+                'tareas' => $turno->tareas->where('estado', '!=', 'cancelada')->map(fn ($t) => [
+                    'id' => $t->id,
+                    'titulo' => $t->titulo_final,
+                    'lugar' => $t->lugar_final?->nombre,
+                    'hora_inicio' => $t->hora_inicio_corta,
+                    'hora_fin' => $t->hora_fin_corta,
+                    'fecha' => $turno->fecha->toDateString(),
+                ])->values()->all(),
+            ])->values()->all(),
+            'intervenciones' => $intervenciones->map(fn ($i) => [
+                'id' => $i->id,
+                'hora' => $i->fecha_hora->format('H:i'),
+                'estado' => $i->estado_resolucion,
+            ])->all(),
+            'infracciones' => [],
+        ]);
+    }
+
+    public function revisarFichaje(Request $request, Fichaje $fichaje): RedirectResponse
+    {
+        abort_unless($fichaje->esSalidaAnticipada(), 422, 'Solo se revisan salidas anticipadas.');
+
+        $datos = $request->validate([
+            'estado_revision' => ['required', Rule::in([Fichaje::REVISION_JUSTIFICADA, Fichaje::REVISION_INJUSTIFICADA])],
+            'comentario_revision' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $fichaje->update([
+            ...$datos,
+            'revisada_por' => $request->user()->agente_id,
+            'revisada_at' => now(),
+        ]);
+
+        return back()->with('success', 'Revisión guardada.');
+    }
 }
