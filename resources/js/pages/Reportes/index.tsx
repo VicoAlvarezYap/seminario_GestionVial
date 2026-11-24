@@ -1,7 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { useState } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 import { parseFecha } from '@/lib/fechas';
 
 type Tarea = {
@@ -45,7 +44,7 @@ type Props = {
     desde: string;
     hasta: string;
     veTodo: boolean;
-    modo?: 'propios' | 'todos';
+    vista?: 'propios' | 'todos';
     agentes?: { id: number; nombre: string }[];
     agenteId?: number | null;
 };
@@ -64,7 +63,7 @@ const NOMBRE_TIPO: Record<string, string> = {
     otro: 'Otro',
 };
 
-
+// Opciones de los filtros del PDF (a nivel de módulo: no usan estado)
 const TURNOS_OPC: [string, string][] = [
     ['manana', 'Mañana'],
     ['tarde', 'Tarde'],
@@ -167,12 +166,12 @@ function Detalle({ r }: { r: Reporte }) {
     );
 }
 
-export default function ReportesIndex({ reportes, desde, hasta, veTodo, modo = 'todos', agentes = [], agenteId = null }: Props) {
+export default function ReportesIndex({ reportes, desde, hasta, veTodo, vista = 'todos', agentes = [], agenteId = null }: Props) {
     const [abierto, setAbierto] = useState<number | null>(null);
     const [desdeInput, setDesdeInput] = useState(desde);
     const [hastaInput, setHastaInput] = useState(hasta);
 
-  
+    // Filtros del PDF: estado dentro del componente
     const [turnosPdf, setTurnosPdf] = useState<string[]>([]);
     const [seccionesPdf, setSeccionesPdf] = useState<string[]>(['tareas', 'intervenciones']);
     const [agenteFiltro, setAgenteFiltro] = useState<string>(agenteId ? String(agenteId) : '');
@@ -200,12 +199,11 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo, modo = '
     return (
         <>
             <Head title="Mis reportes" />
-            <NavbarAgente />
 
             <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
                 <div className="flex items-center gap-2">
                     <FileText className="size-6" />
-                    <h1 className="text-2xl font-bold">{modo === 'propios' ? 'Mis reportes' : 'Reportes de turno (todos los agentes)'}</h1>
+                    <h1 className="text-2xl font-bold">{vista === 'propios' ? 'Mis reportes' : 'Reportes de turno (todos los agentes)'}</h1>
                 </div>
 
                 {/* Filtro de fechas de la pantalla */}

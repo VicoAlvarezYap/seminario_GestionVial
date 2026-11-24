@@ -1,7 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { type FormEvent } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 
 type Punto = { latitud: string; longitud: string; descripcion_referencia: string };
 
@@ -109,7 +108,6 @@ export default function EventoForm({ evento, lugares }: Props) {
     return (
         <>
             <Head title={evento ? 'Editar evento' : 'Crear evento'} />
-            <NavbarAgente />
 
             <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">

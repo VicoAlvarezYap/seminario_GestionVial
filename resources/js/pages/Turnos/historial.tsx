@@ -1,6 +1,5 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 import {
     DiaHistorial,
     ESTADOS,
@@ -9,7 +8,6 @@ import {
     type Paginacion,
     type TurnoRow,
 } from '@/components/turnos-compartidos';
-import EditarTurnoModal, { type TurnoEditable } from '@/components/editar-turno-modal';
 
 type Filtros = { desde: string; hasta: string; agente: number | null; estado: string | null };
 type AgenteOpcion = { id: number; nombre: string; apellido: string };
@@ -68,7 +66,6 @@ export default function Historial({ turnos, horariosConfig, filtros, agentes, pa
 
     return (
         <>
-            <NavbarAgente />
             <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
                 <section className="space-y-4 rounded-2xl border bg-muted/40 p-5 sm:p-6">
                     <div>

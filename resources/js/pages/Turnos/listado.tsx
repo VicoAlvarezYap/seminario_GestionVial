@@ -1,7 +1,6 @@
 import { Link, router } from '@inertiajs/react';
-import { useEffect,useRef, useState } from 'react';
-import { CalendarDays, ChevronDown, ChevronRight, FileDown, Pencil, Users } from 'lucide-react';
-import NavbarAgente from '@/components/navbar-agente';
+import { useEffect, useState } from 'react';
+import { CalendarDays, ChevronDown, ChevronRight, FileDown } from 'lucide-react';
 import {
     ESTADOS,
     NOMBRES,
@@ -12,10 +11,9 @@ import {
     porApellido,
     type Horarios,
     type Paginacion,
+    type TareaFila,
     type TurnoRow,
 } from '@/components/turnos-compartidos';
-import EditarTurnoModal, { type TurnoEditable } from '@/components/editar-turno-modal';
-import FlashMensajes from '@/components/flash-mensajes';
 
 type Turno = 'manana' | 'tarde' | 'noche' | 'especial';
 
@@ -35,6 +33,49 @@ type Props = {
 
 const hhmm = (s: string | null | undefined) => (s ? s.slice(0, 5) : '');
 
+function TareasDelTurno({ tareas }: { tareas: TareaFila[] }) {
+    if (tareas.length === 0) {
+        return <p className="text-xs italic text-muted-foreground">Sin tareas asignadas todavía.</p>;
+    }
+
+    return (
+        <ul className="divide-y rounded-md border bg-muted/30">
+            {tareas.map((tr) => (
+                <li key={tr.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs">
+                    <div className="min-w-0">
+                        <p className="font-medium text-foreground">{tr.titulo}</p>
+                        <p className="text-muted-foreground">
+                            {tr.hora_inicio && <span className="font-mono">{tr.hora_inicio}–{tr.hora_fin}</span>}
+                            {tr.lugar && <span> · {tr.lugar}</span>}
+                        </p>
+                    </div>
+                    <div className="flex gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => router.visit(`/admin/turnos/tareas?fecha=${tr.fecha}&editar=${tr.id}`)}
+                            className="rounded-md border bg-background px-2.5 py-1 font-medium hover:bg-accent"
+                        >
+                            Editar tarea
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => cancelarTarea(tr)}
+                            className="rounded-md border bg-background px-2.5 py-1 font-medium text-muted-foreground hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                        >
+                            Cancelar tarea
+                        </button>
+                    </div>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+const cancelarTarea = (tr: TareaFila) => {
+    if (window.confirm(`¿Cancelar la tarea "${tr.titulo}"? Queda registrada como cancelada.`)) {
+        router.patch(`/admin/tareas/${tr.id}/cancelar`, {}, { preserveScroll: true });
+    }
+};
 
 function TurnoActual({ hoy, turnos, horarios }: { hoy: string; turnos: TurnoRow[]; horarios: Horarios }) {
     const bloques = ORDEN.map((t) => ({
@@ -102,204 +143,109 @@ function TurnoActual({ hoy, turnos, horarios }: { hoy: string; turnos: TurnoRow[
         </section>
     );
 }
-const badgeEstado = (estado: string) =>
-    ESTADOS[estado] ?? { texto: estado.replace(/_/g, ' '), clase: ESTADOS.programado.clase };
 
-function DiaProximo({
-    fecha,
-    items,
-    horarios,
-    onEditar,
-}: {
-    fecha: string;
-    items: TurnoRow[];
-    horarios: Horarios;
-    onEditar: (t: TurnoRow) => void;
-}) {
+function DiaProximo({ fecha, items, horarios }: { fecha: string; items: TurnoRow[]; horarios: Horarios }) {
     const [abierto, setAbierto] = useState(false);
-    const [menu, setMenu] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
     const panelId = `dia-${fecha}`;
 
-    // Cierra el menú de "Editar" al hacer clic afuera o con Escape
-    useEffect(() => {
-        if (!menu) return;
-        const fuera = (e: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false);
-        };
-        const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false);
-        document.addEventListener('mousedown', fuera);
-        document.addEventListener('keydown', esc);
-        return () => {
-            document.removeEventListener('mousedown', fuera);
-            document.removeEventListener('keydown', esc);
-        };
-    }, [menu]);
-
-    // Estado: uno solo si todos coinciden; si no, un resumen con cantidades
-    const conteo = items.reduce<Record<string, number>>((acc, t) => {
-        acc[t.estado] = (acc[t.estado] ?? 0) + 1;
-        return acc;
-    }, {});
-    const estados = Object.entries(conteo);
+    const clave = items.every((t) => t.estado === items[0].estado) ? items[0].estado : 'programado';
+    const estado = ESTADOS[clave] ?? ESTADOS.programado;
 
     const bloques = ORDEN.map((turno) => ({
         turno,
         agentes: items.filter((x) => x.turno === turno).sort(porApellido),
     })).filter((b) => b.agentes.length > 0);
 
-    const editables = items.filter((t) => t.editable).sort(porApellido);
-
-    const clickEditar = () => {
-        if (editables.length === 1) onEditar(editables[0]);
-        else setMenu((v) => !v);
-    };
-
-    const boton = 'flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium';
-
     return (
-        <div className="rounded-xl border bg-card shadow-sm">
-            {/* Cabecera: fecha · agentes · estado · [Editar] [Ver más] */}
+        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
                 <div className="flex flex-wrap items-center gap-3">
                     <CalendarDays className="size-4 text-muted-foreground" />
                     <span className="text-sm font-semibold capitalize">{fechaLarga(fecha)}</span>
-
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Users className="size-3.5" />
-                        {items.length} {items.length === 1 ? 'agente' : 'agentes'}
-                    </span>
-
-                    <span className="flex flex-wrap items-center gap-1.5">
-                        {estados.map(([estado, n]) => {
-                            const e = badgeEstado(estado);
-                            return (
-                                <span
-                                    key={estado}
-                                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${e.clase}`}
-                                >
-                                    {estados.length > 1 ? `${n} ${e.texto.toLowerCase()}` : e.texto}
-                                </span>
-                            );
-                        })}
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${estado.clase}`}>
+                        {estado.texto}
                     </span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                    {/* Editar */}
-                    <div ref={menuRef} className="relative">
-                        <button
-                            type="button"
-                            onClick={clickEditar}
-                            disabled={editables.length === 0}
-                            aria-haspopup={editables.length > 1 ? 'menu' : undefined}
-                            aria-expanded={editables.length > 1 ? menu : undefined}
-                            title={
-                                editables.length === 0
-                                    ? 'No se puede editar: ya empezó o falta menos de una hora'
-                                    : undefined
-                            }
-                            className={`${boton} hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50`}
-                        >
-                            <Pencil className="size-3.5" />
-                            Editar
-                            {editables.length > 1 && <ChevronDown className="size-3.5" />}
-                        </button>
-
-                        {menu && editables.length > 1 && (
-                            <div
-                                role="menu"
-                                className="absolute right-0 z-20 mt-1 w-64 overflow-hidden rounded-lg border bg-popover p-1 shadow-md"
-                            >
-                                <p className="px-2 py-1 text-xs text-muted-foreground">¿Qué agente querés editar?</p>
-                                {editables.map((t) => (
-                                    <button
-                                        key={t.id}
-                                        type="button"
-                                        role="menuitem"
-                                        onClick={() => {
-                                            setMenu(false);
-                                            onEditar(t);
-                                        }}
-                                        className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                                    >
-                                        <span className="truncate">
-                                            {t.agente.apellido}, {t.agente.nombre}
-                                        </span>
-                                        <span className="shrink-0 text-xs text-muted-foreground">
-                                            {NOMBRES[t.turno]}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Ver más */}
-                    <button
-                        type="button"
-                        aria-expanded={abierto}
-                        aria-controls={panelId}
-                        onClick={() => setAbierto((v) => !v)}
-                        className={`${boton} hover:bg-accent`}
-                    >
-                        {abierto ? 'Ver menos' : 'Ver más'}
-                        <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    aria-expanded={abierto}
+                    aria-controls={panelId}
+                    onClick={() => setAbierto((v) => !v)}
+                    className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
+                >
+                    {abierto ? 'Ver menos' : 'Ver más'}
+                    <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                </button>
             </div>
 
-            {/* Detalle expandido: turno | agentes (sin botón de editar por agente) */}
             {abierto && (
-                <div id={panelId} className="overflow-hidden rounded-b-xl border-t">
-                    <div className="grid grid-cols-[6.5rem_1fr] gap-4 bg-muted/30 px-5 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[10rem_1fr]">
-                        <span>Turno</span>
-                        <span>Agentes</span>
-                    </div>
-                    <div className="divide-y">
-                        {bloques.map(({ turno, agentes }) => (
-                            <div
-                                key={turno}
-                                className="grid grid-cols-[6.5rem_1fr] gap-4 px-5 py-3 text-sm sm:grid-cols-[10rem_1fr]"
-                            >
+                <div id={panelId} className="space-y-6 border-t bg-muted/20 px-5 py-4">
+                    {bloques.map(({ turno, agentes }) => (
+                        <section key={turno} className="space-y-3">
+                            <div className="flex flex-wrap items-end justify-between gap-2 border-b pb-2">
                                 <div>
-                                    <p className="font-medium">{NOMBRES[turno]}</p>
+                                    <p className="font-semibold">{NOMBRES[turno]}</p>
                                     <p className="font-mono text-xs text-muted-foreground">
                                         {horarioDe(agentes[0], horarios)}
                                     </p>
                                 </div>
-                                <ul className="space-y-2">
-                                    {agentes.map((t) => {
-                                        const e = badgeEstado(t.estado);
-                                        return (
-                                            <li key={t.id} className="flex flex-wrap items-center gap-2">
-                                                <span>
+                                <Link
+                                    href={`/admin/turnos/tareas?fecha=${fecha}&bloque=${turno}`}
+                                    className="rounded-lg border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                                >
+                                    + Asignar tarea grupal
+                                </Link>
+                            </div>
+
+                            <div className="space-y-3">
+                                {agentes.map((t) => (
+                                    <article key={t.id} className="space-y-3 rounded-lg border bg-background p-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">
                                                     {t.agente.apellido}, {t.agente.nombre}
                                                 </span>
-                                                <span
-                                                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${e.clase}`}
-                                                >
-                                                    {e.texto}
+                                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                                    {t.tareas.length} tarea(s)
                                                 </span>
-                                                {typeof t.tareas_count === 'number' && (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {t.tareas_count === 0
-                                                            ? 'Sin tareas'
-                                                            : `${t.tareas_count} ${t.tareas_count === 1 ? 'tarea' : 'tareas'}`}
-                                                    </span>
-                                                )}
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2">
+                                                <Link
+                                                    href={`/admin/turnos/tareas?fecha=${t.fecha}&agente=${t.id}`}
+                                                    className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
+                                                >
+                                                    Asignar tarea
+                                                </Link>
+                                                <Link
+                                                    href={`/admin/turnos/${t.id}/detalle`}
+                                                    className="rounded-lg border bg-background px-3 py-1 text-xs font-medium hover:bg-accent"
+                                                >
+                                                    Ver turno
+                                                </Link>
+                                                <button
+                                                    type="button"
+                                                    disabled
+                                                    title="Próximamente"
+                                                    className="rounded-lg border bg-background px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    Editar turno
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <TareasDelTurno tareas={t.tareas} />
+                                    </article>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </section>
+                    ))}
                 </div>
             )}
         </div>
     );
 }
+
 type ProximosProps = {
     turnos: TurnoRow[];
     horarios: Horarios;
@@ -307,22 +253,20 @@ type ProximosProps = {
     agentes: AgenteOpcion[];
     manana: string;
     paginacion: Paginacion;
-    onEditar: (t: TurnoRow) => void;
 };
 
 
-function TurnosProximos({ turnos, horarios, filtros, agentes, manana, paginacion, onEditar  }: ProximosProps) {
+function TurnosProximos({ turnos, horarios, filtros, agentes, manana,paginacion }: ProximosProps) {
     const [desde, setDesde] = useState(filtros.desde);
     const [hasta, setHasta] = useState(filtros.hasta);
     const [agente, setAgente] = useState(filtros.agente ? String(filtros.agente) : '');
-    const [editando, setEditando] = useState<TurnoEditable | null>(null);
+
     // El servidor puede ajustar las fechas: se vuelve a sincronizar
     useEffect(() => {
         setDesde(filtros.desde);
         setHasta(filtros.hasta);
         setAgente(filtros.agente ? String(filtros.agente) : '');
     }, [filtros.desde, filtros.hasta, filtros.agente]);
-
 
     const irA = (params: Record<string, string>) =>
         router.get('/admin/turnos/listado', params, { preserveScroll: true, preserveState: true });
@@ -366,12 +310,12 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana, paginacion
 
 
     const botonPdf = 'flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium';
-    const excelUrl = '/admin/turnos/listado/excel?' +
-        new URLSearchParams({
-            desde: filtros.desde,
-            hasta: filtros.hasta,
-            ...(filtros.agente ? { agente: String(filtros.agente) } : {}),
-        }).toString();
+    const excelUrl ='/admin/turnos/listado/excel?' +
+    new URLSearchParams({
+        desde: filtros.desde,
+        hasta: filtros.hasta,
+        ...(filtros.agente ? { agente: String(filtros.agente) } : {}),
+    }).toString();
     return (
         <section className="space-y-4 rounded-2xl border bg-muted/40 p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -471,7 +415,7 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana, paginacion
             ) : (
                 <>
                     {porFecha.map(([fecha, items]) => (
-                        <DiaProximo key={fecha} fecha={fecha} items={items} horarios={horarios} onEditar={onEditar} />
+                        <DiaProximo key={fecha} fecha={fecha} items={items} horarios={horarios} />
                     ))}
                     <Paginador actual={paginacion.actual} ultima={paginacion.ultima} onIr={irAPagina} />
                 </>
@@ -482,13 +426,9 @@ function TurnosProximos({ turnos, horarios, filtros, agentes, manana, paginacion
 
 
 export default function Listado({ hoy, manana, horariosConfig, turnosHoy, proximos, filtros, agentes, paginacion }: Props) {
-    const [editando, setEditando] = useState<TurnoEditable | null>(null);
-
     return (
         <>
-            <NavbarAgente />
             <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
-                <FlashMensajes />
                 <TurnoActual hoy={hoy} turnos={turnosHoy} horarios={horariosConfig} />
                 <TurnosProximos
                     turnos={proximos}
@@ -497,13 +437,6 @@ export default function Listado({ hoy, manana, horariosConfig, turnosHoy, proxim
                     agentes={agentes}
                     manana={manana}
                     paginacion={paginacion}
-                    onEditar={setEditando}
-                />
-                <EditarTurnoModal
-                    turno={editando}
-                    agentes={agentes}
-                    horariosConfig={horariosConfig}
-                    onClose={() => setEditando(null)}
                 />
             </div>
         </>

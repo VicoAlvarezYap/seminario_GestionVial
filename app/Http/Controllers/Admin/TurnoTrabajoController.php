@@ -11,7 +11,9 @@ use App\Models\Fichaje;
 use App\Models\HistorialDeLicencias;
 use App\Models\Lugar;
 use App\Models\Tarea;
+use App\Http\Requests\TareaRequest;
 use App\Models\TurnoTrabajo;
+use App\Http\Controllers\Admin\TareaController;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -104,97 +106,37 @@ class TurnoTrabajoController extends Controller
         );
     }
 
-    public function update(TurnoTrabajoRequest $request, TurnoTrabajo $turno): RedirectResponse
+    public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
     {
-        if (!$turno->estaProgramado() || $turno->fichajes()->exists()) {
-            return back()->with('error', 'No se puede modificar: el turno ya tiene fichajes o no está programado.');
-        }
-
-        if (!$turno->enPlazoDeEdicion()) {
-            $limite = $turno->limiteEdicion()->format('d/m/Y H:i');
-
-            return back()->with('error', "Ya no se puede modificar: el plazo venció el {$limite} (una hora antes del inicio).");
+        if (in_array($tarea->estado, ['finalizado', 'cancelada'], true)) {
+            return back()->with('error', 'Solo se pueden editar tareas pendientes o en curso.');
         }
 
         $datos = $request->validated();
+        unset($datos['aplicar_a_grupo']);
+        $datos = (new TareaController())->completarDesdeEvento($datos);
 
-        // Un agente, un turno por día (igual que al asignar)
-        $duplicado = TurnoTrabajo::where('agente_id', $datos['agente_id'])
-            ->whereDate('fecha', $datos['fecha'])
-            ->whereKeyNot($turno->id)
-            ->exists();
+        if (!empty($datos['hora_inicio']) && !empty($datos['hora_fin'])) {
+            $tarea->turno->validarHorarioDelBloque($datos['hora_inicio'], $datos['hora_fin']);
 
-        if ($duplicado) {
-            throw ValidationException::withMessages([
-                'fecha' => 'El agente ya tiene un turno asignado en esa fecha.',
-            ]);
-        }
+            $haySolape = Tarea::where('turno_trabajo_id', $tarea->turno_trabajo_id)
+                ->where('estado', '!=', 'cancelada')
+                ->whereKeyNot($tarea->id)
+                ->where('hora_inicio', '<', $datos['hora_fin'])
+                ->where('hora_fin', '>', $datos['hora_inicio'])
+                ->exists();
 
-        // Licencia aprobada en la nueva fecha / para el nuevo agente
-        $conLicencia = $this->conLicenciaAprobada([(int) $datos['agente_id']], $datos['fecha']);
-        if ($conLicencia->isNotEmpty()) {
-            $this->fallarPorLicencia($conLicencia->all(), 'fecha');
-        }
-
-        if ($datos['turno'] !== 'especial') {
-            $horario = config("turnos.horarios.{$datos['turno']}");
-
-            abort_unless(is_array($horario) && count($horario) >= 2, 500, 'Horario de turno no configurado.');
-
-            [$datos['hora_inicio_prog'], $datos['hora_fin_prog']] = $horario;
-        }
-
-        // El nuevo horario tampoco puede quedar en el pasado ni dentro de la hora previa
-        $nuevoInicio = Carbon::parse("{$datos['fecha']} {$datos['hora_inicio_prog']}");
-        if ($nuevoInicio->lt(now()->addMinutes(TurnoTrabajo::MINUTOS_LIMITE_EDICION))) {
-            throw ValidationException::withMessages([
-                'fecha' => 'El turno tiene que empezar al menos una hora después de este momento.',
-            ]);
-        }
-
-        $cambio = $turno->agente_id !== (int) $datos['agente_id']
-            || $turno->fecha->toDateString() !== $datos['fecha']
-            || $turno->turno !== $datos['turno']
-            || substr((string) $turno->hora_inicio_prog, 0, 5) !== substr($datos['hora_inicio_prog'], 0, 5)
-            || substr((string) $turno->hora_fin_prog, 0, 5) !== substr($datos['hora_fin_prog'], 0, 5);
-
-        $conTareas = $cambio && $turno->tareas()->exists();
-        if ($conTareas) {
-            // Las intervenciones protegen a sus tareas (igual que en destroy)
-            if ($turno->tareas()->whereHas('intervenciones')->exists()) {
-                return back()->with('error', 'No se puede modificar: el turno tiene tareas con intervenciones registradas.');
-            }
-
-            // Protege contra tareas agregadas después de abrir el formulario
-            if (!$request->boolean('confirmar_borrado_tareas')) {
+            if ($haySolape) {
                 throw ValidationException::withMessages([
-                    'tareas' => 'Este turno tiene tareas asignadas y se eliminarían al modificarlo. Volvé a abrir el formulario y confirmá.',
+                    'hora_inicio' => 'Ese horario se superpone con otra tarea de este agente. Cambiá la hora o cancelá la otra tarea.',
                 ]);
             }
         }
 
-        try {
-            DB::transaction(function () use ($turno, $datos, $conTareas) {
-                if ($conTareas) {
-                    Tarea::where('turno_trabajo_id', $turno->id)->delete();
-                }
+        $tarea->update($datos);
 
-                $turno->update(Arr::only($datos, ['agente_id', 'fecha', 'turno', 'hora_inicio_prog', 'hora_fin_prog']));
-            });
-        } catch (UniqueConstraintViolationException) {
-            throw ValidationException::withMessages([
-                'turno' => 'El agente ya tiene ese turno asignado en esa fecha.',
-            ]);
-        }
-
-        return back()->with(
-            'success',
-            $conTareas
-                ? 'Turno actualizado. Se eliminaron sus tareas: asignalas de nuevo.'
-                : 'Turno actualizado correctamente.',
-        );
+        return back()->with('success', 'Tarea actualizada correctamente.');
     }
-
     public function storeJornada(Request $request): RedirectResponse
     {
         $datos = $request->validate([
@@ -869,7 +811,7 @@ class TurnoTrabajoController extends Controller
             ->map(function (TurnoTrabajo $t) {
                 $estado = $t->estado_turno;
                 $fecha = Carbon::parse($t->fecha)->toDateString(); // siempre YYYY-MM-DD
-
+    
                 return [
                     'id' => $t->id,
                     'fecha' => $fecha,

@@ -1,7 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { Download, Search } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 import {
     Dialog,
     DialogContent,
@@ -62,7 +61,7 @@ const ETIQUETA_URGENCIA: Record<string, string> = {
     baja: 'Baja',
     media: 'Media',
     alta: 'Alta',
-    critica: 'Crítica',
+    critica: 'Critica',
 };
 
 const colorPorEstado: Record<string, string> = {
@@ -143,15 +142,14 @@ export default function AdminIntervencionesIndex({
 
     return (
         <>
-            <Head title="Intervenciones - Administración" />
-            <NavbarAgente />
+            <Head title="Intervenciones - Administracion" />
 
             <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
                 <div>
                     <h1 className="text-2xl font-bold">Intervenciones de emergencia</h1>
                     <p className="text-sm text-muted-foreground">
                         {intervenciones.total} {intervenciones.total === 1 ? 'resultado' : 'resultados'}, de la
-                        más reciente a la más antigua.
+                        mas reciente a la mas antigua.
                     </p>
                 </div>
 
@@ -163,7 +161,7 @@ export default function AdminIntervencionesIndex({
                         <label className={claseEtiqueta}>Buscar</label>
                         <input
                             type="text"
-                            placeholder="Ubicación o agente (nombre, apellido o DNI)"
+                            placeholder="Ubicacion o agente (nombre, apellido o DNI)"
                             value={borrador.buscar}
                             onChange={(e) => setBorrador({ ...borrador, buscar: e.target.value })}
                             className={claseInput}
@@ -272,9 +270,9 @@ export default function AdminIntervencionesIndex({
                                         <th className="p-3">Fecha y hora</th>
                                         <th className="p-3">Evento</th>
                                         <th className="p-3">Urgencia</th>
-                                        <th className="p-3">Ubicación</th>
+                                        <th className="p-3">Ubicacion</th>
                                         <th className="p-3">Estado</th>
-                                        <th className="p-3">Reportó</th>
+                                        <th className="p-3">Reporto</th>
                                         <th className="p-3">Acciones</th>
                                     </tr>
                                 </thead>

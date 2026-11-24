@@ -1,7 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Plus , Download} from 'lucide-react';
 import { useMemo, useRef, useState, useEffect, type FormEvent, type KeyboardEvent } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 import {
     Dialog,
     DialogContent,
@@ -11,9 +10,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 
-// Tienen que coincidir con los valores de LicenciaController
-const FAMILIAR = 'Familiar enfermo';
-const MEDICO = 'Médico';
 
 type Licencia = {
     id: number;
@@ -31,13 +27,18 @@ type Licencia = {
     editable: boolean;
     puede_descargar_pdf: boolean;
 };
-
+type TipoLicenciaFront = {
+    nombre: string;
+    requiere_justificante: boolean;
+    requiere_declaracion_jurada: boolean;
+};
 type Props = {
     licencias: Licencia[];
-    agente: { nombre: string; apellido: string } | null;
-    localidades: string[];
+    agente: { nombre: string; apellido: string; dni: string } | null;
     motivos: string[];
+    tiposLicencia: TipoLicenciaFront[];
     parentescos: string[];
+    domicilio_sugerido: { calle: string; numero: string };
 };
 
 type DatosFormulario = {
@@ -244,9 +245,10 @@ function Combobox({
 export default function LicenciasIndex({
     licencias,
     agente,
-    localidades,
+    tiposLicencia,
     motivos,
     parentescos,
+    domicilio_sugerido,
 }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<Licencia | null>(null);
@@ -254,20 +256,23 @@ export default function LicenciasIndex({
     const formulario = useForm<DatosFormulario>(vacio);
     const datos = formulario.data;
     const errores = formulario.errors;
-
+    
     const cerrar = () => {
         setAbierto(false);
         setEditando(null);
         formulario.reset();
         formulario.clearErrors();
     };
-
-    const abrirNueva = () => {
-        setEditando(null);
-        formulario.setData(vacio);
-        formulario.clearErrors();
-        setAbierto(true);
-    };
+const abrirNueva = () => {
+    setEditando(null);
+    formulario.setData({
+        ...vacio,
+        domicilio_calle: domicilio_sugerido?.calle ?? '',
+        domicilio_numero: domicilio_sugerido?.numero ?? '',
+    });
+    formulario.clearErrors();
+    setAbierto(true);
+};
 
     const abrirEdicion = (l: Licencia) => {
         setEditando(l);
@@ -281,12 +286,12 @@ export default function LicenciasIndex({
             fecha_fin: l.fecha_fin,
             dj_a_cargo: l.dj_a_cargo ?? '',
             dj_parentesco: l.dj_parentesco ?? '',
-            dj_conformidad: l.tipo_licencia === FAMILIAR,
+            dj_conformidad: false,
             justificante: null,
         });
         setAbierto(true);
     };
-
+    
     const quitarArchivo = () => {
         formulario.setData('justificante', null);
 
@@ -335,10 +340,12 @@ export default function LicenciasIndex({
     unAnioDespuesObj.setFullYear(unAnioDespuesObj.getFullYear() + 1);
     const unAnioDespues = unAnioDespuesObj.toISOString().split('T')[0];
 
+    const tipoElegido = tiposLicencia.find((t) => t.nombre === datos.motivo);
+    const pideDeclaracion = tipoElegido?.requiere_declaracion_jurada ?? false;
+    const pideJustificante = tipoElegido?.requiere_justificante ?? false;
     return (
         <>
             <Head title="Mis licencias" />
-            <NavbarAgente />
 
             <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
                 <div className="flex items-center justify-between gap-4">
@@ -483,17 +490,22 @@ export default function LicenciasIndex({
                             Completá los datos y adjuntá el justificante en PDF.
                         </DialogDescription>
                     </DialogHeader>
-
+                     
                     <form onSubmit={enviar} className="space-y-5">
                         <div>
                             <label className={claseEtiqueta}>Nombre y apellido</label>
-                            <input
-                                type="text"
-                                readOnly
-                                disabled
-                                value={agente ? `${agente.nombre} ${agente.apellido}` : ''}
-                                className={claseInput}
-                            />
+                                <input
+                                    type="text"
+                                    readOnly
+                                    disabled
+                                    value={agente ? `${agente.nombre} ${agente.apellido}` : ''}
+                                    className={claseInput}
+                                />
+                            </div>
+
+                            <div>
+                                <label className={claseEtiqueta}>DNI</label>
+                                <input type="text" readOnly disabled value={agente?.dni ?? ''} className={claseInput} />
                         </div>
 
                         <fieldset className="space-y-3">
@@ -576,7 +588,7 @@ export default function LicenciasIndex({
                             </div>
                         </div>
 
-                        {datos.motivo === FAMILIAR && (
+                        {pideDeclaracion && (
                             <fieldset className="space-y-3 rounded-lg border p-4">
                                 <legend className="px-1 text-sm font-semibold">
                                     Declaración jurada por familiar enfermo
@@ -631,7 +643,7 @@ export default function LicenciasIndex({
 
                         <div className="space-y-2">
                             <label className={claseEtiqueta}>
-                                Justificante (PDF){datos.motivo === MEDICO ? ' *' : ''}
+                                Justificante (PDF){pideJustificante ? ' *' : ''}
                             </label>
 
                             <input

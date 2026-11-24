@@ -1,16 +1,53 @@
 import { useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const inputClase = 'w-full rounded-lg border bg-background p-2.5 text-sm';
 
 function Error({ mensaje }: { mensaje?: string }) {
     return mensaje ? <p className="text-sm text-red-600">{mensaje}</p> : null;
 }
+function useHorarioCumplido(
+    inicial: boolean,
+    finProgramado?: string | null,
+    ahoraServidor?: string | null,
+    toleranciaMin = 10,
+) {
+    const [cumplido, setCumplido] = useState(inicial);
 
-export default function CierreTurno({ turnoId, horarioCumplido }: { turnoId: number; horarioCumplido: boolean }) {
+    useEffect(() => {
+        if (!finProgramado) {
+            setCumplido(inicial);
+            return;
+        }
+
+        const desfase = ahoraServidor ? new Date(ahoraServidor).getTime() - Date.now() : 0;
+        const limite = new Date(finProgramado).getTime() - toleranciaMin * 60_000;
+
+        const evaluar = () => setCumplido(Date.now() + desfase >= limite);
+        evaluar();
+
+        const id = setInterval(evaluar, 15_000);
+        return () => clearInterval(id);
+    }, [finProgramado, ahoraServidor, toleranciaMin, inicial]);
+
+    return cumplido;
+}
+
+export default function CierreTurno({
+    turnoId,
+    horarioCumplido,
+    finProgramado,
+    ahora,
+    toleranciaMin,
+}: {
+    turnoId: number;
+    horarioCumplido: boolean;
+    finProgramado?: string | null;
+    ahora?: string | null;
+    toleranciaMin?: number;
+}) {
     const [abierto, setAbierto] = useState(false);
-    const finalizar = horarioCumplido;
-
+    const finalizar = useHorarioCumplido(horarioCumplido, finProgramado, ahora, toleranciaMin);
     const form = useForm({
         vehiculo_oficial: false,
         placa: '',
@@ -148,4 +185,5 @@ export default function CierreTurno({ turnoId, horarioCumplido }: { turnoId: num
             </div>
         </form>
     );
+
 }

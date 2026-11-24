@@ -1,7 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Download, Search } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 import {
     Dialog,
     DialogContent,
@@ -136,7 +135,6 @@ export default function AdminLicenciasIndex({ licencias, filtros, estados }: Pro
     return (
         <>
             <Head title="Licencias - Administración" />
-            <NavbarAgente />
 
             <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use InvalidArgumentException;
+use Carbon\Carbon;
 
 class TurnoTrabajo extends Model
 {
@@ -112,7 +113,6 @@ class TurnoTrabajo extends Model
     {
         return Attribute::get(fn() => $this->salida?->registrada_at);
     }
-
 
 
     public function scopeDeAgente(Builder $query, int $agenteId): Builder
@@ -282,6 +282,35 @@ class TurnoTrabajo extends Model
                     ->orWhereHas('tarea', fn($t) => $t->where('turno_trabajo_id', $this->id));
             });
     }
+    /** Mensaje de por qué no se puede reprogramar, o null si se puede. */
+    public function solicitudes(): HasMany
+    {
+        return $this->hasMany(SolicitudReprogramacion::class, 'turno_trabajo_id');
+    }
 
+    public function ultimaSolicitud(): HasOne
+    {
+        return $this->hasOne(SolicitudReprogramacion::class, 'turno_trabajo_id')->latestOfMany();
+    }
 
+    /** Mensaje de por qué no se puede reprogramar, o null si se puede. */
+    public function motivoNoReprogramable(): ?string
+    {
+        if (!$this->estaProgramado() || $this->fichajes()->exists()) {
+            return 'Este turno ya no se puede reprogramar.';
+        }
+
+        // Hasta el día anterior al turno: el mismo día ya no
+        if (!Carbon::today()->lt(Carbon::parse($this->fecha)->startOfDay())) {
+            return 'Solo podés pedirlo hasta el día anterior al turno.';
+        }
+
+        return null;
+    }
+
+    public function puedeReprogramar(): bool
+    {
+        return $this->motivoNoReprogramable() === null;
+    }
+    
 }

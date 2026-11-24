@@ -20,8 +20,9 @@ class TareaRequest extends FormRequest
             'lugar_id'            => ['nullable', 'exists:lugares,id'],
             'hora_inicio'         => ['nullable', 'date_format:H:i'],
             'hora_fin'            => ['nullable', 'date_format:H:i'],
-            'estado'              => ['sometimes', Rule::in(['programado', 'iniciado', 'en_proceso', 'finalizado'])],
+            'estado'              => ['sometimes', Rule::in(['programado', 'iniciado', 'en_proceso', 'finalizado','cancelada'])],
             'detalle'             => ['nullable', 'string'],
+            
         ];
     }
 }

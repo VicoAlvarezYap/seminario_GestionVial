@@ -3,7 +3,6 @@ import { Pencil, Phone, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import FormContacto from '@/components/form-contacto';
 import type { ContactoEmergencia } from '@/components/form-contacto';
-import NavbarAgente from '@/components/navbar-agente';
 
 type Agente = {
     id: number;
@@ -47,7 +46,6 @@ export default function Perfil({ agente, esPropio }: Props) {
     return (
         <>
             <Head title={esPropio ? 'Mi Perfil' : `Perfil de ${agente.nombre} ${agente.apellido}`} />
-            <NavbarAgente />
 
             <main className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
                 <h1 className="text-2xl font-bold">{esPropio ? 'Mi Perfil' : 'Perfil del agente'}</h1>
