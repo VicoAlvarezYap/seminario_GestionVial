@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class TurnoTrabajo extends Model
@@ -46,20 +48,21 @@ class TurnoTrabajo extends Model
     {
         // Al crear, copia el horario del turno (el especial lo define quien lo asigna)
         static::creating(function (TurnoTrabajo $t) {
-            if (!in_array($t->turno, self::TURNOS, true)) {
+            if (! in_array($t->turno, self::TURNOS, true)) {
                 throw new InvalidArgumentException("Turno inválido: {$t->turno}");
             }
 
             if ($t->turno === 'especial') {
-                if (!$t->hora_inicio_prog || !$t->hora_fin_prog) {
+                if (! $t->hora_inicio_prog || ! $t->hora_fin_prog) {
                     throw new InvalidArgumentException('El turno especial necesita hora de inicio y de fin.');
                 }
+
                 return;
             }
 
             $horario = config("turnos.horarios.{$t->turno}");
 
-            if (!is_array($horario) || count($horario) < 2) {
+            if (! is_array($horario) || count($horario) < 2) {
                 throw new InvalidArgumentException("No hay horario configurado para el turno {$t->turno}.");
             }
 
@@ -102,18 +105,28 @@ class TurnoTrabajo extends Model
             ->whereIn('tipo', [Fichaje::TIPO_SALIDA, Fichaje::TIPO_SALIDA_ANTICIPADA])
             ->latestOfMany('registrada_at');
     }
+
+    /** Reprogramaciones pedidas para este turno. */
+    public function solicitudes(): HasMany
+    {
+        return $this->hasMany(SolicitudReprogramacion::class, 'turno_trabajo_id');
+    }
+
+    public function ultimaSolicitud(): HasOne
+    {
+        return $this->hasOne(SolicitudReprogramacion::class, 'turno_trabajo_id')->latestOfMany();
+    }
+
     protected function inicioReal(): Attribute
     {
-        return Attribute::get(fn() => $this->entrada?->registrada_at);
+        return Attribute::get(fn () => $this->entrada?->registrada_at);
     }
 
     /** Fin real = hora del último fichaje de salida. */
     protected function finReal(): Attribute
     {
-        return Attribute::get(fn() => $this->salida?->registrada_at);
+        return Attribute::get(fn () => $this->salida?->registrada_at);
     }
-
-
 
     public function scopeDeAgente(Builder $query, int $agenteId): Builder
     {
@@ -145,11 +158,6 @@ class TurnoTrabajo extends Model
         return $query->where('estado_turno', 'programado');
     }
 
-    public function estaEnCurso(): bool
-    {
-        return $this->estado_turno === 'en_curso';
-    }
-
     public function scopeConLlegadaTarde(Builder $query): Builder
     {
         return $query->where('minutos_tarde', '>', 0);
@@ -165,6 +173,12 @@ class TurnoTrabajo extends Model
             ? $query->where('agente_id', $usuario->agente_id)
             : $query->whereRaw('1 = 0');
     }
+
+    public function estaEnCurso(): bool
+    {
+        return $this->estado_turno === 'en_curso';
+    }
+
     public function estaProgramado(): bool
     {
         return $this->estado_turno === 'programado';
@@ -182,7 +196,7 @@ class TurnoTrabajo extends Model
 
     public function estadoCalculado(): string
     {
-        return ($this->estaProgramado() && $this->inicio_real && !$this->fin_real)
+        return ($this->estaProgramado() && $this->inicio_real && ! $this->fin_real)
             ? 'en_curso'
             : $this->estado_turno;
     }
@@ -202,7 +216,6 @@ class TurnoTrabajo extends Model
         return $this->fecha->copy()->setTimeFromTimeString($this->horaInicioProg());
     }
 
-
     public function limiteEdicion(): CarbonInterface
     {
         return $this->inicioProgramado()->subMinutes(self::MINUTOS_LIMITE_EDICION);
@@ -213,49 +226,50 @@ class TurnoTrabajo extends Model
     {
         return $this->estaProgramado() && now()->lt($this->limiteEdicion());
     }
-   
-    /** Devuelve [desde, hasta] del bloque: el horario fijo para mañana/tarde/noche, o el horario cargado en el turno para el especial. */
-public function rangoDeHoras(): array
-{
-    if ($this->turno === 'especial') {
-        return [
-            $this->hora_inicio_prog ? substr($this->hora_inicio_prog, 0, 5) : null,
-            $this->hora_fin_prog ? substr($this->hora_fin_prog, 0, 5) : null,
-        ];
+
+    /** Devuelve [desde, hasta] del bloque: horario fijo para mañana/tarde/noche, o el del turno especial. */
+    public function rangoDeHoras(): array
+    {
+        if ($this->turno === 'especial') {
+            return [
+                $this->hora_inicio_prog ? substr($this->hora_inicio_prog, 0, 5) : null,
+                $this->hora_fin_prog ? substr($this->hora_fin_prog, 0, 5) : null,
+            ];
+        }
+
+        return config("turnos.horarios.{$this->turno}");
     }
 
-    return config("turnos.horarios.{$this->turno}");
-}
+    /** Valida que inicio y fin estén dentro del bloque. Lanza ValidationException si no. */
+    public function validarHorarioDelBloque(?string $inicio, ?string $fin): void
+    {
+        if (! $inicio || ! $fin) {
+            return;
+        }
 
-/** Valida que inicio y fin estén dentro del bloque. Lanza ValidationException si no. */
-public function validarHorarioDelBloque(?string $inicio, ?string $fin): void
-{
-    if (! $inicio || ! $fin) {
-        return;
+        if ($inicio === $fin) {
+            throw ValidationException::withMessages([
+                'hora_fin' => 'La hora de fin tiene que ser distinta de la de inicio.',
+            ]);
+        }
+
+        [$desde, $hasta] = $this->rangoDeHoras();
+
+        if (! $desde || ! $hasta) {
+            return;
+        }
+
+        $dentro = fn (string $h) => $desde < $hasta
+            ? $h >= $desde && $h <= $hasta
+            : $h >= $desde || $h <= $hasta; // cruza medianoche
+
+        if (! $dentro($inicio) || ! $dentro($fin)) {
+            throw ValidationException::withMessages([
+                'hora_inicio' => "Las horas tienen que estar entre {$desde} y {$hasta}.",
+            ]);
+        }
     }
 
-    if ($inicio === $fin) {
-        throw \Illuminate\Validation\ValidationException::withMessages([
-            'hora_fin' => 'La hora de fin tiene que ser distinta de la de inicio.',
-        ]);
-    }
-
-    [$desde, $hasta] = $this->rangoDeHoras();
-
-    if (! $desde || ! $hasta) {
-        return;
-    }
-
-    $dentro = fn (string $h) => $desde < $hasta
-        ? $h >= $desde && $h <= $hasta
-        : $h >= $desde || $h <= $hasta; // cruza medianoche
-
-    if (! $dentro($inicio) || ! $dentro($fin)) {
-        throw \Illuminate\Validation\ValidationException::withMessages([
-            'hora_inicio' => "Las horas tienen que estar entre {$desde} y {$hasta}.",
-        ]);
-    }
-}
     public function finProgramado(): CarbonInterface
     {
         $fin = $this->fecha->copy()->setTimeFromTimeString($this->horaFinProg());
@@ -273,6 +287,7 @@ public function validarHorarioDelBloque(?string $inicio, ?string $fin): void
     {
         return $this->hora_fin_prog ?? config("turnos.horarios.{$this->turno}.1", '23:59');
     }
+
     public function intervencionesDelTurno(): Builder
     {
         $desde = $this->inicio_real ?? $this->inicioProgramado();
@@ -281,12 +296,30 @@ public function validarHorarioDelBloque(?string $inicio, ?string $fin): void
         return Intervencion::query()
             ->where('estado_resolucion', '!=', 'cancelada')
             ->where(function (Builder $q) use ($desde, $hasta) {
-                $q->where(fn(Builder $q) => $q
-                    ->whereHas('agentes', fn($a) => $a->where('agentes.id', $this->agente_id))
+                $q->where(fn (Builder $q) => $q
+                    ->whereHas('agentes', fn ($a) => $a->where('agentes.id', $this->agente_id))
                     ->whereBetween('fecha_hora', [$desde, $hasta]))
-                    ->orWhereHas('tarea', fn($t) => $t->where('turno_trabajo_id', $this->id));
+                    ->orWhereHas('tarea', fn ($t) => $t->where('turno_trabajo_id', $this->id));
             });
     }
-    
 
+    /** Mensaje de por qué no se puede reprogramar, o null si se puede. */
+    public function motivoNoReprogramable(): ?string
+    {
+        if (! $this->estaProgramado() || $this->fichajes()->exists()) {
+            return 'Este turno ya no se puede reprogramar.';
+        }
+
+        // Hasta el día anterior al turno: el mismo día ya no
+        if (! Carbon::today()->lt(Carbon::parse($this->fecha)->startOfDay())) {
+            return 'Solo podés pedirlo hasta el día anterior al turno.';
+        }
+
+        return null;
+    }
+
+    public function puedeReprogramar(): bool
+    {
+        return $this->motivoNoReprogramable() === null;
+    }
 }

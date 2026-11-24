@@ -177,6 +177,7 @@ export default function TurnosIndex({
         procesando || !jornadaCompleta || (!esNormal && (!horaInicio || !horaFin));
 
     return (
+        
         <div className="mx-auto max-w-3xl p-4 sm:p-6">
             {mensaje && (
                 <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
@@ -382,37 +383,36 @@ export default function TurnosIndex({
                                         const marcado = agentesDelBloque.includes(agente.id);
 
                                         return (
-                                            <label
-                                                key={agente.id}
-                                                className={`flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm ${
-                                                    deshabilitado
-                                                        ? 'cursor-not-allowed bg-muted opacity-50'
-                                                        : marcado
-                                                          ? 'cursor-pointer border-primary bg-primary/10'
-                                                          : 'cursor-pointer hover:bg-accent'
-                                                }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    disabled={deshabilitado}
-                                                    checked={marcado}
-                                                    onChange={(e) => toggleAgente(agente.id, e.target.checked)}
-                                                />
-                                                <span>
-                                                    {agente.apellido}, {agente.nombre}
-                                                </span>
-                                                {(bloqueadoPorLicencia || yaTieneTurno || enOtro) && (
-                                                    <span className="ml-auto text-xs font-medium text-red-500">
-                                                        {bloqueadoPorLicencia
-                                                            ? 'Con licencia aprobada'
-                                                            : yaTieneTurno
-                                                              ? 'Ya tiene turno este día'
-                                                              : `Elegido en ${NOMBRES[enOtro as Turno]}`}
-                                                    </span>
-                                                )}
-                                            </label>
-                                        );
-                                    })}
+    <label
+        key={agente.id}
+        className={`flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm ${
+            deshabilitado
+                ? 'cursor-not-allowed bg-muted opacity-50'
+                : marcado
+                  ? 'cursor-pointer border-primary bg-primary/10'
+                  : 'cursor-pointer hover:bg-accent'
+        }`}
+    >
+        <input
+            type="checkbox"
+            disabled={deshabilitado}
+            checked={marcado}
+            onChange={(e) => toggleAgente(agente.id, e.target.checked)}
+        />
+        <span>
+            {agente.apellido}, {agente.nombre}
+        </span>
+        {(bloqueadoPorLicencia || yaTieneTurno || enOtro) && (
+            <span className="ml-auto text-xs font-medium text-red-500">
+                {bloqueadoPorLicencia
+                    ? 'Con licencia aprobada'
+                    : yaTieneTurno
+                      ? 'Ya tiene turno este día'
+                      : `Elegido en ${NOMBRES[enOtro as Turno]}`}
+            </span>
+        )}
+    </label>
+);})}
                                     {agentesFiltrados.length === 0 && (
                                         <p className="p-3 text-sm text-muted-foreground">
                                             Ningún agente coincide con la búsqueda.

@@ -19,10 +19,12 @@ use App\Http\Controllers\Admin\IntervencionAdminController;
 use App\Http\Controllers\EventoExcelController;
 use App\Http\Controllers\EventoController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\SolicitudReprogramacionController;
+use App\Http\Controllers\Admin\SolicitudReprogramacionAdminController;
+
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
     Route::get('/pagina_principal', [PaginaAgenteController::class, 'index'])->name('pagina_principal');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -52,6 +54,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/licencias/{licencia}/justificante', [LicenciaAdminController::class, 'justificante'])->name('licencias.justificante');
         Route::get('/licencias/{licencia}/justificante/descargar', [LicenciaAdminController::class, 'descargarJustificante'])->name('licencias.justificante.descargar');
 
+        Route::get('/reprogramaciones', [SolicitudReprogramacionAdminController::class, 'index'])->name('reprogramaciones.index');
+        Route::patch('/reprogramaciones/{solicitud}/resolver', [SolicitudReprogramacionAdminController::class, 'resolver'])->name('reprogramaciones.resolver');
         // Relevos e intervenciones
         Route::get('/relevos', [RelevoAdminController::class, 'index'])->name('relevos.index');
         Route::get('/relevos/{relevo}/pdf', [RelevoAdminController::class, 'pdf'])->name('relevos.pdf');
@@ -89,6 +93,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{licencia}/pdf', 'pdf')->name('pdf');
         Route::get('/localidades', 'localidades')->name('localidades');
     });
+
+    Route::post('/reprogramaciones', [SolicitudReprogramacionController::class, 'store'])->name('reprogramaciones.store');
+    Route::patch('/reprogramaciones/{solicitud}/cancelar', [SolicitudReprogramacionController::class, 'cancelar'])->name('reprogramaciones.cancelar');
 
     // Relevos
     Route::resource('relevos', RelevoController::class)->except(['create', 'edit', 'show']);

@@ -113,7 +113,9 @@ export default function AsignarTareas({
     turnoPreseleccionado,
     bloqueInicial,
 }: Props) {
-    
+    const [bloque, setBloque] = useState<Bloque>(
+        () => bloqueInicial ?? primerBloqueConAgentes(agentesPorTurno),
+    );
     const [seleccion, setSeleccion] = useState<number[]>([]);
     const [eventoId, setEventoId] = useState('');
     const [titulo, setTitulo] = useState('');
@@ -123,9 +125,6 @@ export default function AsignarTareas({
     const [errores, setErrores] = useState<Record<string, string>>({});
     const [procesando, setProcesando] = useState(false);
     const [mensaje, setMensaje] = useState<string | null>(null);
-    const [bloque, setBloque] = useState<Bloque>(() => bloqueInicial ?? primerBloqueConAgentes(agentesPorTurno),
-);
-    
     const [toast, setToast] = useState<{ tipo: 'error' | 'exito'; titulo: string; detalles: string[] } | null>(null);
 
     useEffect(() => {
@@ -195,7 +194,6 @@ export default function AsignarTareas({
         setHoraFin('');
         setErrores({});
         setMensaje(null);
-       
     };
 
     const elegirEvento = (id: string) => {
@@ -247,7 +245,7 @@ export default function AsignarTareas({
         !procesando &&
         listaConflictos.length === 0;
 
-    const enviar = (seguirDeTodosModos = false) => {
+    const enviar = () => {
         router.post(
             '/admin/turnos/tareas',
             {
@@ -259,14 +257,12 @@ export default function AsignarTareas({
                 evento_operativo_id: eventoId || null,
                 hora_inicio: horaInicio || null,
                 hora_fin: horaFin || null,
-                seguir_de_todos_modos: seguirDeTodosModos,
             },
             {
                 preserveScroll: true,
                 onStart: () => {
                     setProcesando(true);
                     setErrores({});
-                   
                     setMensaje(null);
                 },
                 onError: (errs) => {
@@ -275,15 +271,7 @@ export default function AsignarTareas({
                     setToast({ tipo: 'error', titulo: 'No se pudo guardar la tarea', detalles: lista });
                 },
                 onFinish: () => setProcesando(false),
-                onSuccess: (page) => {
-                    const confirmar = (page.props as { flash?: { confirmar_seguir?: { mensaje: string } } })
-                        .flash?.confirmar_seguir;
-                    const cantidad = seleccion.length;
-                    const tituloGuardado = titulo.trim();
-                    const horario = horaInicio && horaFin ? ` ${horaInicio}–${horaFin}` : '';
-
-                   
-
+                onSuccess: () => {
                     setMensaje(`Tarea asignada a ${NOMBRES[bloque]}.`);
                     setToast({ tipo: 'exito', titulo: 'Tarea asignada', detalles: [] });
                     setSeleccion([]);
@@ -302,9 +290,11 @@ export default function AsignarTareas({
             router.get('/admin/turnos/listado', { fecha }, { preserveScroll: true });
         }
     };
-  const indice = BLOQUES.findIndex((b) => b.valor === bloque);
-const bloqueAnterior = indice > 0 ? BLOQUES[indice - 1] : null;
-const bloqueSiguiente = indice < BLOQUES.length - 1 ? BLOQUES[indice + 1] : null;
+
+    const indice = BLOQUES.findIndex((b) => b.valor === bloque);
+    const bloqueAnterior = indice > 0 ? BLOQUES[indice - 1] : null;
+    const bloqueSiguiente = indice < BLOQUES.length - 1 ? BLOQUES[indice + 1] : null;
+
     return (
         <>
             <Head title="Asignar tarea" />
@@ -329,8 +319,6 @@ const bloqueSiguiente = indice < BLOQUES.length - 1 ? BLOQUES[indice + 1] : null
                             ))}
                         </div>
                     )}
-
-                
 
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Turno</label>
@@ -515,46 +503,46 @@ const bloqueSiguiente = indice < BLOQUES.length - 1 ? BLOQUES[indice + 1] : null
 
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-5">
                         <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={cancelar}
-                                    className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent"
-                                >
-                                    Cancelar
-                                </button>
-                                {bloqueAnterior && (
-                                    <button
-                                        type="button"
-                                        disabled={estadoBloque(bloqueAnterior.valor).total === 0}
-                                        onClick={() => cambiarBloque(bloqueAnterior.valor)}
-                                        className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-40"
-                                    >
-                                        ← Volver
-                                    </button>
-                                )}
-                            </div>
-
-                <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={() => enviar(false)}
-                            disabled={!puedeGuardar}
-                            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
-                        >
-                            {procesando ? 'Guardando…' : 'Guardar'}
-                        </button>
-                        {bloqueSiguiente && (
                             <button
                                 type="button"
-                                disabled={estadoBloque(bloqueSiguiente.valor).total === 0}
-                                onClick={() => cambiarBloque(bloqueSiguiente.valor)}
-                                className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                                onClick={cancelar}
+                                className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent"
                             >
-                                Siguiente →
+                                Cancelar
                             </button>
-                        )}
+                            {bloqueAnterior && (
+                                <button
+                                    type="button"
+                                    disabled={estadoBloque(bloqueAnterior.valor).total === 0}
+                                    onClick={() => cambiarBloque(bloqueAnterior.valor)}
+                                    className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                                >
+                                    ← Volver
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => enviar()}
+                                disabled={!puedeGuardar}
+                                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                            >
+                                {procesando ? 'Guardando…' : 'Guardar'}
+                            </button>
+                            {bloqueSiguiente && (
+                                <button
+                                    type="button"
+                                    disabled={estadoBloque(bloqueSiguiente.valor).total === 0}
+                                    onClick={() => cambiarBloque(bloqueSiguiente.valor)}
+                                    className="rounded-lg border bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                                >
+                                    Siguiente →
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
                 </div>
             </div>
 

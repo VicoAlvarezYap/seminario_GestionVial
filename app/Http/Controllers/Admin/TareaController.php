@@ -87,7 +87,7 @@ public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
     }
 
     /** Si hay evento, lo que falte (lugar y horas) se toma de él. */
-    private function completarDesdeEvento(array $datos): array
+    public function completarDesdeEvento(array $datos): array
     {
         if (empty($datos['evento_operativo_id'])) {
             return $datos;

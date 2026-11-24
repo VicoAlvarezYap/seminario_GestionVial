@@ -660,7 +660,7 @@ class TurnoTrabajoController extends Controller
     }
 
     /** Crea la tarea en cada turno seleccionado. Valida horario y solapamiento. */
-   public function storeTareas(Request $request): RedirectResponse
+ public function storeTareas(Request $request): RedirectResponse
 {
     $datos = $request->validate([
         'fecha' => ['required', 'date'],
@@ -674,13 +674,11 @@ class TurnoTrabajoController extends Controller
         'hora_fin' => ['nullable', 'date_format:H:i'],
     ]);
 
-    // Horario del bloque
     $turnoRef = TurnoTrabajo::whereIn('id', $datos['turno_ids'])->first();
     if ($turnoRef) {
         $turnoRef->validarHorarioDelBloque($datos['hora_inicio'] ?? null, $datos['hora_fin'] ?? null);
     }
 
-    // Lugar
     $lugarId = null;
     if (! empty($datos['lugar'])) {
         $nombreLugar = Str::squish(trim($datos['lugar']));
@@ -706,7 +704,45 @@ class TurnoTrabajoController extends Controller
         ->pluck('id');
 
     DB::transaction(function () use ($turnoIds, $base) {
-        // ...bloque de creación y superposición tal como lo tenés...
+        TurnoTrabajo::whereIn('id', $turnoIds)->lockForUpdate()->get();
+
+        foreach ($turnoIds as $turnoId) {
+            $existe = Tarea::where('turno_trabajo_id', $turnoId)
+                ->where('titulo', $base['titulo'])
+                ->where('hora_inicio', $base['hora_inicio'])
+                ->where('hora_fin', $base['hora_fin'])
+                ->exists();
+
+            if ($existe) {
+                continue;
+            }
+
+            if ($base['hora_inicio'] && $base['hora_fin']) {
+                $ocupadas = Tarea::where('turno_trabajo_id', $turnoId)
+                    ->where('estado', '!=', 'cancelada')
+                    ->where('hora_inicio', '<', $base['hora_fin'])
+                    ->where('hora_fin', '>', $base['hora_inicio'])
+                    ->exists();
+
+                if ($ocupadas) {
+                    $turnoAgente = TurnoTrabajo::with('agente:id,nombre,apellido')->find($turnoId);
+                    $nombre = "{$turnoAgente->agente->apellido}, {$turnoAgente->agente->nombre}";
+
+                    $todasLas = Tarea::where('turno_trabajo_id', $turnoId)
+                        ->where('estado', '!=', 'cancelada')
+                        ->orderBy('hora_inicio')
+                        ->get()
+                        ->map(fn ($t) => '«'.$t->titulo.'» ('.substr($t->hora_inicio, 0, 5).' a '.substr($t->hora_fin, 0, 5).')')
+                        ->implode(', ');
+
+                    throw ValidationException::withMessages([
+                        'hora_inicio' => "{$nombre} ya tiene ocupado: {$todasLas}. Elegí otro horario o quitá a este agente de la tarea.",
+                    ]);
+                }
+            }
+
+            Tarea::create(['turno_trabajo_id' => $turnoId] + $base);
+        }
     });
 
     $siguiente = match ($datos['turno']) {
@@ -714,16 +750,16 @@ class TurnoTrabajoController extends Controller
         'tarde' => 'noche',
         default => null,
     };
+
     if ($siguiente === null) {
         return redirect('/admin/turnos/listado')
             ->with('success', "Tareas asignadas en el turno {$datos['turno']}.");
-}
+    }
 
     return redirect('/admin/turnos/tareas?'.http_build_query([
         'fecha' => $datos['fecha'],
         'bloque' => $siguiente,
     ]))->with('success', "Tarea asignada a {$turnoIds->count()} agente(s).");
-
 }
 
     public function detalle(TurnoTrabajo $turno): Response
@@ -774,15 +810,20 @@ class TurnoTrabajoController extends Controller
             'tareas' => $turno->tareas->map(fn ($t) => [
                 'titulo' => $t->titulo_final,
                 'lugar' => $t->lugar_final?->nombre,
-                'tareas' => $turno->tareas->where('estado', '!=', 'cancelada')->map(fn ($t) => [
+                
+            ])->values()->all(),
+            'tareas' => $turno->tareas
+               ->where('estado', '!=', 'cancelada')
+               ->map(fn ($t) => [
                     'id' => $t->id,
                     'titulo' => $t->titulo_final,
                     'lugar' => $t->lugar_final?->nombre,
                     'hora_inicio' => $t->hora_inicio_corta,
                     'hora_fin' => $t->hora_fin_corta,
                     'fecha' => $turno->fecha->toDateString(),
-                ])->values()->all(),
-            ])->values()->all(),
+                ])
+             ->values()
+             ->all(),
             'intervenciones' => $intervenciones->map(fn ($i) => [
                 'id' => $i->id,
                 'hora' => $i->fecha_hora->format('H:i'),

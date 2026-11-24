@@ -83,9 +83,6 @@ export default function LayoutConMenu({ children }: PropsWithChildren) {
         {oscuro ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
 
-    <span className="flex size-9 items-center justify-center" aria-hidden="true">
-        <Bell className="size-5" />
-    </span>
 
     <button
         type="button"

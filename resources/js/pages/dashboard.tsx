@@ -1,7 +1,6 @@
 import { Deferred, Head, Link, router } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-
 const urlTareas = (fecha: string, agenteId: number) =>
     `/admin/turnos/tareas?fecha=${fecha}&agente=${agenteId}`;
 const urlDetalleTurno = (turnoId: number) => `/admin/turnos/${turnoId}/detalle`;

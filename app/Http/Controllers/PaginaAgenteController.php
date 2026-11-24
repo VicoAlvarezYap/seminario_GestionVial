@@ -6,6 +6,7 @@ use App\Models\EventoOperativo;
 use App\Models\Fichaje;
 use App\Models\HistorialDeLicencias;
 use App\Models\ReportesTurno;
+use App\Models\SolicitudReprogramacion;
 use App\Models\TurnoTrabajo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,6 +62,7 @@ class PaginaAgenteController extends Controller
             'licenciasPendientes' => $this->licenciasPendientes(),
             'turnosNoRealizados' => $this->turnosNoRealizados($hoy),
             'eventosMes' => $this->eventosDelMes(),
+            'reprogramacionesPendientes' => $this->reprogramacionesPendientes(),
         ];
     }
 
@@ -85,6 +87,9 @@ class PaginaAgenteController extends Controller
             'hora_fin' => $turno->hora_fin_prog ? substr($turno->hora_fin_prog, 0, 5) : null,
             'hora_entrada' => $turno->inicio_real?->format('H:i'),
             'horario_cumplido' => now()->gte($turno->finProgramado()->copy()->subMinutes(self::TOLERANCIA_MIN)),
+            'hora_fin_iso' => $turno->finProgramado()->toIso8601String(),
+            'ahora' => now()->toIso8601String(),
+            'tolerancia_min' => self::TOLERANCIA_MIN,
             'tareas' => $turno->tareas->map(fn ($t) => [
                 'titulo' => $t->titulo_final,
                 'lugar' => $t->lugar_final?->nombre,
@@ -106,6 +111,15 @@ class PaginaAgenteController extends Controller
                 'turno' => $t->turno,
                 'estado' => $t->estado_turno,
                 'es_hoy' => $t->fecha->toDateString() === $hoy,
+                'puede_reprogramar' => $t->puedeReprogramar(),
+                'solicitud' => $t->ultimaSolicitud && in_array($t->ultimaSolicitud->estado, ['pendiente', 'rechazada'], true)
+                    ? [
+                        'id' => $t->ultimaSolicitud->id,
+                        'tipo' => $t->ultimaSolicitud->tipo,
+                        'estado' => $t->ultimaSolicitud->estado,
+                        'comentario' => $t->ultimaSolicitud->comentario_resolucion,
+                    ]
+                    : null,
             ])
             ->values()
             ->all();
@@ -147,17 +161,40 @@ class PaginaAgenteController extends Controller
             ->all();
     }
 
-    /** Reasignaciones y justificantes que requieren atención. */
+    /** Cantidad de justificantes y reprogramaciones que requieren atención. */
     private function urgentes(): array
     {
-        $pendientes = HistorialDeLicencias::where('estado', 'pendiente')
+        $justificantes = HistorialDeLicencias::where('estado', 'pendiente')
             ->whereNotNull('justificante_path')
             ->count();
 
+        $reprogramaciones = SolicitudReprogramacion::where('estado', 'pendiente')->count();
+
         return [
-            'justificantes_pendientes' => $pendientes,
-            'total' => $pendientes,
+            'justificantes_pendientes' => $justificantes,
+            'reprogramaciones_pendientes' => $reprogramaciones,
+            'total' => $justificantes + $reprogramaciones,
         ];
+    }
+
+    /** Solicitudes de reprogramación sin resolver, las más antiguas primero. */
+    private function reprogramacionesPendientes(): array
+    {
+        return SolicitudReprogramacion::with(['agente:id,nombre,apellido', 'turno:id,fecha,turno'])
+            ->where('estado', 'pendiente')
+            ->orderBy('created_at')
+            ->limit(5)
+            ->get()
+            ->map(fn (SolicitudReprogramacion $s) => [
+                'id' => $s->id,
+                'agente' => "{$s->agente->apellido}, {$s->agente->nombre}",
+                'tipo' => $s->tipo,
+                'fecha' => $s->turno->fecha->format('d/m/Y'),
+                'turno' => $s->turno->turno,
+                'nuevo_turno' => $s->nuevo_turno,
+            ])
+            ->values()
+            ->all();
     }
 
     /** Licencias pendientes de resolver, las más recientes primero. */
