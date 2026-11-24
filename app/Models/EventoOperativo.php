@@ -64,7 +64,8 @@ public function scopeFiltrar(Builder $q, array $f, bool $gestiona, ?int $agenteI
 {
     $q->when(! empty($f['desde']), fn ($c) => $c->whereDate('fecha_hora_inicio', '>=', $f['desde']))
       ->when(! empty($f['hasta']), fn ($c) => $c->whereDate('fecha_hora_inicio', '<=', $f['hasta']))
-      ->when(! empty($f['buscar']), fn ($c) => $c->where('titulo', 'like', '%'.addcslashes($f['buscar'], '%_\\').'%'));
+      ->when(! empty($f['buscar']), fn ($c) => $c->where('titulo', 'like', '%'.addcslashes($f['buscar'], '%_\\').'%'))
+      ->when(! empty($f['estado']), fn ($c) => $c->where('estado', $f['estado']));
     if ($gestiona) {
         // Admin: uno o más agentes (vacío = todos)
         $ids = array_map('intval', $f['agentes'] ?? []);

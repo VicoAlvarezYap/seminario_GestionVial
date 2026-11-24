@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { type FormEvent } from 'react';
+import SelectorMapa from '@/components/selector-mapa';
 
 type Punto = { latitud: string; longitud: string; descripcion_referencia: string };
 
@@ -11,7 +12,7 @@ type Evento = {
     fecha: string;
     hora_inicio: string;
     hora_fin: string | null;
-    lugar_id: number | null;
+    lugar_nombre: string | null;
     direccion: string | null;
     tipo_recorrido: string;
     latitud_inicio: string | null;
@@ -29,7 +30,7 @@ type Datos = {
     fecha: string;
     hora_inicio: string;
     hora_fin: string;
-    lugar_id: string;
+    lugar_nombre: string;
     direccion: string;
     tipo_recorrido: string;
     latitud_inicio: string;
@@ -43,7 +44,6 @@ type Datos = {
 
 type Props = {
     evento: Evento | null;
-    lugares: { id: number; nombre: string }[];
 };
 
 const ESTADOS = ['programado', 'en_curso', 'finalizado', 'cancelado', 'suspendido'];
@@ -59,14 +59,23 @@ function Campo({ label, error, children }: { label: string; error?: string; chil
     );
 }
 
-export default function EventoForm({ evento, lugares }: Props) {
+function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+    return (
+        <section className="space-y-4 border-t pt-5 first:border-t-0 first:pt-0">
+            <h2 className="text-sm font-semibold">{titulo}</h2>
+            {children}
+        </section>
+    );
+}
+
+export default function EventoForm({ evento }: Props) {
     const form = useForm<Datos>({
         titulo: evento?.titulo ?? '',
         descripcion: evento?.descripcion ?? '',
         fecha: evento?.fecha ?? '',
         hora_inicio: evento?.hora_inicio ?? '',
         hora_fin: evento?.hora_fin ?? '',
-        lugar_id: evento?.lugar_id ? String(evento.lugar_id) : '',
+        lugar_nombre: evento?.lugar_nombre ?? '',
         direccion: evento?.direccion ?? '',
         tipo_recorrido: evento?.tipo_recorrido ?? 'estatico',
         latitud_inicio: evento?.latitud_inicio ?? '',
@@ -81,8 +90,15 @@ export default function EventoForm({ evento, lugares }: Props) {
     const { data, errors, setData, processing } = form;
     const movil = data.tipo_recorrido === 'movil_itinerante';
 
-    // Cambia un campo sin repetir setData en cada input
     const set = (campo: keyof Datos, valor: string) => setData(campo, valor as never);
+
+    const cambiarTipo = (valor: string) => {
+        set('tipo_recorrido', valor);
+        if (valor === 'movil_itinerante') {
+            set('latitud_inicio', '');
+            set('longitud_inicio', '');
+        }
+    };
 
     const agregarPunto = () =>
         setData('puntos', [...data.puntos, { latitud: '', longitud: '', descripcion_referencia: '' }]);
@@ -118,49 +134,36 @@ export default function EventoForm({ evento, lugares }: Props) {
                 </div>
 
                 <form onSubmit={enviar} className="space-y-6 rounded-2xl border bg-card p-6 shadow-sm">
-                    <Campo label="Título *" error={errors.titulo}>
-                        <input className={input} value={data.titulo} onChange={(e) => set('titulo', e.target.value)} />
-                    </Campo>
-
-                    <Campo label="Descripción" error={errors.descripcion}>
-                        <textarea rows={3} className={input} value={data.descripcion} onChange={(e) => set('descripcion', e.target.value)} />
-                    </Campo>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <Campo label="Fecha *" error={errors.fecha}>
-                            <input type="date" className={input} value={data.fecha} onChange={(e) => set('fecha', e.target.value)} />
-                        </Campo>
-                        <Campo label="Hora de inicio *" error={errors.hora_inicio}>
-                            <input type="time" className={input} value={data.hora_inicio} onChange={(e) => set('hora_inicio', e.target.value)} />
-                        </Campo>
-                        <Campo label="Hora de fin" error={errors.hora_fin}>
-                            <input type="time" className={input} value={data.hora_fin} onChange={(e) => set('hora_fin', e.target.value)} />
-                        </Campo>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <Campo label="Lugar" error={errors.lugar_id}>
-                            <select className={input} value={data.lugar_id} onChange={(e) => set('lugar_id', e.target.value)}>
-                                <option value="">Sin lugar</option>
-                                {lugares.map((l) => (
-                                    <option key={l.id} value={l.id}>
-                                        {l.nombre}
-                                    </option>
-                                ))}
-                            </select>
-                        </Campo>
-                        <Campo label="Dirección" error={errors.direccion}>
-                            <input className={input} value={data.direccion} onChange={(e) => set('direccion', e.target.value)} />
-                        </Campo>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Seccion titulo="Tipo de evento">
                         <Campo label="Tipo de recorrido *" error={errors.tipo_recorrido}>
-                            <select className={input} value={data.tipo_recorrido} onChange={(e) => set('tipo_recorrido', e.target.value)}>
-                                <option value="estatico">Estático</option>
-                                <option value="movil_itinerante">Móvil / itinerante</option>
+                            <select className={input} value={data.tipo_recorrido} onChange={(e) => cambiarTipo(e.target.value)}>
+                                <option value="estatico">Estático (un solo lugar)</option>
+                                <option value="movil_itinerante">Móvil / itinerante (recorrido con varios puntos)</option>
                             </select>
                         </Campo>
+                    </Seccion>
+
+                    <Seccion titulo="Datos del evento">
+                        <Campo label="Título *" error={errors.titulo}>
+                            <input className={input} value={data.titulo} onChange={(e) => set('titulo', e.target.value)} />
+                        </Campo>
+
+                        <Campo label="Descripción" error={errors.descripcion}>
+                            <textarea rows={3} className={input} value={data.descripcion} onChange={(e) => set('descripcion', e.target.value)} />
+                        </Campo>
+
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <Campo label="Fecha *" error={errors.fecha}>
+                                <input type="date" className={input} value={data.fecha} onChange={(e) => set('fecha', e.target.value)} />
+                            </Campo>
+                            <Campo label="Hora de inicio *" error={errors.hora_inicio}>
+                                <input type="time" className={input} value={data.hora_inicio} onChange={(e) => set('hora_inicio', e.target.value)} />
+                            </Campo>
+                            <Campo label="Hora de fin" error={errors.hora_fin}>
+                                <input type="time" className={input} value={data.hora_fin} onChange={(e) => set('hora_fin', e.target.value)} />
+                            </Campo>
+                        </div>
+
                         <Campo label="Estado *" error={errors.estado}>
                             <select className={input} value={data.estado} onChange={(e) => set('estado', e.target.value)}>
                                 {ESTADOS.map((s) => (
@@ -170,49 +173,86 @@ export default function EventoForm({ evento, lugares }: Props) {
                                 ))}
                             </select>
                         </Campo>
-                    </div>
+                    </Seccion>
 
-                    {!movil && (
+                    <Seccion titulo="Ubicación">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <Campo label="Latitud (opcional)" error={errors.latitud_inicio}>
-                                <input className={input} value={data.latitud_inicio} onChange={(e) => set('latitud_inicio', e.target.value)} />
+                            <Campo label="Lugar" error={errors.lugar_nombre}>
+                                <input
+                                    className={input}
+                                    placeholder="Ej: Plaza principal"
+                                    value={data.lugar_nombre}
+                                    onChange={(e) => set('lugar_nombre', e.target.value)}
+                                />
                             </Campo>
-                            <Campo label="Longitud (opcional)" error={errors.longitud_inicio}>
-                                <input className={input} value={data.longitud_inicio} onChange={(e) => set('longitud_inicio', e.target.value)} />
+                            <Campo label="Dirección" error={errors.direccion}>
+                                <input className={input} value={data.direccion} onChange={(e) => set('direccion', e.target.value)} />
                             </Campo>
                         </div>
-                    )}
 
-                    {movil && (
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <p className="text-sm font-semibold">Recorrido (mínimo 2 puntos)</p>
-                                <button type="button" onClick={agregarPunto} className="flex items-center gap-1 text-sm text-primary hover:underline">
-                                    <Plus className="size-4" /> Agregar punto
-                                </button>
-                            </div>
-                            {errors.puntos && <p className="text-xs text-red-600">{errors.puntos}</p>}
-
-                            {data.puntos.map((p, i) => (
-                                <div key={i} className="grid grid-cols-1 gap-3 rounded-lg border p-3 sm:grid-cols-4">
-                                    <input className={input} placeholder="Latitud" value={p.latitud} onChange={(e) => cambiarPunto(i, 'latitud', e.target.value)} />
-                                    <input className={input} placeholder="Longitud" value={p.longitud} onChange={(e) => cambiarPunto(i, 'longitud', e.target.value)} />
-                                    <input
-                                        className={input}
-                                        placeholder="Referencia"
-                                        value={p.descripcion_referencia}
-                                        onChange={(e) => cambiarPunto(i, 'descripcion_referencia', e.target.value)}
+                        {!movil && (
+                            <>
+                                <Campo label="Ubicación en el mapa" error={errors.latitud_inicio ?? errors.longitud_inicio}>
+                                    <SelectorMapa
+                                        latitud={data.latitud_inicio}
+                                        longitud={data.longitud_inicio}
+                                        onChange={(lat, lng, info) =>
+                                            setData((d) => ({
+                                                ...d,
+                                                latitud_inicio: lat.toFixed(7),
+                                                longitud_inicio: lng.toFixed(7),
+                                                ...(info
+                                                    ? {
+                                                          direccion: info.direccion,
+                                                          lugar_nombre: info.lugar || d.lugar_nombre,
+                                                      }
+                                                    : {}),
+                                            }))
+                                        }
                                     />
-                                    <button type="button" onClick={() => quitarPunto(i)} className="flex items-center justify-center gap-1 text-sm text-red-600 hover:underline">
-                                        <Trash2 className="size-4" /> Quitar
+                                </Campo>
+
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <Campo label="Latitud (opcional)" error={errors.latitud_inicio}>
+                                        <input className={input} value={data.latitud_inicio} onChange={(e) => set('latitud_inicio', e.target.value)} />
+                                    </Campo>
+                                    <Campo label="Longitud (opcional)" error={errors.longitud_inicio}>
+                                        <input className={input} value={data.longitud_inicio} onChange={(e) => set('longitud_inicio', e.target.value)} />
+                                    </Campo>
+                                </div>
+                            </>
+                        )}
+
+                        {movil && (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-semibold">Recorrido (mínimo 2 puntos)</p>
+                                    <button type="button" onClick={agregarPunto} className="flex items-center gap-1 text-sm text-primary hover:underline">
+                                        <Plus className="size-4" /> Agregar punto
                                     </button>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                                {errors.puntos && <p className="text-xs text-red-600">{errors.puntos}</p>}
 
-                    <div className="space-y-3 border-t pt-5">
-                        <p className="text-sm font-semibold">Solicitante</p>
+                                {data.puntos.map((p, i) => (
+                                    <div key={i} className="grid grid-cols-1 gap-3 rounded-lg border p-3 sm:grid-cols-4">
+                                        <input className={input} placeholder="Latitud" value={p.latitud} onChange={(e) => cambiarPunto(i, 'latitud', e.target.value)} />
+                                        <input className={input} placeholder="Longitud" value={p.longitud} onChange={(e) => cambiarPunto(i, 'longitud', e.target.value)} />
+                                        <input
+                                            className={input}
+                                            placeholder="Referencia"
+                                            value={p.descripcion_referencia}
+                                            onChange={(e) => cambiarPunto(i, 'descripcion_referencia', e.target.value)}
+                                        />
+                                        <button type="button" onClick={() => quitarPunto(i)} className="flex items-center justify-center gap-1 text-sm text-red-600 hover:underline">
+                                            <Trash2 className="size-4" /> Quitar
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </Seccion>
+
+                    <Seccion titulo="Solicitante">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <Campo label="Ente" error={errors.solicitante_ente}>
                                 <input className={input} value={data.solicitante_ente} onChange={(e) => set('solicitante_ente', e.target.value)} />
@@ -224,7 +264,7 @@ export default function EventoForm({ evento, lugares }: Props) {
                                 <input className={input} value={data.solicitante_celular} onChange={(e) => set('solicitante_celular', e.target.value)} />
                             </Campo>
                         </div>
-                    </div>
+                    </Seccion>
 
                     <div className="flex justify-end gap-3 border-t pt-5">
                         <Link href="/eventos" className="rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-accent">

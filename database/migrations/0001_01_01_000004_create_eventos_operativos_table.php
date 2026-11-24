@@ -5,12 +5,15 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         Schema::create('eventos_operativos', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('lugar_id')
+                ->nullable()
+                ->constrained('lugares')
+                ->nullOnDelete();
             $table->string('titulo', 200);
             $table->text('descripcion')->nullable();
             $table->dateTime('fecha_hora_inicio')->index();
@@ -29,7 +32,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-      
+
         if (in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
             DB::statement('ALTER TABLE eventos_operativos ADD CONSTRAINT chk_eo_fechas CHECK (fecha_hora_fin IS NULL OR fecha_hora_fin >= fecha_hora_inicio)');
         }

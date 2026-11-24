@@ -1,4 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
+import MapaEvento from '@/components/mapa-evento';
 
 type Punto = { orden: number; latitud: string; longitud: string; descripcion_referencia: string | null };
 
@@ -86,10 +87,41 @@ export default function EventoShow({ evento, gestiona }: Props) {
                     </div>
 
                     {evento.descripcion && <Dato label="Descripción" valor={evento.descripcion} />}
-
+                    {!movil && evento.latitud_inicio && evento.longitud_inicio && (
+                        <div className="space-y-2">
+                            <p className="text-sm font-semibold">Ubicación</p>
+                            <MapaEvento
+                                puntos={[
+                                    {
+                                        latitud: evento.latitud_inicio,
+                                        longitud: evento.longitud_inicio,
+                                        etiqueta: evento.lugar ?? evento.direccion,
+                                    },
+                                ]}
+                            />
+                            <a
+                                href={`https://www.google.com/maps?q=${evento.latitud_inicio},${evento.longitud_inicio}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-primary hover:underline"
+                            >
+                                Abrir en Google Maps
+                            </a>
+                        </div>
+                    )}
                     {movil && (
                         <div className="space-y-2">
                             <p className="text-sm font-semibold">Recorrido</p>
+                            {evento.puntos.length > 0 && (
+                                <MapaEvento
+                                    recorrido
+                                    puntos={evento.puntos.map((p) => ({
+                                        latitud: p.latitud,
+                                        longitud: p.longitud,
+                                        etiqueta: `Punto ${p.orden}${p.descripcion_referencia ? ` · ${p.descripcion_referencia}` : ''}`,
+                                    }))}
+                                />
+                            )}
                             {evento.puntos.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">No hay puntos cargados.</p>
                             ) : (

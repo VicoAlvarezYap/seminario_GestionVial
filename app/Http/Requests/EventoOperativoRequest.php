@@ -24,6 +24,7 @@ class EventoOperativoRequest extends FormRequest
             'hora_inicio' => ['required', 'date_format:H:i'],
             'hora_fin' => ['nullable', 'date_format:H:i', 'after:hora_inicio'],
             'lugar_id' => ['nullable', 'integer', 'exists:lugares,id'],
+            'lugar_nombre' => ['nullable', 'string', 'max:255'],
             'direccion' => ['nullable', 'string', 'max:255'],
             'estado' => ['nullable', 'in:programado,en_curso,finalizado,cancelado,suspendido'],
 
@@ -36,7 +37,6 @@ class EventoOperativoRequest extends FormRequest
             'tipo_recorrido' => ['required', 'in:estatico,movil_itinerante'],
             'latitud_inicio' => ['nullable', 'numeric', 'between:-90,90'],
             'longitud_inicio' => ['nullable', 'numeric', 'between:-180,180'],
-
             // Puntos del recorrido (evento móvil/itinerante): mínimo inicio y fin
             'puntos' => [$soloMovil, 'required', 'array', 'min:2'],
             'puntos.*.descripcion_referencia' => [$soloMovil, 'nullable', 'string', 'max:255'],
