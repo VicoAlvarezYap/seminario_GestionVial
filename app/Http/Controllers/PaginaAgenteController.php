@@ -18,6 +18,7 @@ use Inertia\Response;
 class PaginaAgenteController extends Controller
 {
     private const TOLERANCIA_MIN = 10;
+    private const ANTICIPO_INICIO_MIN = 10;
 
     public function index(Request $request): Response
     {
@@ -79,6 +80,8 @@ class PaginaAgenteController extends Controller
             return null;
         }
 
+        $habilitaDesde = $turno->inicioProgramado()->copy()->subMinutes(self::ANTICIPO_INICIO_MIN);
+
         return [
             'id' => $turno->id,
             'turno' => $turno->turno,
@@ -95,6 +98,8 @@ class PaginaAgenteController extends Controller
                 'lugar' => $t->lugar_final?->nombre,
             ])->values()->all(),
             'puede_fichar' => $turno->estaProgramado() && $turno->inicio_real === null,
+            'inicio_habilitado_iso' => $habilitaDesde->toIso8601String(),
+            'inicio_habilitado_desde' => $habilitaDesde->format('H:i'),
         ];
     }
 
@@ -243,8 +248,16 @@ class PaginaAgenteController extends Controller
 
     public function iniciar(Request $request, TurnoTrabajo $turno): RedirectResponse
     {
+        abort_unless($request->user()->agente?->estaActivo(), 403, 'Tu cuenta de agente está dada de baja.');
         $agenteId = $request->user()->agente_id;
         abort_unless($agenteId && $turno->agente_id === $agenteId, 403);
+
+        if (now()->lt($turno->inicioProgramado()->copy()->subMinutes(self::ANTICIPO_INICIO_MIN))) {
+            return back()->with(
+                'error',
+                'Todavía no podés iniciar el turno. Se habilita '.self::ANTICIPO_INICIO_MIN.' minutos antes del horario.'
+            );
+        }
 
         if (! $turno->fecha->isToday()) {
             return back()->with('error', 'Solo podés iniciar el turno el día que te corresponde.');
@@ -289,6 +302,7 @@ class PaginaAgenteController extends Controller
 
     public function finalizar(Request $request, TurnoTrabajo $turno): RedirectResponse
     {
+        abort_unless($request->user()->agente?->estaActivo(), 403, 'Tu cuenta de agente está dada de baja.');
         $agenteId = $request->user()->agente_id;
         abort_unless($agenteId && $turno->agente_id === $agenteId, 403);
 
@@ -347,6 +361,7 @@ class PaginaAgenteController extends Controller
 
     public function abandonar(Request $request, TurnoTrabajo $turno): RedirectResponse
     {
+        abort_unless($request->user()->agente?->estaActivo(), 403, 'Tu cuenta de agente está dada de baja.');
         $agenteId = $request->user()->agente_id;
         abort_unless($agenteId && $turno->agente_id === $agenteId, 403);
 

@@ -807,11 +807,6 @@ class TurnoTrabajoController extends Controller
                 'revisada_at' => $f->revisada_at?->format('d/m/Y H:i'),
             ])->all(),
             'reporte' => $turno->reporte,
-            'tareas' => $turno->tareas->map(fn ($t) => [
-                'titulo' => $t->titulo_final,
-                'lugar' => $t->lugar_final?->nombre,
-                
-            ])->values()->all(),
             'tareas' => $turno->tareas
                ->where('estado', '!=', 'cancelada')
                ->map(fn ($t) => [

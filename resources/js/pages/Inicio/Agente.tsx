@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarClock, CalendarDays, FileText, AlertTriangle, Play } from 'lucide-react';
 import CierreTurno from '@/components/cierre-turno';
 import FlashMensajes from '@/components/flash-mensajes';
@@ -18,6 +18,8 @@ type TurnoHoy = {
     hora_fin_iso: string | null;
     ahora: string;
     tolerancia_min: number;
+    inicio_habilitado_iso: string;
+    inicio_habilitado_desde: string;
 } | null;
 
 type SolicitudTurno = {
@@ -73,7 +75,7 @@ function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNo
 export default function InicioAgente({ agente, turnoHoy, turnosSemana, novedades, eventosMes }: Props) {
     const [reprogramando, setReprogramando] = useState<TurnoSemana | null>(null);
     const hoyLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-
+    const [ahoraMs, setAhoraMs] = useState(() => Date.now());
     const cancelarSolicitud = (id: number) => {
         router.patch(`/reprogramaciones/${id}/cancelar`, {}, { preserveScroll: true });
     };
@@ -83,6 +85,14 @@ export default function InicioAgente({ agente, turnoHoy, turnosSemana, novedades
             router.post(`/turnos/${turnoHoy.id}/iniciar`, {}, { preserveScroll: true });
         }
     };
+    useEffect(() => {
+        const id = setInterval(() => setAhoraMs(Date.now()), 15000);
+        return () => clearInterval(id);
+    }, []);
+
+    const inicioHabilitado = turnoHoy
+        ? ahoraMs >= new Date(turnoHoy.inicio_habilitado_iso).getTime()
+        : false;
 
     return (
         <>
@@ -125,13 +135,21 @@ export default function InicioAgente({ agente, turnoHoy, turnosSemana, novedades
                                     )}
 
                                     {turnoHoy.puede_fichar && (
-                                        <button
-                                            type="button"
-                                            onClick={iniciarTurno}
-                                            className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground"
-                                        >
-                                            <Play className="size-4" /> Iniciar turno
-                                        </button>
+                                        <div className="space-y-2">
+                                            <button
+                                                type="button"
+                                                onClick={iniciarTurno}
+                                                disabled={!inicioHabilitado}
+                                                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                <Play className="size-4" /> Iniciar turno
+                                            </button>
+                                            {!inicioHabilitado && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    Podés iniciar desde las {turnoHoy.inicio_habilitado_desde}.
+                                                </p>
+                                            )}
+                                        </div>
                                     )}
 
                                     {turnoHoy.estado === 'en_curso' && (
