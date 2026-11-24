@@ -59,4 +59,18 @@ class Agente extends Model
             }
         });
     }
+    public function historialLaboral(): HasMany
+    {
+        return $this->hasMany(HistorialLaboral::class)->orderByDesc('fecha_alta');
+    }
+
+    public function vinculoVigente(): HasOne
+    {
+        return $this->hasOne(HistorialLaboral::class)->whereNull('fecha_baja')->latestOfMany('fecha_alta');
+    }
+
+    public function estaActivo(): bool
+    {
+        return $this->vinculoVigente()->exists();
+    }
 }

@@ -21,6 +21,7 @@ use App\Http\Controllers\EventoController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\SolicitudReprogramacionController;
 use App\Http\Controllers\Admin\SolicitudReprogramacionAdminController;
+use App\Http\Controllers\HistorialLaboralController;
 
 Route::inertia('/', 'welcome')->name('home');
 
@@ -32,6 +33,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/perfiles', [PerfilController::class, 'index'])->name('perfiles.index');
         Route::get('/perfiles/{agente}', [AgenteController::class, 'show'])->name('perfiles.show');
         Route::post('/agentes', [AgenteController::class, 'store'])->name('agentes.store');
+
+        //Historial laboral
+        Route::post('/agentes/{agente}/baja', [HistorialLaboralController::class, 'baja']);
+        Route::post('/agentes/{agente}/alta', [HistorialLaboralController::class, 'alta']);
+
         //turnos y tareas
         Route::resource('turnos', TurnoTrabajoController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);

@@ -5,23 +5,28 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         Schema::create('historial_laboral', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('agente_id')->constrained('agentes')->cascadeOnDelete()->cascadeOnUpdate();
+            $table->foreignId('agente_id')->constrained('agentes')->cascadeOnDelete(); // ajustá el nombre de la tabla
             $table->date('fecha_alta');
             $table->date('fecha_baja')->nullable();
-            $table->string('motivo_ingreso_egreso')->nullable();
+            $table->string('motivo_ingreso')->nullable();
+            $table->string('motivo_egreso')->nullable();
+            $table->timestamps();
+
+            $table->index(['agente_id', 'fecha_baja']);
         });
-
-        // SQLite (usado en los tests) no soporta ADD CONSTRAINT
-
-        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
-            DB::statement('ALTER TABLE historial_laboral ADD CONSTRAINT chk_hl_fechas CHECK (fecha_baja IS NULL OR fecha_baja >= fecha_alta)');
-        }
+        DB::table('agentes')->orderBy('id')->each(function ($a) {
+            DB::table('historial_laboral')->insert([
+                'agente_id' => $a->id,
+                'fecha_alta' => substr($a->created_at ?? now(), 0, 10),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
     }
 
     public function down(): void

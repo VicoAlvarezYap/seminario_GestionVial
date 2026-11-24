@@ -38,10 +38,6 @@ class TurnoTrabajoController extends Controller
         'especial' => 'Especial',
     ];
 
-    /* ---------------------------------------------------------------
-     |  Asignación de turnos
-     | --------------------------------------------------------------- */
-
     public function index(Request $request): Response
     {
         $fecha = $request->input('fecha', now()->toDateString());
