@@ -46,12 +46,13 @@ const administracion: Enlace[] = [
     { titulo: 'Gestión de turnos', href: '/admin/turnos', icono: CalendarDays },
     { titulo: 'Asignar tarea', href: '/admin/turnos/tareas', icono: ClipboardList },
     { titulo: 'Ver turnos', href: '/admin/turnos/listado', icono: CalendarDays },
-    { titulo: 'Historial de turnos', href: '/admin/turnos/historial', icono: CalendarDays },
+    {titulo: 'Historial de turnos', href: '/admin/turnos/historial', icono: CalendarDays },
     { titulo: 'Reportes de turno', href: '/admin/reportes', icono: ClipboardCheck },
     { titulo: 'Gestión de licencias', href: '/admin/licencias', icono: FileText },
-    { titulo: 'Gestión de infracciones', href: '/admin/relevos', icono: ClipboardList },
+    {titulo: 'Gestión de infracciones', href: '/admin/relevos', icono: ClipboardList },
     { titulo: 'Gestión de intervenciones', href: '/admin/intervenciones', icono: AlertTriangle },
     { titulo: 'Eventos', href: '/eventos', icono: CalendarDays },
+    {titulo: 'Dashboard', href: '/dashboard', icono:FileText}
 ];
 
 const cuenta: Enlace[] = [

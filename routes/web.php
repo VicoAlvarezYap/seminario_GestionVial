@@ -18,13 +18,13 @@ use App\Http\Controllers\Admin\RelevoAdminController;
 use App\Http\Controllers\Admin\IntervencionAdminController;
 use App\Http\Controllers\EventoExcelController;
 use App\Http\Controllers\EventoController;
+use App\Http\Controllers\Admin\DashboardController;
 
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
     Route::get('/pagina_principal', [PaginaAgenteController::class, 'index'])->name('pagina_principal');
-
+     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     /* ---------- Administración ---------- */
     Route::middleware('role:admin|super-admin|Administrador', 'modo.admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/perfiles', [PerfilController::class, 'index'])->name('perfiles.index');

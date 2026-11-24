@@ -1,6 +1,6 @@
 import { Link, router } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
-import { CalendarDays, ChevronDown, ChevronRight, FileDown, Pencil } from 'lucide-react';
+import { useEffect,useRef, useState } from 'react';
+import { CalendarDays, ChevronDown, ChevronRight, FileDown, Pencil, Users } from 'lucide-react';
 import NavbarAgente from '@/components/navbar-agente';
 import {
     ESTADOS,
@@ -102,6 +102,8 @@ function TurnoActual({ hoy, turnos, horarios }: { hoy: string; turnos: TurnoRow[
         </section>
     );
 }
+const badgeEstado = (estado: string) =>
+    ESTADOS[estado] ?? { texto: estado.replace(/_/g, ' '), clase: ESTADOS.programado.clase };
 
 function DiaProximo({
     fecha,
@@ -115,43 +117,141 @@ function DiaProximo({
     onEditar: (t: TurnoRow) => void;
 }) {
     const [abierto, setAbierto] = useState(false);
+    const [menu, setMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
     const panelId = `dia-${fecha}`;
 
-    // Título del día: el estado de sus turnos (si hay mezcla, "programado")
-    const clave = items.every((t) => t.estado === items[0].estado) ? items[0].estado : 'programado';
-    const estado = ESTADOS[clave] ?? ESTADOS.programado;
+    // Cierra el menú de "Editar" al hacer clic afuera o con Escape
+    useEffect(() => {
+        if (!menu) return;
+        const fuera = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false);
+        };
+        const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false);
+        document.addEventListener('mousedown', fuera);
+        document.addEventListener('keydown', esc);
+        return () => {
+            document.removeEventListener('mousedown', fuera);
+            document.removeEventListener('keydown', esc);
+        };
+    }, [menu]);
+
+    // Estado: uno solo si todos coinciden; si no, un resumen con cantidades
+    const conteo = items.reduce<Record<string, number>>((acc, t) => {
+        acc[t.estado] = (acc[t.estado] ?? 0) + 1;
+        return acc;
+    }, {});
+    const estados = Object.entries(conteo);
 
     const bloques = ORDEN.map((turno) => ({
         turno,
         agentes: items.filter((x) => x.turno === turno).sort(porApellido),
     })).filter((b) => b.agentes.length > 0);
 
+    const editables = items.filter((t) => t.editable).sort(porApellido);
+
+    const clickEditar = () => {
+        if (editables.length === 1) onEditar(editables[0]);
+        else setMenu((v) => !v);
+    };
+
+    const boton = 'flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium';
+
     return (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            {/* Fila cerrada */}
+        <div className="rounded-xl border bg-card shadow-sm">
+            {/* Cabecera: fecha · agentes · estado · [Editar] [Ver más] */}
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
                 <div className="flex flex-wrap items-center gap-3">
                     <CalendarDays className="size-4 text-muted-foreground" />
                     <span className="text-sm font-semibold capitalize">{fechaLarga(fecha)}</span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${estado.clase}`}>
-                        {estado.texto}
+
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users className="size-3.5" />
+                        {items.length} {items.length === 1 ? 'agente' : 'agentes'}
+                    </span>
+
+                    <span className="flex flex-wrap items-center gap-1.5">
+                        {estados.map(([estado, n]) => {
+                            const e = badgeEstado(estado);
+                            return (
+                                <span
+                                    key={estado}
+                                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${e.clase}`}
+                                >
+                                    {estados.length > 1 ? `${n} ${e.texto.toLowerCase()}` : e.texto}
+                                </span>
+                            );
+                        })}
                     </span>
                 </div>
-                <button
-                    type="button"
-                    aria-expanded={abierto}
-                    aria-controls={panelId}
-                    onClick={() => setAbierto((v) => !v)}
-                    className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
-                >
-                    {abierto ? 'Ver menos' : 'Ver más'}
-                    <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
-                </button>
+
+                <div className="flex items-center gap-2">
+                    {/* Editar */}
+                    <div ref={menuRef} className="relative">
+                        <button
+                            type="button"
+                            onClick={clickEditar}
+                            disabled={editables.length === 0}
+                            aria-haspopup={editables.length > 1 ? 'menu' : undefined}
+                            aria-expanded={editables.length > 1 ? menu : undefined}
+                            title={
+                                editables.length === 0
+                                    ? 'No se puede editar: ya empezó o falta menos de una hora'
+                                    : undefined
+                            }
+                            className={`${boton} hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50`}
+                        >
+                            <Pencil className="size-3.5" />
+                            Editar
+                            {editables.length > 1 && <ChevronDown className="size-3.5" />}
+                        </button>
+
+                        {menu && editables.length > 1 && (
+                            <div
+                                role="menu"
+                                className="absolute right-0 z-20 mt-1 w-64 overflow-hidden rounded-lg border bg-popover p-1 shadow-md"
+                            >
+                                <p className="px-2 py-1 text-xs text-muted-foreground">¿Qué agente querés editar?</p>
+                                {editables.map((t) => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => {
+                                            setMenu(false);
+                                            onEditar(t);
+                                        }}
+                                        className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                    >
+                                        <span className="truncate">
+                                            {t.agente.apellido}, {t.agente.nombre}
+                                        </span>
+                                        <span className="shrink-0 text-xs text-muted-foreground">
+                                            {NOMBRES[t.turno]}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Ver más */}
+                    <button
+                        type="button"
+                        aria-expanded={abierto}
+                        aria-controls={panelId}
+                        onClick={() => setAbierto((v) => !v)}
+                        className={`${boton} hover:bg-accent`}
+                    >
+                        {abierto ? 'Ver menos' : 'Ver más'}
+                        <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                    </button>
+                </div>
             </div>
 
-            {/* Detalle expandido: turno | agentes */}
+            {/* Detalle expandido: turno | agentes (sin botón de editar por agente) */}
             {abierto && (
-                <div id={panelId} className="border-t">
+                <div id={panelId} className="overflow-hidden rounded-b-xl border-t">
                     <div className="grid grid-cols-[6.5rem_1fr] gap-4 bg-muted/30 px-5 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[10rem_1fr]">
                         <span>Turno</span>
                         <span>Agentes</span>
@@ -169,31 +269,28 @@ function DiaProximo({
                                     </p>
                                 </div>
                                 <ul className="space-y-2">
-                                    {agentes.map((t) => (
-                                        <li key={t.id} className="flex items-center justify-between gap-3">
-                                            <span>
-                                                {t.agente.apellido}, {t.agente.nombre}
-                                            </span>
-                                            {t.editable ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onEditar(t)}
-                                                    className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1 text-xs font-medium hover:bg-accent"
+                                    {agentes.map((t) => {
+                                        const e = badgeEstado(t.estado);
+                                        return (
+                                            <li key={t.id} className="flex flex-wrap items-center gap-2">
+                                                <span>
+                                                    {t.agente.apellido}, {t.agente.nombre}
+                                                </span>
+                                                <span
+                                                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${e.clase}`}
                                                 >
-                                                    <Pencil className="size-3.5" /> Editar
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    disabled
-                                                    title="No se puede editar: ya empezó o falta menos de una hora"
-                                                    className="flex cursor-not-allowed items-center gap-1 rounded-lg border bg-background px-3 py-1 text-xs font-medium opacity-50"
-                                                >
-                                                    <Pencil className="size-3.5" /> Editar
-                                                </button>
-                                            )}
-                                        </li>
-                                    ))}
+                                                    {e.texto}
+                                                </span>
+                                                {typeof t.tareas_count === 'number' && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {t.tareas_count === 0
+                                                            ? 'Sin tareas'
+                                                            : `${t.tareas_count} ${t.tareas_count === 1 ? 'tarea' : 'tareas'}`}
+                                                    </span>
+                                                )}
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             </div>
                         ))}
@@ -203,7 +300,6 @@ function DiaProximo({
         </div>
     );
 }
-
 type ProximosProps = {
     turnos: TurnoRow[];
     horarios: Horarios;

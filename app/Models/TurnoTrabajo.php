@@ -211,6 +211,34 @@ class TurnoTrabajo extends Model
     {
         return $this->estaProgramado() && now()->lt($this->limiteEdicion());
     }
+    public function validarHorarioDelBloque(?string $inicio, ?string $fin): void
+    {
+        if (!$inicio || !$fin) {
+            return;
+        }
+
+        if ($inicio === $fin) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'hora_fin' => 'La hora de fin tiene que ser distinta de la de inicio.',
+            ]);
+        }
+
+        [$desde, $hasta] = $this->rangoDeHoras();
+
+        if (!$desde || !$hasta) {
+            return;
+        }
+
+        $dentro = fn(string $h) => $desde < $hasta
+            ? $h >= $desde && $h <= $hasta
+            : $h >= $desde || $h <= $hasta; // cruza medianoche
+
+        if (!$dentro($inicio) || !$dentro($fin)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'hora_inicio' => "Las horas tienen que estar entre {$desde} y {$hasta}.",
+            ]);
+        }
+    }
 
     public function finProgramado(): CarbonInterface
     {
@@ -223,6 +251,17 @@ class TurnoTrabajo extends Model
     private function horaInicioProg(): string
     {
         return $this->hora_inicio_prog ?? config("turnos.horarios.{$this->turno}.0", '00:00');
+    }
+    public function rangoDeHoras(): array
+    {
+        if ($this->turno === 'especial') {
+            return [
+                $this->hora_inicio_prog ? substr($this->hora_inicio_prog, 0, 5) : null,
+                $this->hora_fin_prog ? substr($this->hora_fin_prog, 0, 5) : null,
+            ];
+        }
+
+        return config("turnos.horarios.{$this->turno}");
     }
 
     private function horaFinProg(): string
