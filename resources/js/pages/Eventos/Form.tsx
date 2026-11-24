@@ -2,6 +2,8 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { type FormEvent } from 'react';
 import SelectorMapa from '@/components/selector-mapa';
+import SelectorRecorrido from '@/components/selector-recorrido';
+import type { Coord } from '@/components/selector-recorrido';
 
 type Punto = { latitud: string; longitud: string; descripcion_referencia: string };
 
@@ -22,6 +24,8 @@ type Evento = {
     solicitante_celular: string | null;
     estado: string;
     puntos: Punto[];
+    ruta: Coord[];
+    calles: string[];
 };
 
 type Datos = {
@@ -40,10 +44,13 @@ type Datos = {
     solicitante_celular: string;
     estado: string;
     puntos: Punto[];
+    ruta: Coord[];
+    calles: string[];
 };
 
 type Props = {
     evento: Evento | null;
+    mapaCentro?: { lat: number; lng: number; zoom: number };
 };
 
 const ESTADOS = ['programado', 'en_curso', 'finalizado', 'cancelado', 'suspendido'];
@@ -68,7 +75,7 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
     );
 }
 
-export default function EventoForm({ evento }: Props) {
+export default function EventoForm({ evento, mapaCentro }: Props) {
     const form = useForm<Datos>({
         titulo: evento?.titulo ?? '',
         descripcion: evento?.descripcion ?? '',
@@ -85,6 +92,8 @@ export default function EventoForm({ evento }: Props) {
         solicitante_celular: evento?.solicitante_celular ?? '',
         estado: evento?.estado ?? 'programado',
         puntos: evento?.puntos ?? [],
+        ruta: evento?.ruta ?? [],
+        calles: evento?.calles ?? [],
     });
 
     const { data, errors, setData, processing } = form;
@@ -203,9 +212,9 @@ export default function EventoForm({ evento }: Props) {
                                                 longitud_inicio: lng.toFixed(7),
                                                 ...(info
                                                     ? {
-                                                          direccion: info.direccion,
-                                                          lugar_nombre: info.lugar || d.lugar_nombre,
-                                                      }
+                                                        direccion: info.direccion,
+                                                        lugar_nombre: info.lugar || d.lugar_nombre,
+                                                    }
                                                     : {}),
                                             }))
                                         }
@@ -222,33 +231,18 @@ export default function EventoForm({ evento }: Props) {
                                 </div>
                             </>
                         )}
-
                         {movil && (
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-semibold">Recorrido (mínimo 2 puntos)</p>
-                                    <button type="button" onClick={agregarPunto} className="flex items-center gap-1 text-sm text-primary hover:underline">
-                                        <Plus className="size-4" /> Agregar punto
-                                    </button>
-                                </div>
+                            <>
                                 {errors.puntos && <p className="text-xs text-red-600">{errors.puntos}</p>}
-
-                                {data.puntos.map((p, i) => (
-                                    <div key={i} className="grid grid-cols-1 gap-3 rounded-lg border p-3 sm:grid-cols-4">
-                                        <input className={input} placeholder="Latitud" value={p.latitud} onChange={(e) => cambiarPunto(i, 'latitud', e.target.value)} />
-                                        <input className={input} placeholder="Longitud" value={p.longitud} onChange={(e) => cambiarPunto(i, 'longitud', e.target.value)} />
-                                        <input
-                                            className={input}
-                                            placeholder="Referencia"
-                                            value={p.descripcion_referencia}
-                                            onChange={(e) => cambiarPunto(i, 'descripcion_referencia', e.target.value)}
-                                        />
-                                        <button type="button" onClick={() => quitarPunto(i)} className="flex items-center justify-center gap-1 text-sm text-red-600 hover:underline">
-                                            <Trash2 className="size-4" /> Quitar
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
+                                <SelectorRecorrido
+                                    centro={mapaCentro}
+                                    puntos={data.puntos}
+                                    ruta={data.ruta}
+                                    calles={data.calles}
+                                    onPuntos={(p) => setData('puntos', p)}
+                                    onRecorrido={(ruta, calles) => setData((d) => ({ ...d, ruta, calles }))}
+                                />
+                            </>
                         )}
                     </Seccion>
 

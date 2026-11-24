@@ -37,10 +37,10 @@ class EventoOperativoController extends Controller
     {
         $datos = $request->validated();
         if (!empty($datos['lugar_nombre'])) {
-             $nombre = Str::squish($datos['lugar_nombre']);
+            $nombre = Str::squish($datos['lugar_nombre']);
 
-             $datos['lugar_id'] = Lugar::whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])->value('id')
-                 ?? Lugar::create(['nombre' => $nombre])->id;
+            $datos['lugar_id'] = Lugar::whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])->value('id')
+                ?? Lugar::create(['nombre' => $nombre])->id;
         }
         unset($datos['lugar_nombre']);
 
@@ -91,6 +91,8 @@ class EventoOperativoController extends Controller
                 'longitud_inicio' => $datos['longitud_inicio'] ?? null,
                 'latitud_fin' => null,
                 'longitud_fin' => null,
+                'ruta' => $esMovil ? ($datos['ruta'] ?? null) : null,
+                'calles' => $esMovil ? ($datos['calles'] ?? null) : null,
             ];
         }
 

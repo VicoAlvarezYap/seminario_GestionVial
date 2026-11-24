@@ -21,8 +21,8 @@ export type PuntoMapa = {
 
 type Props = {
     puntos: PuntoMapa[];
-    /** true: une los puntos con una línea y los numera (evento móvil) */
     recorrido?: boolean;
+    ruta?: [number, number][];
 };
 
 const numerado = (n: number) =>
@@ -33,7 +33,8 @@ const numerado = (n: number) =>
         iconAnchor: [13, 13],
     });
 
-export default function MapaEvento({ puntos, recorrido = false }: Props) {
+
+export default function MapaEvento({ puntos, recorrido = false, ruta }: Props) {
     const contenedor = useRef<HTMLDivElement>(null);
 
     const validos = puntos
@@ -62,10 +63,8 @@ export default function MapaEvento({ puntos, recorrido = false }: Props) {
         });
 
         if (recorrido && validos.length > 1) {
-            L.polyline(
-                validos.map((p) => [p.lat, p.lng] as [number, number]),
-                { color: '#2563eb', weight: 4, opacity: 0.8 },
-            ).addTo(mapa);
+            const linea = ruta && ruta.length > 1 ? ruta : validos.map((p) => [p.lat, p.lng] as [number, number]);
+            L.polyline(linea, { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(mapa);
         }
 
         if (validos.length === 1) {

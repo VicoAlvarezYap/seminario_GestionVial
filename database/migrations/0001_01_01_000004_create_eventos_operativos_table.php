@@ -24,6 +24,8 @@ return new class extends Migration {
             $table->decimal('longitud_inicio', 11, 8)->nullable();
             $table->decimal('latitud_fin', 10, 8)->nullable();
             $table->decimal('longitud_fin', 11, 8)->nullable();
+            $table->json('ruta')->nullable();   // trazado completo [[lat,lng],...]
+            $table->json('calles')->nullable(); // ["Av. Belgrano", "Mitre", ...]
             $table->string('solicitante_ente', 150)->nullable();
             $table->string('solicitante_nombre', 150)->nullable();
             $table->string('solicitante_celular', 30)->nullable();

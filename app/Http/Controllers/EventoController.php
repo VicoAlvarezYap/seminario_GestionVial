@@ -91,6 +91,8 @@ class EventoController extends Controller
                 'solicitante_celular' => $evento->solicitante_celular,
                 'latitud_inicio' => $evento->latitud_inicio,
                 'longitud_inicio' => $evento->longitud_inicio,
+                'ruta' => $e->ruta ?? [],
+                'calles' => $e->calles ?? [],
                 'puntos' => $evento->puntosRecorrido->map(fn($p) => [
                     'orden' => $p->orden,
                     'latitud' => $p->latitud,
@@ -165,6 +167,8 @@ class EventoController extends Controller
             'tipo_recorrido' => $e->tipo_recorrido,
             'latitud_inicio' => $e->latitud_inicio,
             'longitud_inicio' => $e->longitud_inicio,
+            'ruta' => $e->ruta ?? [],
+            'calles' => $e->calles ?? [],
             'solicitante_ente' => $e->solicitante_ente,
             'solicitante_nombre' => $e->solicitante_nombre,
             'solicitante_celular' => $e->solicitante_celular,

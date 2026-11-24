@@ -42,6 +42,12 @@ class EventoOperativoRequest extends FormRequest
             'puntos.*.descripcion_referencia' => [$soloMovil, 'nullable', 'string', 'max:255'],
             'puntos.*.latitud' => [$soloMovil, 'required', 'numeric', 'between:-90,90'],
             'puntos.*.longitud' => [$soloMovil, 'required', 'numeric', 'between:-180,180'],
+             //Ayuda a el recorrido
+            'ruta' => ['nullable', 'array', 'max:5000'],
+            'ruta.*' => ['array', 'size:2'],
+            'ruta.*.*' => ['numeric'],
+            'calles' => ['nullable', 'array', 'max:200'],
+            'calles.*' => ['string', 'max:150'],
         ];
     }
 

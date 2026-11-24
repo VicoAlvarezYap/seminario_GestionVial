@@ -22,6 +22,8 @@ type Props = {
         latitud_inicio: string | null;
         longitud_inicio: string | null;
         puntos: Punto[];
+        ruta: [number, number][];
+        calles: string[];
     };
     gestiona: boolean;
 };
@@ -37,6 +39,8 @@ function Dato({ label, valor }: { label: string; valor: string | null | undefine
 
 export default function EventoShow({ evento, gestiona }: Props) {
     const movil = evento.tipo_recorrido === 'movil_itinerante';
+    const ruta = evento.ruta ?? [];
+    const calles = evento.calles ?? [];
 
     return (
         <>
@@ -87,6 +91,7 @@ export default function EventoShow({ evento, gestiona }: Props) {
                     </div>
 
                     {evento.descripcion && <Dato label="Descripción" valor={evento.descripcion} />}
+
                     {!movil && evento.latitud_inicio && evento.longitud_inicio && (
                         <div className="space-y-2">
                             <p className="text-sm font-semibold">Ubicación</p>
@@ -109,12 +114,15 @@ export default function EventoShow({ evento, gestiona }: Props) {
                             </a>
                         </div>
                     )}
+
                     {movil && (
-                        <div className="space-y-2">
+                        <div className="space-y-4">
                             <p className="text-sm font-semibold">Recorrido</p>
+
                             {evento.puntos.length > 0 && (
                                 <MapaEvento
                                     recorrido
+                                    ruta={ruta}
                                     puntos={evento.puntos.map((p) => ({
                                         latitud: p.latitud,
                                         longitud: p.longitud,
@@ -122,13 +130,27 @@ export default function EventoShow({ evento, gestiona }: Props) {
                                     }))}
                                 />
                             )}
+
+                            {calles.length > 0 && (
+                                <div className="space-y-1">
+                                    <p className="text-sm font-semibold">Calles del recorrido</p>
+                                    <p className="text-sm">{calles.join(' → ')}</p>
+                                </div>
+                            )}
+
                             {evento.puntos.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">No hay puntos cargados.</p>
                             ) : (
                                 <ol className="space-y-2 text-sm">
-                                    {evento.puntos.map((p) => (
+                                    {evento.puntos.map((p, i) => (
                                         <li key={p.orden} className="rounded-lg border p-3">
-                                            <span className="font-medium">Punto {p.orden}</span>
+                                            <span className="font-medium">
+                                                {i === 0
+                                                    ? 'Inicio'
+                                                    : i === evento.puntos.length - 1
+                                                      ? 'Final'
+                                                      : `Punto ${p.orden}`}
+                                            </span>
                                             {p.descripcion_referencia && <span> · {p.descripcion_referencia}</span>}
                                             <p className="font-mono text-xs text-muted-foreground">
                                                 {p.latitud}, {p.longitud}
