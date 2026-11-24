@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Agente;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Http\Request;
 
 class PerfilController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        abort_unless($request->user()->hasAnyRole(['Administrador', 'Supervisor']), 403);
         $agentes = Agente::with('historialLaboral')
             ->orderBy('apellido')
             ->orderBy('nombre')

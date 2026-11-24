@@ -37,7 +37,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         //Historial laboral
         Route::post('/agentes/{agente}/baja', [HistorialLaboralController::class, 'baja']);
         Route::post('/agentes/{agente}/alta', [HistorialLaboralController::class, 'alta']);
-
+        
         //turnos y tareas
         Route::resource('turnos', TurnoTrabajoController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);

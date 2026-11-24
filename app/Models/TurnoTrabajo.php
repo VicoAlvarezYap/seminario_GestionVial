@@ -312,5 +312,20 @@ class TurnoTrabajo extends Model
     {
         return $this->motivoNoReprogramable() === null;
     }
-    
+    /** Devuelve el motivo por el que no se puede editar el turno (o sus tareas), o null si se puede. */
+    public function motivoBloqueoEdicion(): ?string
+    {
+        if (!$this->estaProgramado() || $this->fichajes()->exists()) {
+            return 'No se puede modificar: el turno ya tiene fichajes o no está programado.';
+        }
+
+        if (!$this->enPlazoDeEdicion()) {
+            $limite = $this->limiteEdicion()->format('d/m/Y H:i');
+
+            return "Ya no se puede modificar: el plazo venció el {$limite} (una hora antes del inicio).";
+        }
+
+        return null;
+    }
+
 }

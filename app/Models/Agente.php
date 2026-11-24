@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Builder;
 
 class Agente extends Model
 {
@@ -67,6 +68,10 @@ class Agente extends Model
     public function vinculoVigente(): HasOne
     {
         return $this->hasOne(HistorialLaboral::class)->whereNull('fecha_baja')->latestOfMany('fecha_alta');
+    }
+    public function scopeActivos(Builder $query): Builder
+    {
+        return $query->whereHas('historialLaboral', fn($q) => $q->whereNull('fecha_baja'));
     }
 
     public function estaActivo(): bool

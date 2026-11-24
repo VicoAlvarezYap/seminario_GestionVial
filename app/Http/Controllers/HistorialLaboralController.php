@@ -8,17 +8,20 @@ use App\Models\TurnoTrabajo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\User;
 
 class HistorialLaboralController extends Controller
 {
     public function baja(Request $request, Agente $agente): RedirectResponse
     {
+        abort_if($request->user()->agente_id === $agente->id, 403, 'No podés modificar tu propio vínculo laboral.');
         abort_unless($request->user()->hasAnyRole(['Administrador', 'Supervisor']), 403);
 
         $datos = $request->validate([
             'fecha_baja' => ['required', 'date'],
             'motivo_egreso' => ['required', 'string', 'min:5', 'max:500'],
         ]);
+        User::where('agente_id', $agente->id)->update(['activo' => false]);
 
         $resultado = DB::transaction(function () use ($agente, $datos) {
             $vinculo = HistorialLaboral::where('agente_id', $agente->id)
@@ -55,8 +58,9 @@ class HistorialLaboralController extends Controller
 
     public function alta(Request $request, Agente $agente): RedirectResponse
     {
+        abort_if($request->user()->agente_id === $agente->id, 403, 'No podés modificar tu propio vínculo laboral.');
         abort_unless($request->user()->hasAnyRole(['Administrador', 'Supervisor']), 403);
-
+        User::where('agente_id', $agente->id)->update(['activo' => true]);
         $datos = $request->validate([
             'fecha_alta' => ['required', 'date'],
             'motivo_ingreso' => ['nullable', 'string', 'max:500'],

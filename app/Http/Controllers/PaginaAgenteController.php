@@ -46,10 +46,12 @@ class PaginaAgenteController extends Controller
         $turno = (clone $base)->where('estado_turno', 'en_curso')->latest('fecha')->first()
             ?? (clone $base)->whereDate('fecha', $hoy)->first();
 
-        $habilitaDesde = $turno->inicioProgramado()->copy()->subMinutes(self::ANTICIPO_INICIO_MIN);
+       
         if (!$turno) {
             return null;
         }
+
+        $habilitaDesde = $turno->inicioProgramado()->copy()->subMinutes(self::ANTICIPO_INICIO_MIN);
 
         return [
             'id' => $turno->id,
