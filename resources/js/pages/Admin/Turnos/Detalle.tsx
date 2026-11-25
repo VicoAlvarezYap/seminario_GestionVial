@@ -1,9 +1,8 @@
-import { Head, Link, useForm ,router} from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import { AlertTriangle, ChevronLeft, ClipboardList, LogIn, LogOut, MapPin, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import type { TareaFila } from '@/components/turnos-compartidos';
-
-/* ---------- Tipos ---------- */
+import MapaEvento from '@/components/mapa-evento';
 
 type Turno = {
     id: number;
@@ -26,9 +25,11 @@ type Fichaje = {
     tipo: 'entrada' | 'salida' | 'salida_anticipada';
     hora: string;
     origen: string;
-    ip: string | null;
+    //ip: string | null;
     latitud: string | number | null;
     longitud: string | number | null;
+    precision_m: number | null;
+    foto_url: string | null;
     motivo_salida: string | null;
     estado_revision: 'pendiente' | 'justificada' | 'injustificada' | null;
     comentario_revision: string | null;
@@ -57,8 +58,6 @@ type Props = {
     intervenciones: Intervencion[];
     infracciones: Infraccion[];
 };
-
-/* ---------- Textos y estilos ---------- */
 
 const NOMBRE_TURNO: Record<string, string> = {
     manana: 'Mañana',
@@ -161,9 +160,9 @@ function enlaceMapa(lat: string | number | null, lng: string | number | null): s
     return lat !== null && lng !== null ? `https://www.google.com/maps?q=${lat},${lng}` : null;
 }
 
-/* ---------- Página ---------- */
 
 export default function Detalle({ turno, fichajes, reporte, tareas, intervenciones, infracciones }: Props) {
+    const [fotoAbierta, setFotoAbierta] = useState<string | null>(null);
     const [pestana, setPestana] = useState<PestanaId>('resumen');
 
     const contador: Partial<Record<PestanaId, number>> = {
@@ -232,11 +231,10 @@ export default function Detalle({ turno, fichajes, reporte, tareas, intervencion
                             role="tab"
                             aria-selected={pestana === p.id}
                             onClick={() => setPestana(p.id)}
-                            className={`-mb-px px-4 py-2 text-sm transition-colors ${
-                                pestana === p.id
+                            className={`-mb-px px-4 py-2 text-sm transition-colors ${pestana === p.id
                                     ? 'border-b-2 border-primary font-semibold text-foreground'
                                     : 'text-muted-foreground hover:text-foreground'
-                            } ${vacia(p.id) && pestana !== p.id ? 'opacity-50' : ''}`}
+                                } ${vacia(p.id) && pestana !== p.id ? 'opacity-50' : ''}`}
                         >
                             {p.nombre}
                             {contador[p.id] !== undefined && ` (${contador[p.id]})`}
@@ -254,12 +252,20 @@ export default function Detalle({ turno, fichajes, reporte, tareas, intervencion
                             tareas={tareas}
                         />
                     )}
-                    {pestana === 'fichajes' && <Fichajes fichajes={fichajes} />}
+                    {pestana === 'fichajes' && <Fichajes fichajes={fichajes} onFoto={setFotoAbierta} />}
                     {pestana === 'reporte' && <ReporteTurno reporte={reporte} />}
                     {pestana === 'intervenciones' && <ListaIntervenciones items={intervenciones} />}
                     {pestana === 'infracciones' && <ListaInfracciones items={infracciones} />}
                 </div>
             </div>
+            {fotoAbierta && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+                    onClick={() => setFotoAbierta(null)}
+                >
+                    <img src={fotoAbierta} alt="Foto del fichaje" className="max-h-full max-w-full rounded-lg" />
+                </div>
+            )}
         </>
     );
 }
@@ -273,7 +279,6 @@ function Dato({ titulo, valor }: { titulo: string; valor: string }) {
     );
 }
 
-/* ---------- Revisión de abandono ---------- */
 
 function RevisionAbandono({ fichaje }: { fichaje: Fichaje }) {
     const form = useForm<{ estado_revision: string; comentario_revision: string }>({
@@ -333,7 +338,6 @@ function RevisionAbandono({ fichaje }: { fichaje: Fichaje }) {
     );
 }
 
-/* ---------- Pestaña: Resumen (línea de tiempo) ---------- */
 
 type Evento = {
     clave: string;
@@ -435,9 +439,7 @@ function Resumen({
     );
 }
 
-/* ---------- Pestaña: Fichajes ---------- */
-
-function Fichajes({ fichajes }: { fichajes: Fichaje[] }) {
+function Fichajes({ fichajes, onFoto }: { fichajes: Fichaje[]; onFoto: (url: string) => void }) {
     if (fichajes.length === 0) return <Vacio mensaje="El agente todavía no registró fichajes." />;
 
     return (
@@ -447,7 +449,7 @@ function Fichajes({ fichajes }: { fichajes: Fichaje[] }) {
                 const revision = f.estado_revision ? REVISION[f.estado_revision] : null;
 
                 return (
-                    <li key={f.id} className="space-y-2 rounded-xl border bg-card p-4">
+                    <li key={f.id} className="space-y-3 rounded-xl border bg-card p-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <p className="text-sm font-semibold">
                                 {TIPO_FICHAJE[f.tipo] ?? f.tipo} a las <span className="font-mono">{f.hora}</span>
@@ -455,23 +457,55 @@ function Fichajes({ fichajes }: { fichajes: Fichaje[] }) {
                             {revision && <Etiqueta texto={revision.texto} clase={revision.clase} />}
                         </div>
 
-                        <p className="text-sm text-muted-foreground">
-                            Desde {f.origen === 'movil' ? 'el celular' : 'la web'}
-                            {f.ip && <>, IP {f.ip}</>}
-                        </p>
+                        <div className="flex flex-wrap items-start gap-4">
+                            {f.foto_url ? (
+                                <button type="button" onClick={() => onFoto(f.foto_url!)} className="shrink-0">
+                                    <img
+                                        src={f.foto_url}
+                                        alt={`Foto de ${TIPO_FICHAJE[f.tipo] ?? f.tipo}`}
+                                        loading="lazy"
+                                        className="h-28 w-28 rounded-lg border object-cover hover:opacity-80"
+                                    />
+                                </button>
+                            ) : (
+                                <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border text-xs text-muted-foreground">
+                                    Sin foto
+                                </div>
+                            )}
 
-                        {mapa ? (
-                            <a
-                                href={mapa}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                            >
-                                <MapPin className="size-4" /> Ver ubicación en el mapa
-                            </a>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">Sin ubicación registrada.</p>
-                        )}
+                            <div className="min-w-0 flex-1 space-y-1">
+                                {f.latitud !== null && f.longitud !== null ? (
+                                    <>
+                                        {f.precision_m !== null && (
+                                            <p className="text-xs text-muted-foreground">Precisión: ±{f.precision_m} m</p>
+                                        )}
+                                        <div className="max-w-sm [&>div]:h-40">
+                                            <MapaEvento
+                                                puntos={[
+                                                    {
+                                                        latitud: f.latitud,
+                                                        longitud: f.longitud,
+                                                        etiqueta: `${TIPO_FICHAJE[f.tipo] ?? f.tipo} · ${f.hora}`,
+                                                    },
+                                                ]}
+                                            />
+                                        </div>
+                                        {mapa && (
+                                            <a
+                                                href={mapa}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                            >
+                                                <MapPin className="size-3.5" /> Abrir en Google Maps
+                                            </a>
+                                        )}
+                                    </>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">Sin ubicación registrada.</p>
+                                )}
+                            </div>
+                        </div>
 
                         {f.motivo_salida && (
                             <p className="text-sm">
@@ -491,9 +525,6 @@ function Fichajes({ fichajes }: { fichajes: Fichaje[] }) {
         </ul>
     );
 }
-
-/* ---------- Pestaña: Reporte ---------- */
-
 function ReporteTurno({ reporte }: { reporte: Reporte | null }) {
     if (!reporte) return <Vacio mensaje="Este turno no tiene reporte cargado." />;
 
@@ -515,8 +546,6 @@ function ReporteTurno({ reporte }: { reporte: Reporte | null }) {
         </div>
     );
 }
-
-/* ---------- Pestañas: Intervenciones e Infracciones ---------- */
 
 function ListaIntervenciones({ items }: { items: Intervencion[] }) {
     if (items.length === 0) return <Vacio mensaje="No hubo intervenciones en este turno." />;
@@ -550,7 +579,7 @@ function ListaInfracciones({ items }: { items: Infraccion[] }) {
                             {x.hora && <span className="font-mono">{x.hora} </span>}
                             {x.titulo ?? `Infracción #${x.id}`}
                         </p>
-                        {x.descripcion && <p className="text-muted-foreground">{x.descripcion}</p>}
+                        {x.descripcion && <p className="whitespace-pre-line text-muted-foreground">{x.descripcion}</p>}
                     </div>
                     {x.estado && <Etiqueta texto={x.estado} clase="bg-zinc-100 text-zinc-700" />}
                 </li>

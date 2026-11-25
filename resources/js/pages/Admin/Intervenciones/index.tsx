@@ -83,8 +83,7 @@ const claseInput =
     'w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground disabled:opacity-60';
 const claseEtiqueta = 'mb-1 block text-sm font-medium';
 const claseAccion =
-    'rounded-md border px-3 py-1 text-xs font-medium hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-zinc-800';
-
+    'rounded-full border-2 border-primary/60 px-3 py-1 text-xs font-medium text-primary transition-all hover:border-primary hover:bg-primary/10 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:shadow-none';
 const sinFiltros: Filtros = { buscar: '', estado: '', urgencia: '', tipo: '', desde: '', hasta: '' };
 
 function limpiar(f: Filtros): Record<string, string> {

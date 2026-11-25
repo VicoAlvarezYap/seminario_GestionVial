@@ -78,6 +78,7 @@ class Relevos extends Model
             'fecha_hora' => 'datetime',
             'licencia_vencimiento' => 'date',
             'instrumento_fecha_hora' => 'datetime',
+            'correo_enviado_at' => 'datetime',
         ];
     }
 

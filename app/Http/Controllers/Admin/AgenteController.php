@@ -134,7 +134,7 @@ class AgenteController extends Controller
                     : true,
             ],
             'esPropio' => $esPropio,
-            'esAdmin' => $puedeGestionar,
+            'puedeGestionar' => $puedeGestionar,
         ]);
     }
 

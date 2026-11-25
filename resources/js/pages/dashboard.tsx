@@ -451,7 +451,6 @@ export default function Dashboard({
 
     return (
         <>
-            
             <Head title="Dashboard" />
 
             <div className="space-y-5 p-4 md:p-6">

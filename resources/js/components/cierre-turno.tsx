@@ -1,11 +1,14 @@
 import { useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import CapturaFichaje from '@/components/captura-fichaje';
+import { Button } from '@/components/ui/button';
 
 const inputClase = 'w-full rounded-lg border bg-background p-2.5 text-sm';
 
 function Error({ mensaje }: { mensaje?: string }) {
     return mensaje ? <p className="text-sm text-red-600">{mensaje}</p> : null;
 }
+
 function useHorarioCumplido(
     inicial: boolean,
     finProgramado?: string | null,
@@ -48,32 +51,58 @@ export default function CierreTurno({
 }) {
     const [abierto, setAbierto] = useState(false);
     const finalizar = useHorarioCumplido(horarioCumplido, finProgramado, ahora, toleranciaMin);
-    const form = useForm({
+    const form = useForm<{
+        vehiculo_oficial: boolean;
+        placa: string;
+        radio: boolean;
+        novedades: string;
+        otros_equipos: string;
+        motivo_salida: string;
+        latitud: string;
+        longitud: string;
+        precision_m: string;
+        foto: File | null;
+    }>({
         vehiculo_oficial: false,
         placa: '',
         radio: false,
         novedades: '',
         otros_equipos: '',
         motivo_salida: '',
+        latitud: '',
+        longitud: '',
+        precision_m: '',
+        foto: null,
     });
+
+    const listoParaEnviar = form.data.foto !== null && form.data.latitud !== '';
 
     const enviar = (e: React.FormEvent) => {
         e.preventDefault();
 
+        const captura = {
+            latitud: form.data.latitud,
+            longitud: form.data.longitud,
+            precision_m: form.data.precision_m,
+            foto: form.data.foto,
+        };
+
         form.transform((d) =>
             finalizar
                 ? {
-                      vehiculo_oficial: d.vehiculo_oficial,
-                      placa: d.vehiculo_oficial ? d.placa : null,
-                      radio: d.radio,
-                      novedades: d.novedades,
-                      otros_equipos: d.otros_equipos,
-                  }
-                : { motivo_salida: d.motivo_salida },
+                    vehiculo_oficial: d.vehiculo_oficial,
+                    placa: d.vehiculo_oficial ? d.placa : null,
+                    radio: d.radio,
+                    novedades: d.novedades,
+                    otros_equipos: d.otros_equipos,
+                    ...captura,
+                }
+                : { motivo_salida: d.motivo_salida, ...captura },
         );
 
         form.post(`/turnos/${turnoId}/${finalizar ? 'finalizar' : 'abandonar'}`, {
             preserveScroll: true,
+            forceFormData: true,
             onSuccess: () => {
                 form.reset();
                 setAbierto(false);
@@ -83,17 +112,14 @@ export default function CierreTurno({
 
     if (!abierto) {
         return (
-            <button
+            <Button
                 type="button"
+                size="lg"
+                variant={finalizar ? 'default' : 'destructive'}
                 onClick={() => setAbierto(true)}
-                className={
-                    finalizar
-                        ? 'rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground'
-                        : 'rounded-lg border border-red-300 px-5 py-2.5 text-sm font-medium text-red-700'
-                }
             >
                 {finalizar ? 'Finalizar turno' : 'Abandonar turno'}
-            </button>
+            </Button>
         );
     }
 
@@ -171,19 +197,40 @@ export default function CierreTurno({
                 </div>
             )}
 
-            <div className="flex gap-2">
-                <button
+            {/* Ubicación y foto de la salida */}
+            <div className="space-y-1">
+                <p className="text-sm font-medium">Ubicación y foto</p>
+                <CapturaFichaje
+                    valor={{
+                        latitud: form.data.latitud,
+                        longitud: form.data.longitud,
+                        precision_m: form.data.precision_m,
+                        foto: form.data.foto,
+                    }}
+                    onChange={(p) => {
+                        if (p.latitud !== undefined) form.setData('latitud', p.latitud);
+                        if (p.longitud !== undefined) form.setData('longitud', p.longitud);
+                        if (p.precision_m !== undefined) form.setData('precision_m', p.precision_m);
+                        if (p.foto !== undefined) form.setData('foto', p.foto);
+                    }}
+                />
+                <Error mensaje={form.errors.foto} />
+                <Error mensaje={form.errors.latitud} />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+                <Button
                     type="submit"
-                    disabled={form.processing}
-                    className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                    size="lg"
+                    variant={finalizar ? 'default' : 'destructive'}
+                    disabled={form.processing || !listoParaEnviar}
                 >
                     {form.processing ? 'Enviando...' : finalizar ? 'Guardar y finalizar' : 'Confirmar abandono'}
-                </button>
-                <button type="button" onClick={() => setAbierto(false)} className="rounded-lg border px-5 py-2.5 text-sm">
+                </Button>
+                <Button type="button" size="lg" variant="secondary" onClick={() => setAbierto(false)}>
                     Cancelar
-                </button>
+                </Button>
             </div>
         </form>
     );
-
 }

@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Download, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -213,7 +214,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                     <button
                         type="button"
                         onClick={abrirNueva}
-                        className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                        className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 active:shadow-md"
                     >
                         <Plus className="size-4" />
                         Nueva intervención
