@@ -18,6 +18,7 @@ export type Accion = {
     modo: 'agente' | 'admin' | 'ambos';
     // Solo aparece si el usuario tiene legajo (trabajo personal)
     requiereLegajo?: boolean;
+    grupo?: string;
 };
 
 export const ACCIONES: Accion[] = [
@@ -29,17 +30,18 @@ export const ACCIONES: Accion[] = [
     { titulo: 'Historial de turnos', href: '/mi-historial-turnos', icono: CalendarDays, modo: 'agente', requiereLegajo: true },
     { titulo: 'Eventos', href: '/eventos', icono: CalendarDays, modo: 'ambos' },
     { titulo: 'Agentes', href: '/admin/perfiles', icono: Users, modo: 'admin' },
-    { titulo: 'Asignar Turnos', href: '/admin/turnos', icono: CalendarDays, modo: 'admin' },
-    { titulo: 'Asignar tarea', href: '/admin/turnos/tareas', icono: ClipboardList, modo: 'admin' },
-    { titulo: 'Ver turnos', href: '/admin/turnos/listado', icono: CalendarDays, modo: 'admin' },
-    { titulo: 'Historial de turnos (admin)', href: '/admin/turnos/historial', icono: CalendarDays, modo: 'admin' },
+    { titulo: 'Asignar de turnos', href: '/admin/turnos', icono: CalendarDays, modo: 'admin', grupo: 'Turnos' },
+    { titulo: 'Asignar tarea', href: '/admin/turnos/tareas', icono: ClipboardList, modo: 'admin' , grupo: 'Turnos'},
+    { titulo: 'Ver turnos', href: '/admin/turnos/listado', icono: CalendarDays, modo: 'admin' , grupo: 'Turnos'},
+    { titulo: 'Historial de turnos (admin)', href: '/admin/turnos/historial', icono: CalendarDays, modo: 'admin', grupo: 'Turnos' },
     { titulo: 'Reportes de turno', href: '/admin/reportes', icono: ClipboardCheck, modo: 'admin' },
     { titulo: 'Gestión de licencias', href: '/admin/licencias', icono: FileText, modo: 'admin' },
     { titulo: 'Gestión de infracciones', href: '/admin/relevos', icono: ClipboardList, modo: 'admin' },
     { titulo: 'Gestión de intervenciones', href: '/admin/intervenciones', icono: AlertTriangle, modo: 'admin' },
     { titulo: 'Mi perfil', href: '/mi-perfil', icono: UserRound, modo: 'ambos' },
+    {titulo: 'Dashboard', href: '/dashboard', icono:FileText,modo:'admin'},
     { titulo: 'Configuración', href: '/settings/profile', icono: Settings, modo: 'ambos' },
-    {titulo: 'Dashboard', href: '/dashboard', icono:Settings, modo: 'admin'}
+    
 ];
 
 /** Acciones que puede ver un usuario en un modo dado. Es la única regla, la usan el menú y el buscador. */

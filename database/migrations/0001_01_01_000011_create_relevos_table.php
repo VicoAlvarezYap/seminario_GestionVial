@@ -91,6 +91,7 @@ return new class extends Migration
             $table->timestamp('correo_enviado_at')->nullable();
 
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

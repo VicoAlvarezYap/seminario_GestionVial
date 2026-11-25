@@ -11,12 +11,14 @@ use App\Models\Fichaje;
 use App\Models\HistorialDeLicencias;
 use App\Models\Lugar;
 use App\Models\Tarea;
+use App\Models\Relevos;
 use App\Http\Requests\TareaRequest;
 use App\Models\TurnoTrabajo;
 use App\Http\Controllers\Admin\TareaController;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
@@ -617,19 +619,19 @@ class TurnoTrabajoController extends Controller
             }
         });
         $siguiente = match ($datos['turno']) {
-        'manana' => 'tarde',
-        'tarde' => 'noche',
-        default => null,
+            'manana' => 'tarde',
+            'tarde' => 'noche',
+            default => null,
         };
         if ($siguiente === null) {
             return redirect('/admin/turnos/listado')
                 ->with('success', "Tareas asignadas en el turno {$datos['turno']}.");
         }
 
-        return redirect('/admin/turnos/tareas?'.http_build_query([
-        'fecha' => $datos['fecha'],
-        'bloque' => $siguiente,
-    ]))->with('success', "Tarea asignada a {$turnoIds->count()} agente(s).");
+        return redirect('/admin/turnos/tareas?' . http_build_query([
+            'fecha' => $datos['fecha'],
+            'bloque' => $siguiente,
+        ]))->with('success', "Tarea asignada a {$turnoIds->count()} agente(s).");
     }
     public function detalle(TurnoTrabajo $turno): Response
     {
@@ -642,7 +644,17 @@ class TurnoTrabajoController extends Controller
 
         $fichajes = $turno->fichajes->sortBy('registrada_at')->values();
         $intervenciones = $turno->intervencionesDelTurno()->orderBy('fecha_hora')->get();
+        $desde = $turno->fichajes->firstWhere('tipo', Fichaje::TIPO_ENTRADA)?->registrada_at
+            ?? $turno->inicioProgramado();
 
+        $hasta = $turno->fichajes->whereIn('tipo', [Fichaje::TIPO_SALIDA, Fichaje::TIPO_SALIDA_ANTICIPADA])
+            ->sortBy('registrada_at')->last()?->registrada_at
+            ?? $turno->finProgramado()->copy()->addHours(2);
+
+        $actas = Relevos::where('agente_id', $turno->agente_id)
+            ->whereBetween('fecha_hora', [$desde, $hasta])
+            ->orderBy('fecha_hora')
+            ->get();
         return Inertia::render('Admin/Turnos/Detalle', [
             'turno' => [
                 'id' => $turno->id,
@@ -667,6 +679,8 @@ class TurnoTrabajoController extends Controller
                 'ip' => $f->ip,
                 'latitud' => $f->latitud,
                 'longitud' => $f->longitud,
+                'precision_m' => $f->precision_m,
+                'foto_url' => $f->foto_path ? route('admin.turnos.fichajes.foto', $f) : null,
                 'motivo_salida' => $f->motivo_salida,
                 'estado_revision' => $f->estado_revision,
                 'comentario_revision' => $f->comentario_revision,
@@ -691,9 +705,23 @@ class TurnoTrabajoController extends Controller
                 'id' => $i->id,
                 'hora' => $i->fecha_hora->format('H:i'),
                 'estado' => $i->estado_resolucion,
-
+                'titulo' => ($i->tipo_evento ?: ucfirst($i->tipo))
+                    . ($i->tipo === 'infraccion' && $i->cantidad > 1 ? " (x{$i->cantidad})" : ''),
+                'descripcion' => trim(
+                    ($i->ubicacion_direccion ? "Ubicación: {$i->ubicacion_direccion}. " : '')
+                    . "Urgencia: {$i->nivel_urgencia}.\n"
+                    . ($i->descripcion ?? '')
+                ),
             ])->all(),
-            'infracciones' => [], 
+            'infracciones' => $actas->map(fn(Relevos $r) => [
+                'id' => $r->id,
+                'hora' => $r->fecha_hora->format('H:i'),
+                'titulo' => 'Acta ' . ($r->numero_acta ?: 's/n') . ' · ' . $r->vehiculo_placa,
+                'descripcion' => "{$r->tercero_nombre_apellido} (DNI {$r->tercero_dni})\n"
+                    . "Lugar: {$r->lugar_infraccion}\n"
+                    . $r->motivo_detencion,
+                'estado' => $r->correo_enviado_at ? 'Correo enviado' : null,
+            ])->all(),
         ]);
     }
 
@@ -925,5 +953,14 @@ class TurnoTrabajoController extends Controller
                 'bloques' => "El turno especial debe durar entre {$min} y {$max} horas.",
             ]);
         }
+    }
+    public function fotoFichaje(Fichaje $fichaje)
+    {
+        abort_unless(
+            $fichaje->foto_path && Storage::disk('local')->exists($fichaje->foto_path),
+            404,
+        );
+
+        return response()->file(Storage::disk('local')->path($fichaje->foto_path));
     }
 }

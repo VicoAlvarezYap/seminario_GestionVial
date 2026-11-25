@@ -20,6 +20,8 @@ class PaginaAgenteController extends Controller
 {
     private const TOLERANCIA_MIN = 10;
     private const ANTICIPO_INICIO_MIN = 10;
+    private const EXIGE_FOTO = true;
+    private const EXIGE_UBICACION = true;
     public function index(Request $request): Response
     {
         $usuario = $request->user();
@@ -46,7 +48,7 @@ class PaginaAgenteController extends Controller
         $turno = (clone $base)->where('estado_turno', 'en_curso')->latest('fecha')->first()
             ?? (clone $base)->whereDate('fecha', $hoy)->first();
 
-       
+
         if (!$turno) {
             return null;
         }
@@ -155,7 +157,7 @@ class PaginaAgenteController extends Controller
             'radio' => ['required', 'boolean'],
             'novedades' => ['nullable', 'string', 'max:5000'],
             'otros_equipos' => ['nullable', 'string', 'max:255'],
-        ]);
+        ]+ $this->reglasCaptura());
 
         $fin = $turno->finProgramado();
 
@@ -177,7 +179,7 @@ class PaginaAgenteController extends Controller
                 'origen' => Fichaje::ORIGEN_WEB,
                 'ip' => $request->ip(),
                 'registrada_por' => $agenteId,
-            ]);
+            ]+ $this->camposCaptura($request, $datos, $t->id));
 
             ReportesTurno::create([
                 'turno_trabajo_id' => $t->id,
@@ -210,7 +212,7 @@ class PaginaAgenteController extends Controller
 
         $datos = $request->validate([
             'motivo_salida' => ['required', 'string', 'min:5', 'max:1000'],
-        ]);
+        ]+ $this->reglasCaptura());
 
         $fin = $turno->finProgramado();
 
@@ -234,7 +236,7 @@ class PaginaAgenteController extends Controller
                 'registrada_por' => $agenteId,
                 'motivo_salida' => $datos['motivo_salida'],
                 'estado_revision' => Fichaje::REVISION_PENDIENTE,
-            ]);
+            ]+ $this->camposCaptura($request, $datos, $turno->id),);
 
             $t->update([
                 'estado_turno' => 'abandonado',
@@ -361,7 +363,7 @@ class PaginaAgenteController extends Controller
     {
         abort_unless($request->user()->agente?->estaActivo(), 403, 'Tu cuenta de agente está dada de baja.');
         $agenteId = $request->user()->agente_id;
-
+        $datos = $request->validate($this->reglasCaptura());
         // Solo el dueño del turno puede iniciarlo
         abort_unless($agenteId && $turno->agente_id === $agenteId, 403);
         if (now()->lt($turno->inicioProgramado()->copy()->subMinutes(self::ANTICIPO_INICIO_MIN))) {
@@ -400,7 +402,7 @@ class PaginaAgenteController extends Controller
                     'origen' => Fichaje::ORIGEN_WEB,
                     'ip' => $request->ip(),
                     'registrada_por' => $agenteId,
-                ]
+                ]+ $this->camposCaptura($request, $datos, $turno->id),
             );
 
             if ($fichaje->wasRecentlyCreated) {
@@ -426,5 +428,27 @@ class PaginaAgenteController extends Controller
         $request->session()->put('modo', $modo);
 
         return redirect('/pagina_principal');
+    }
+    private function reglasCaptura(): array
+    {
+        return [
+            'latitud' => [Rule::requiredIf(self::EXIGE_UBICACION), 'nullable', 'numeric', 'between:-90,90'],
+            'longitud' => [Rule::requiredIf(self::EXIGE_UBICACION), 'nullable', 'numeric', 'between:-180,180'],
+            'precision_m' => ['nullable', 'integer', 'min:0'],
+            'foto' => [Rule::requiredIf(self::EXIGE_FOTO), 'nullable', 'image', 'max:5120'],
+        ];
+    }
+
+    /** Campos del fichaje con ubicación y foto. Guarda la foto en el disco privado. */
+    private function camposCaptura(Request $request, array $datos, int $turnoId): array
+    {
+        $ruta = $request->file('foto')?->store("fichajes/{$turnoId}", 'local');
+
+        return [
+            'latitud' => $datos['latitud'] ?? null,
+            'longitud' => $datos['longitud'] ?? null,
+            'precision_m' => $datos['precision_m'] ?? null,
+            'foto_path' => $ruta,
+        ];
     }
 }

@@ -1,16 +1,14 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { ACCIONES, accionesVisibles, type Accion } from '@/components/acciones';
-
-type Enlace = Accion;
 
 type PageProps = {
     auth?: { roles?: string[]; tieneAgente?: boolean };
     modo?: 'agente' | 'admin';
 };
 
-// Estas van abajo del menú, separadas del resto
+// Estas van solo en el pie del menú
 const PERFIL = ['/mi-perfil', '/settings/profile'];
 
 export default function NavbarAgente({
@@ -28,6 +26,7 @@ export default function NavbarAgente({
     const modo = props.modo === 'admin' && esAdmin ? 'admin' : 'agente';
 
     const [expandido, setExpandido] = useState(() => localStorage.getItem('menu-expandido') === 'true');
+    const [abiertos, setAbiertos] = useState<Record<string, boolean>>({});
 
     const alternarMenu = () => {
         setExpandido((v) => {
@@ -40,7 +39,14 @@ export default function NavbarAgente({
 
     const activo = (href: string) => url === href || url.startsWith(`${href}/`) || url.startsWith(`${href}?`);
 
-    const renderEnlace = (e: Enlace) => (
+    // Lista de acciones: sin las de perfil, que van abajo
+    const todas = accionesVisibles(modo, { tieneAgente, esGestor });
+    const principales = todas.filter((a) => !PERFIL.includes(a.href));
+    const sueltas = principales.filter((a) => !a.grupo);
+    const grupos = [...new Set(principales.filter((a) => a.grupo).map((a) => a.grupo!))];
+    const cuenta = ACCIONES.filter((a) => PERFIL.includes(a.href));
+
+    const renderEnlace = (e: Accion) => (
         <Link
             key={`${e.href}-${e.titulo}`}
             href={e.href}
@@ -55,19 +61,40 @@ export default function NavbarAgente({
         </Link>
     );
 
-    const seccion = (titulo: string, items: Enlace[]) => (
-        <div className="space-y-1">
-            {mostrarTexto ? (
-                <p className="px-3 pt-3 text-xs font-semibold uppercase text-muted-foreground">{titulo}</p>
-            ) : (
-                <div className="mx-3 my-2 border-t" />
-            )}
-            {items.map(renderEnlace)}
-        </div>
-    );
+    const renderGrupo = (g: string) => {
+        const items = principales.filter((a) => a.grupo === g);
+        const abierto = abiertos[g] ?? false;
 
-    const visibles = accionesVisibles(modo, { tieneAgente, esGestor }).filter((a) => !PERFIL.includes(a.href));
-    const cuenta = ACCIONES.filter((a) => PERFIL.includes(a.href));
+        return (
+            <div key={g} className="space-y-1">
+                <button
+                    type="button"
+                    onClick={() => setAbiertos((s) => ({ ...s, [g]: !abierto }))}
+                    aria-expanded={abierto}
+                    title={g}
+                    className={`flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent ${
+                        mostrarTexto ? 'justify-between' : 'justify-center'
+                    }`}
+                >
+                    <span className="flex items-center gap-3">
+                        <CalendarDays className="size-4 shrink-0" />
+                        {mostrarTexto && <span>{g}</span>}
+                    </span>
+                    {mostrarTexto && (
+                        <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                    )}
+                </button>
+
+                {abierto && (
+                    <div className={mostrarTexto ? 'ml-3 space-y-1 border-l pl-3' : 'space-y-1'}>
+                        {items.map(renderEnlace)}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const tituloSeccion = modo === 'admin' ? 'Administración' : 'Mi trabajo';
 
     return (
         <aside
@@ -89,7 +116,23 @@ export default function NavbarAgente({
             </div>
 
             <nav className="flex-1 space-y-1 overflow-y-auto p-2">
-                {visibles.length > 0 && seccion(modo === 'admin' ? 'Administración' : 'Mi trabajo', visibles)}
+                {/* Primera acción (Inicio) */}
+                {sueltas.length > 0 && (
+                    <div className="space-y-1">
+                        {mostrarTexto && (
+                            <p className="px-3 pt-3 text-xs font-semibold uppercase text-muted-foreground">
+                                {tituloSeccion}
+                            </p>
+                        )}
+                        {sueltas.slice(0, 1).map(renderEnlace)}
+                    </div>
+                )}
+
+                {/* Turnos, justo después de Inicio */}
+                {grupos.map(renderGrupo)}
+
+                {/* Resto de las acciones */}
+                {sueltas.length > 1 && <div className="space-y-1">{sueltas.slice(1).map(renderEnlace)}</div>}
             </nav>
 
             <div className="space-y-1 border-t p-2">{cuenta.map(renderEnlace)}</div>

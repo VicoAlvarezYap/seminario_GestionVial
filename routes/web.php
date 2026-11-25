@@ -37,7 +37,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         //Historial laboral
         Route::post('/agentes/{agente}/baja', [HistorialLaboralController::class, 'baja']);
         Route::post('/agentes/{agente}/alta', [HistorialLaboralController::class, 'alta']);
-        
+
         //turnos y tareas
         Route::resource('turnos', TurnoTrabajoController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('tareas', TareaController::class)->only(['store', 'update', 'destroy']);
@@ -50,6 +50,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('turnos/jornada', [TurnoTrabajoController::class, 'storeJornada']);
         Route::get('/turnos/tareas', [TurnoTrabajoController::class, 'asignarTareasForm'])->name('turnos.tareas');
         Route::post('/turnos/tareas', [TurnoTrabajoController::class, 'storeTareas'])->name('turnos.tareas.store');
+
+        Route::patch('/turnos/fichajes/{fichaje}/revision', [TurnoTrabajoController::class, 'revisarFichaje'])
+            ->name('turnos.fichajes.revision');
+
+        Route::get('/turnos/fichajes/{fichaje}/foto', [TurnoTrabajoController::class, 'fotoFichaje'])
+            ->name('turnos.fichajes.foto');
 
         // Licencias
         Route::get('/licencias', [LicenciaAdminController::class, 'index'])->name('licencias.index');

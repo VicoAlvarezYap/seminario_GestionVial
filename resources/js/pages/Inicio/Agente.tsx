@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { CalendarClock, CalendarDays, FileText, AlertTriangle, Play } from 'lucide-react';
 import CierreTurno from '@/components/cierre-turno';
 import FlashMensajes from '@/components/flash-mensajes';
+import CapturaFichaje, { capturaVacia } from '@/components/captura-fichaje';
+import type { Captura } from '@/components/captura-fichaje';
 import ReprogramarTurnoModal from '@/components/reprogramar-turno-modal';
 
 type TurnoHoy = {
@@ -79,12 +81,33 @@ export default function InicioAgente({ agente, turnoHoy, turnosSemana, novedades
     const cancelarSolicitud = (id: number) => {
         router.patch(`/reprogramaciones/${id}/cancelar`, {}, { preserveScroll: true });
     };
+    const [capturando, setCapturando] = useState(false);
+    const [captura, setCaptura] = useState<Captura>(capturaVacia);
+    const [enviando, setEnviando] = useState(false);
+    const [errores, setErrores] = useState<Record<string, string>>({});
+
 
     const iniciarTurno = () => {
-        if (turnoHoy) {
-            router.post(`/turnos/${turnoHoy.id}/iniciar`, {}, { preserveScroll: true });
-        }
+        if (!turnoHoy) return;
+        router.post(
+            `/turnos/${turnoHoy.id}/iniciar`,
+            { ...captura },
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onStart: () => setEnviando(true),
+                onFinish: () => setEnviando(false),
+                onError: (e) => setErrores(e),
+                onSuccess: () => {
+                    setCapturando(false);
+                    setCaptura(capturaVacia);
+                    setErrores({});
+                },
+            },
+        );
     };
+    const listoParaFichar = captura.foto !== null && captura.latitud !== '';
+
     useEffect(() => {
         const id = setInterval(() => setAhoraMs(Date.now()), 15000);
         return () => clearInterval(id);
@@ -135,19 +158,39 @@ export default function InicioAgente({ agente, turnoHoy, turnosSemana, novedades
                                     )}
 
                                     {turnoHoy.puede_fichar && (
-                                        <div className="space-y-2">
-                                            <button
-                                                type="button"
-                                                onClick={iniciarTurno}
-                                                disabled={!inicioHabilitado}
-                                                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                                            >
-                                                <Play className="size-4" /> Iniciar turno
-                                            </button>
+                                        <div className="space-y-3">
+                                            {!capturando ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setCapturando(true)}
+                                                    disabled={!inicioHabilitado}
+                                                    className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <Play className="size-4" /> Iniciar turno
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    <CapturaFichaje valor={captura} onChange={(p) => setCaptura((c) => ({ ...c, ...p }))} />
+                                                    {Object.values(errores).map((m, i) => (
+                                                        <p key={i} className="text-xs text-red-600">{m}</p>
+                                                    ))}
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={iniciarTurno}
+                                                            disabled={!listoParaFichar || enviando}
+                                                            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                                                        >
+                                                            {enviando ? 'Enviando…' : 'Confirmar inicio'}
+                                                        </button>
+                                                        <button type="button" onClick={() => setCapturando(false)} className="rounded-lg border px-4 py-2.5 text-sm">
+                                                            Cancelar
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
                                             {!inicioHabilitado && (
-                                                <p className="text-xs text-muted-foreground">
-                                                    Podés iniciar desde las {turnoHoy.inicio_habilitado_desde}.
-                                                </p>
+                                                <p className="text-xs text-muted-foreground">Podés iniciar desde las {turnoHoy.inicio_habilitado_desde}.</p>
                                             )}
                                         </div>
                                     )}

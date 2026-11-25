@@ -1,6 +1,5 @@
 import { Deferred, Head, Link, router } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import NavbarAgente from '@/components/navbar-agente';
 
 const urlTareas = (fecha: string, agenteId: number) =>
     `/admin/turnos/tareas?fecha=${fecha}&agente=${agenteId}`;
@@ -452,7 +451,6 @@ export default function Dashboard({
 
     return (
         <>
-            <NavbarAgente />
             <Head title="Dashboard" />
 
             <div className="space-y-5 p-4 md:p-6">

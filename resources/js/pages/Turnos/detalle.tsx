@@ -1,5 +1,18 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import MapaEvento from '@/components/mapa-evento';
 import type { TareaFila } from '@/components/turnos-compartidos';
+
+type Fichaje = {
+    tipo: string;
+    hora: string;
+    origen: string;
+    latitud: string | number | null;
+    longitud: string | number | null;
+    precision_m: number | null;
+    foto_url: string | null;
+    motivo_salida: string | null;
+};
 
 type Props = {
     turno: {
@@ -11,7 +24,7 @@ type Props = {
         hora_inicio: string | null;
         hora_fin: string | null;
     };
-    fichajes: { tipo: string; hora: string; origen: string }[];
+    fichajes: Fichaje[];
     tareas: TareaFila[];
     tieneReporte: boolean;
 };
@@ -22,6 +35,7 @@ const NOMBRE: Record<string, string> = {
     noche: 'Noche',
     especial: 'Especial',
 };
+
 function TareasDelTurno({ tareas }: { tareas: TareaFila[] }) {
     if (tareas.length === 0) {
         return <p className="text-xs text-muted-foreground">Sin tareas asignadas.</p>;
@@ -67,6 +81,7 @@ function TareasDelTurno({ tareas }: { tareas: TareaFila[] }) {
         </ul>
     );
 }
+
 function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNode }) {
     return (
         <section className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
@@ -77,6 +92,8 @@ function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNo
 }
 
 export default function TurnoDetalle({ turno, fichajes, tareas, tieneReporte }: Props) {
+    const [fotoAbierta, setFotoAbierta] = useState<string | null>(null);
+
     return (
         <>
             <Head title="Detalle del turno" />
@@ -99,10 +116,65 @@ export default function TurnoDetalle({ turno, fichajes, tareas, tieneReporte }: 
                     {fichajes.length === 0 ? (
                         <p className="text-sm text-muted-foreground">Sin fichajes registrados.</p>
                     ) : (
-                        <ul className="space-y-1 text-sm">
+                        <ul className="divide-y">
                             {fichajes.map((f, i) => (
-                                <li key={i}>
-                                    {f.tipo} · {f.hora} <span className="text-muted-foreground">({f.origen})</span>
+                                <li key={i} className="flex flex-wrap items-start gap-4 py-3 text-sm">
+                                    {f.foto_url ? (
+                                        <button type="button" onClick={() => setFotoAbierta(f.foto_url)} className="shrink-0">
+                                            <img
+                                                src={f.foto_url}
+                                                alt={`Foto de ${f.tipo}`}
+                                                loading="lazy"
+                                                className="h-24 w-24 rounded-lg border object-cover hover:opacity-80"
+                                            />
+                                        </button>
+                                    ) : (
+                                        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg border text-xs text-muted-foreground">
+                                            Sin foto
+                                        </div>
+                                    )}
+
+                                    <div className="min-w-0 flex-1 space-y-1">
+                                        <p className="font-medium">
+                                            {f.tipo.replace('_', ' ')} · {f.hora}{' '}
+                                            <span className="font-normal text-muted-foreground">({f.origen})</span>
+                                        </p>
+
+                                        {f.motivo_salida && (
+                                            <p className="text-xs text-muted-foreground">Motivo: {f.motivo_salida}</p>
+                                        )}
+
+                                        {f.latitud && f.longitud ? (
+                                            <div className="space-y-1 pt-1">
+                                                {f.precision_m !== null && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Precisión: ±{f.precision_m} m
+                                                    </p>
+                                                )}
+                                                <div className="max-w-sm [&>div]:h-40">
+                                                    <MapaEvento
+                                                        puntos={[
+                                                            {
+                                                                latitud: f.latitud,
+                                                                longitud: f.longitud,
+                                                                etiqueta: `${f.tipo.replace('_', ' ')} · ${f.hora}`,
+                                                            },
+                                                        ]}
+                                                    />
+                                                </div>
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${f.latitud},${f.longitud}`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-xs text-primary hover:underline"
+                                                >
+                                                    Abrir en Google Maps
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground">Sin ubicación registrada.</p>
+                                        )}
+                                    </div>
                                 </li>
                             ))}
                         </ul>
@@ -117,6 +189,15 @@ export default function TurnoDetalle({ turno, fichajes, tareas, tieneReporte }: 
                     <p className="text-sm">{tieneReporte ? 'Reporte cargado.' : 'Todavía no hay reporte de este turno.'}</p>
                 </Tarjeta>
             </div>
+
+            {fotoAbierta && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+                    onClick={() => setFotoAbierta(null)}
+                >
+                    <img src={fotoAbierta} alt="Foto del fichaje" className="max-h-full max-w-full rounded-lg" />
+                </div>
+            )}
         </>
     );
 }
