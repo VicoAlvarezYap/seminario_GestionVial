@@ -9,12 +9,20 @@ use App\Models\EventoPuntoRecorrido;
 use App\Models\Lugar;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class EventoOperativoController extends Controller
 {
     public function store(EventoOperativoRequest $request): RedirectResponse
     {
         $datos = $request->validated();
+        if (!empty($datos['lugar_nombre'])) {
+            $nombre = Str::squish($datos['lugar_nombre']);
+
+            $datos['lugar_id'] = Lugar::whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])->value('id')
+                ?? Lugar::create(['nombre' => $nombre])->id;
+        }
+        unset($datos['lugar_nombre']);
 
         // Todo o nada: si falla el guardado de un punto, tampoco se guarda el evento
         DB::transaction(function () use ($datos) {
@@ -28,6 +36,13 @@ class EventoOperativoController extends Controller
     public function update(EventoOperativoRequest $request, EventoOperativo $evento): RedirectResponse
     {
         $datos = $request->validated();
+        if (!empty($datos['lugar_nombre'])) {
+            $nombre = Str::squish($datos['lugar_nombre']);
+
+            $datos['lugar_id'] = Lugar::whereRaw('LOWER(nombre) = ?', [mb_strtolower($nombre)])->value('id')
+                ?? Lugar::create(['nombre' => $nombre])->id;
+        }
+        unset($datos['lugar_nombre']);
 
         DB::transaction(function () use ($evento, $datos) {
             $evento->update($this->datosParaGuardar($datos));
@@ -45,11 +60,11 @@ class EventoOperativoController extends Controller
         return redirect()->route('eventos.index')->with('success', 'Evento eliminado correctamente.');
     }
     public function cancelar(EventoOperativo $evento): RedirectResponse
-{
-    $evento->update(['estado' => 'cancelado']);
+    {
+        $evento->update(['estado' => 'cancelado']);
 
-    return redirect()->route('eventos.index')->with('success', 'Evento cancelado.');
-}
+        return redirect()->route('eventos.index')->with('success', 'Evento cancelado.');
+    }
     /**
      * El formulario manda fecha y horas por separado; la tabla guarda fecha y hora juntas.
      * Las coordenadas de inicio y fin salen de la ubicación (evento estático)
@@ -76,11 +91,13 @@ class EventoOperativoController extends Controller
                 'longitud_inicio' => $datos['longitud_inicio'] ?? null,
                 'latitud_fin' => null,
                 'longitud_fin' => null,
+                'ruta' => $esMovil ? ($datos['ruta'] ?? null) : null,
+                'calles' => $esMovil ? ($datos['calles'] ?? null) : null,
             ];
         }
 
         // Evento estático sin coordenadas propias: se usan las del lugar elegido (si las tiene)
-        if (! $esMovil && $coordenadas['latitud_inicio'] === null && ! empty($datos['lugar_id'])) {
+        if (!$esMovil && $coordenadas['latitud_inicio'] === null && !empty($datos['lugar_id'])) {
             $lugar = Lugar::find($datos['lugar_id']);
 
             if ($lugar && $lugar->latitud !== null && $lugar->longitud !== null) {
@@ -100,7 +117,7 @@ class EventoOperativoController extends Controller
             'solicitante_nombre' => $datos['solicitante_nombre'] ?? null,
             'solicitante_celular' => $datos['solicitante_celular'] ?? null,
             'fecha_hora_inicio' => "{$datos['fecha']} {$datos['hora_inicio']}",
-            'fecha_hora_fin' => ! empty($datos['hora_fin'])
+            'fecha_hora_fin' => !empty($datos['hora_fin'])
                 ? "{$datos['fecha']} {$datos['hora_fin']}"
                 : null,
         ] + $coordenadas;

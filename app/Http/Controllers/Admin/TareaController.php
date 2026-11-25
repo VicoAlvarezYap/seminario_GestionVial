@@ -41,39 +41,45 @@ class TareaController extends Controller
             : 'Tarea creada correctamente.');
     }
 
-public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
-{
-    if (in_array($tarea->estado, ['finalizado', 'cancelada'], true)) {
-        return back()->with('error', 'Solo se pueden editar tareas pendientes o en curso.');
-    }
+    public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
+    {
+        $turno = $tarea->turno;
 
-    $datos = $request->validated();
-    unset($datos['aplicar_a_grupo']);
-    $datos = $this->completarDesdeEvento($datos);
+        if ($motivo = $turno->motivoBloqueoEdicion()) {
+            return back()->with('error', $motivo);
+        }
 
-    if (! empty($datos['hora_inicio']) && ! empty($datos['hora_fin'])) {
-        $tarea->turno->validarHorarioDelBloque($datos['hora_inicio'], $datos['hora_fin']);
+        if (in_array($tarea->estado, ['finalizado', 'cancelada'], true)) {
+            return back()->with('error', 'Solo se pueden editar tareas pendientes o en curso.');
+        }
+
+        $datos = $request->validated();
+        unset($datos['aplicar_a_grupo']);
+        $datos = $this->completarDesdeEvento($datos);
+
+        if (!empty($datos['hora_inicio']) && !empty($datos['hora_fin'])) {
+            $turno->validarHorarioDelBloque($datos['hora_inicio'], $datos['hora_fin']);
 
             $choca = Tarea::where('turno_trabajo_id', $tarea->turno_trabajo_id)
-            ->where('estado', '!=', 'cancelada')
-            ->whereKeyNot($tarea->id)
-            ->where('hora_inicio', '<', $datos['hora_fin'])
-            ->where('hora_fin', '>', $datos['hora_inicio'])
-            ->first();
+                ->where('estado', '!=', 'cancelada')
+                ->whereKeyNot($tarea->id)
+                ->where('hora_inicio', '<', $datos['hora_fin'])
+                ->where('hora_fin', '>', $datos['hora_inicio'])
+                ->first();
 
-        if ($choca) {
-            $tramo = substr($choca->hora_inicio, 0, 5).' a '.substr($choca->hora_fin, 0, 5);
+            if ($choca) {
+                $tramo = substr($choca->hora_inicio, 0, 5) . ' a ' . substr($choca->hora_fin, 0, 5);
 
-            throw ValidationException::withMessages([
-                'hora_inicio' => "Se superpone con la tarea «{$choca->titulo}» ({$tramo}) de este agente. Cambiá la hora o cancelá esa tarea.",
-            ]);
+                throw ValidationException::withMessages([
+                    'hora_inicio' => "Se superpone con la tarea «{$choca->titulo}» ({$tramo}) de este agente. Cambiá la hora o cancelá esa tarea.",
+                ]);
+            }
         }
+
+        $tarea->update($datos);
+
+        return back()->with('success', 'Tarea actualizada correctamente.');
     }
-
-    $tarea->update($datos);
-
-    return back()->with('success', 'Tarea actualizada correctamente.');
-}
 
     public function destroy(Tarea $tarea): RedirectResponse
     {
@@ -95,20 +101,20 @@ public function update(TareaRequest $request, Tarea $tarea): RedirectResponse
 
         $evento = EventoOperativo::findOrFail($datos['evento_operativo_id']);
 
-        $datos['lugar_id']    ??= $evento->lugar_id;
+        $datos['lugar_id'] ??= $evento->lugar_id;
         $datos['hora_inicio'] ??= $evento->fecha_hora_inicio->format('H:i');
-        $datos['hora_fin']    ??= $evento->fecha_hora_fin?->format('H:i');
+        $datos['hora_fin'] ??= $evento->fecha_hora_fin?->format('H:i');
 
         return $datos;
     }
- public function cancelar(Tarea $tarea): RedirectResponse
-{
-    if ($tarea->turno?->fichajes()->exists()) {
-        return back()->with('error', 'No se puede cancelar: el turno ya tiene fichajes registrados.');
+    public function cancelar(Tarea $tarea): RedirectResponse
+    {
+        if ($tarea->turno?->fichajes()->exists()) {
+            return back()->with('error', 'No se puede cancelar: el turno ya tiene fichajes registrados.');
+        }
+
+        $tarea->update(['estado' => 'cancelada']);
+
+        return back()->with('success', 'Tarea cancelada.');
     }
-
-    $tarea->update(['estado' => 'cancelada']);
-
-    return back()->with('success', 'Tarea cancelada.');
-}
 }

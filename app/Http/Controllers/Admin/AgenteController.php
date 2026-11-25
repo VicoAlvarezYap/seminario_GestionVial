@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\HistorialLaboral;
 
 class AgenteController extends Controller
 {
@@ -70,6 +71,10 @@ class AgenteController extends Controller
             ]);
             $usuario->email_verified_at = now();
             $usuario->save();
+            HistorialLaboral::create([
+                'agente_id' => $agente->id,
+                'fecha_alta' => now()->toDateString(),
+            ]);
 
             $usuario->assignRole(Agente::rolParaRango($d['rango']));
         });
@@ -87,12 +92,22 @@ class AgenteController extends Controller
     }
     public function show(Request $request, ?Agente $agente = null): Response
     {
-        $esPropio = $agente === null || $agente->id === $request->user()->agente_id;
+        $usuario = $request->user();
+        $esAdmin = $usuario->hasAnyRole(['Administrador', 'Supervisor']);
+        $esPropio = $agente === null || $agente->id === $usuario->agente_id;
+
         if ($agente === null) {
-            $agente = $request->user()->agente;
+            $agente = $usuario->agente;
             abort_unless($agente, 404, 'Tu cuenta no está vinculada a un agente.');
         }
-        $agente->load('contactosEmergencia'); // ajusta el nombre de la relación según tu modelo
+        $puedeGestionar = $esAdmin && !$esPropio;
+
+        $agente->load('contactosEmergencia');
+        if ($puedeGestionar) {
+            $agente->load('historialLaboral');
+        }
+        abort_unless($esPropio || $esAdmin, 403);
+
 
         return Inertia::render('Agentes/Perfil', [
             'agente' => [
@@ -105,8 +120,21 @@ class AgenteController extends Controller
                 'celular' => $agente->celular,
                 'correo' => $agente->correo,
                 'contactos_emergencia' => $agente->contactosEmergencia,
+                'historial' => $puedeGestionar
+                    ? $agente->historialLaboral->map(fn($h) => [
+                        'id' => $h->id,
+                        'fecha_alta' => $h->fecha_alta->format('d/m/Y'),
+                        'fecha_baja' => $h->fecha_baja?->format('d/m/Y'),
+                        'motivo_ingreso' => $h->motivo_ingreso,
+                        'motivo_egreso' => $h->motivo_egreso,
+                    ])->values()
+                    : [],
+                'activo' => $puedeGestionar
+                    ? $agente->historialLaboral->contains(fn($h) => $h->fecha_baja === null)
+                    : true,
             ],
             'esPropio' => $esPropio,
+            'esAdmin' => $puedeGestionar,
         ]);
     }
 

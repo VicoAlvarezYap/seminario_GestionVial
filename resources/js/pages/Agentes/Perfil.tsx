@@ -3,6 +3,8 @@ import { Pencil, Phone, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import FormContacto from '@/components/form-contacto';
 import type { ContactoEmergencia } from '@/components/form-contacto';
+import HistorialLaboralCard from '@/components/historial-laboral-card';
+import type { Periodo } from '@/components/historial-laboral-card';
 
 type Agente = {
     id: number;
@@ -14,11 +16,14 @@ type Agente = {
     celular: string;
     correo: string;
     contactos_emergencia: ContactoEmergencia[];
+    historial: Periodo[];
+    activo: boolean;
 };
 
 type Props = {
     agente: Agente;
     esPropio: boolean;
+    puedeGestionar: boolean;
 };
 
 const MAXIMO_CONTACTOS = 2; // el mismo valor que en el controlador
@@ -29,7 +34,7 @@ const ETIQUETA_RANGO: Record<string, string> = {
     director: 'Director/a',
 };
 
-export default function Perfil({ agente, esPropio }: Props) {
+export default function Perfil({ agente, esPropio, puedeGestionar}: Props) {
     const iniciales = `${agente.nombre?.[0] ?? ''}${agente.apellido?.[0] ?? ''}`.toUpperCase();
     const contactos = agente.contactos_emergencia ?? [];
 
@@ -46,7 +51,6 @@ export default function Perfil({ agente, esPropio }: Props) {
     return (
         <>
             <Head title={esPropio ? 'Mi Perfil' : `Perfil de ${agente.nombre} ${agente.apellido}`} />
-
             <main className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
                 <h1 className="text-2xl font-bold">{esPropio ? 'Mi Perfil' : 'Perfil del agente'}</h1>
 
@@ -60,6 +64,12 @@ export default function Perfil({ agente, esPropio }: Props) {
                         <div className="w-full flex-1 text-center sm:text-left">
                             <h2 className="text-xl font-semibold">
                                 {agente.nombre} {agente.apellido}
+                                <span
+                                    className={`ml-2 rounded-full px-2.5 py-0.5 align-middle text-xs font-medium ${agente.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                        }`}
+                                >
+                                    {agente.activo ? 'Activo' : 'De baja'}
+                                </span>
                             </h2>
                             <p className="text-muted-foreground mt-0.5 text-sm">
                                 {agente.rango ? (ETIQUETA_RANGO[agente.rango] ?? agente.rango) : 'Agente operativo'}
@@ -158,11 +168,19 @@ export default function Perfil({ agente, esPropio }: Props) {
                         </p>
                     )}
                 </div>
+                {puedeGestionar && (
+                    <HistorialLaboralCard
+                        agenteId={agente.id}
+                        historial={agente.historial}
+                        activo={agente.activo}
+                    />
+                )}
             </main>
 
             {esPropio && formulario !== undefined && (
                 <FormContacto contacto={formulario} onCerrar={() => setFormulario(undefined)} />
             )}
+
         </>
     );
 }

@@ -13,7 +13,7 @@ use Inertia\Response;
 use App\Mail\ActaInfraccionMail;
 use Illuminate\Support\Facades\Mail;
 class RelevoController extends Controller
-{
+{   
     //anexo del decreto 437/11 del acta de infraccion
     public const INFRACCIONES = [
         'sin_luces' => 'Circular sin luces encendidas (Art. 66)',
@@ -36,15 +36,8 @@ class RelevoController extends Controller
     ];
 
     public const TIPOS_DOCUMENTO = ['DNI', 'LE', 'LC', 'CI', 'Pasaporte', 'CUIT', 'CUIL', 'Otro'];
-    public const TIPOS_VEHICULO = [
-        'Automóvil',
-        'Camioneta / Pick-up',
-        'Motocicleta',
-        'Camión / Transporte de carga',
-        'Colectivo / Transporte de pasajeros',
-        'Utilitario',
-        'Otro',
-    ];
+    public const TIPOS_VEHICULO = ['Automóvil','Camioneta / Pick-up', 'Motocicleta','Camión / Transporte de carga','Colectivo / Transporte de pasajeros',
+    'Utilitario','Otro',];
     public function index(Request $request): Response
     {
         $usuario = $request->user();
@@ -54,7 +47,7 @@ class RelevoController extends Controller
             ->where('agente_id', $usuario->agente_id)
             ->orderByDesc('fecha_hora')
             ->get()
-            ->map(fn(Relevos $r) => $r->paraVista() + [
+            ->map(fn (Relevos $r) => $r->paraVista() + [
                 'editable' => $r->fecha_hora->isToday(),
             ])
             ->values()
@@ -69,7 +62,7 @@ class RelevoController extends Controller
             'infracciones' => $this->comoLista(self::INFRACCIONES),
             'alcoholemia' => $this->comoLista(self::ALCOHOLEMIA),
             'tiposDocumento' => self::TIPOS_DOCUMENTO,
-            'tiposVehiculo' => self::TIPOS_VEHICULO,
+            'tiposVehiculo'=> self::TIPOS_VEHICULO,
         ]);
     }
 
@@ -129,14 +122,12 @@ class RelevoController extends Controller
         $reglas = [];
 
         foreach (Relevos::TEXTOS as $campo => $maximo) {
-            $reglas[$campo] = ['nullable', 'string', 'max:' . $maximo];
+            $reglas[$campo] = ['nullable', 'string', 'max:'.$maximo];
         }
 
         return array_merge($reglas, [
             'numero_acta' => [
-                'nullable',
-                'string',
-                'max:20',
+                'nullable', 'string', 'max:20',
                 Rule::unique('relevos', 'numero_acta')->ignore($ignorarId)->whereNull('deleted_at'),
             ],
             'tercero_nombre_apellido' => ['required', 'string', 'max:200'],
@@ -145,19 +136,17 @@ class RelevoController extends Controller
             'conductor_sexo' => ['nullable', Rule::in(['M', 'F', 'X'])],
             'propietario_tipo_documento' => ['nullable', Rule::in(self::TIPOS_DOCUMENTO)],
             'vehiculo_placa' => ['required', 'string', 'max:15'],
-            'vehiculo_tipo' => ['required', Rule::in(self::TIPOS_VEHICULO)],
+            'vehiculo_tipo'=>['required',Rule::in(self::TIPOS_VEHICULO)],
             'lugar_infraccion' => ['required', 'string', 'max:255'],
             'alcoholemia_nivel' => ['nullable', Rule::in(array_keys(self::ALCOHOLEMIA))],
             'licencia_vencimiento' => ['nullable', 'date'],
-            'vehiculo_anio' => ['nullable', 'integer', 'between:1900,' . (now()->year + 1)],
+            'vehiculo_anio' => ['nullable', 'integer', 'between:1900,'.(now()->year + 1)],
             'instrumento_fecha_hora' => ['nullable', 'date'],
             'infracciones_codigos' => ['nullable', 'array'],
             'infracciones_codigos.*' => ['string', Rule::in(array_keys(self::INFRACCIONES))],
             'descripcion_legal' => [
-                Rule::requiredIf(fn() => empty($request->input('infracciones_codigos'))),
-                'nullable',
-                'string',
-                'max:500',
+                Rule::requiredIf(fn () => empty($request->input('infracciones_codigos'))),
+                'nullable', 'string', 'max:500',
             ],
             'alcoholemia_agravante' => ['boolean'],
             'retuvo_licencia' => ['boolean'],
@@ -198,7 +187,7 @@ class RelevoController extends Controller
     //resumende las infracciones
     private function armarMotivo(array $codigos, ?string $descripcionLegal): string
     {
-        $partes = array_map(fn(string $c) => self::INFRACCIONES[$c], $codigos);
+        $partes = array_map(fn (string $c) => self::INFRACCIONES[$c], $codigos);
 
         if ($descripcionLegal) {
             $partes[] = $descripcionLegal;
@@ -210,13 +199,13 @@ class RelevoController extends Controller
     private function comoLista(array $opciones): array
     {
         return collect($opciones)
-            ->map(fn(string $etiqueta, string $codigo) => ['codigo' => $codigo, 'etiqueta' => $etiqueta])
+            ->map(fn (string $etiqueta, string $codigo) => ['codigo' => $codigo, 'etiqueta' => $etiqueta])
             ->values()
             ->all();
     }
     private function turnoEnCurso(?int $agenteId): ?TurnoTrabajo
     {
-        if (!$agenteId) {
+        if (! $agenteId) {
             return null;
         }
 
@@ -243,19 +232,19 @@ class RelevoController extends Controller
             'Solo se pueden modificar actas cargadas hoy.'
         );
     }
-    public function enviarCorreo(Request $request, Relevos $relevo): RedirectResponse
-    {
-        $this->verificarDuenio($request, $relevo);
+   public function enviarCorreo(Request $request, Relevos $relevo): RedirectResponse
+{
+    $this->verificarDuenio($request, $relevo);
 
-        abort_unless(filled($relevo->conductor_correo), 422, 'El infractor no tiene correo cargado.');
+    abort_unless(filled($relevo->conductor_correo), 422, 'El infractor no tiene correo cargado.');
 
-        $pdf = app(RelevoAdminController::class)->documento($relevo)->output();
+    $pdf = app(RelevoAdminController::class)->documento($relevo)->output();
 
-        Mail::to($relevo->conductor_correo)->send(new ActaInfraccionMail($relevo, $pdf));
+    Mail::to($relevo->conductor_correo)->send(new ActaInfraccionMail($relevo, $pdf));
 
-        $relevo->update(['correo_enviado_at' => now()]);
+    $relevo->update(['correo_enviado_at' => now()]);
 
-        return back()->with('success', 'Acta enviada a ' . $relevo->conductor_correo . '.');
-    }
+    return back()->with('success', 'Acta enviada a '.$relevo->conductor_correo.'.');
+}
 
 }

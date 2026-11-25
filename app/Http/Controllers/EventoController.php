@@ -27,14 +27,14 @@ class EventoController extends Controller
         ]);
 
         $consulta = EventoOperativo::query()
-           ->with(['lugar:id,nombre', 'tareas.turno.agente:id,nombre,apellido'])
-           ->filtrar($f, $gestiona, $usuario->agente_id);
+            ->with(['lugar:id,nombre', 'tareas.turno.agente:id,nombre,apellido'])
+            ->filtrar($f, $gestiona, $usuario->agente_id);
 
         $eventos = $consulta
             ->orderByDesc('fecha_hora_inicio')
             ->paginate(15)
             ->withQueryString()
-            ->through(fn (EventoOperativo $e) => $this->fila($e));
+            ->through(fn(EventoOperativo $e) => $this->fila($e));
         if ($request->filled('desde')) {
             $consulta->whereDate('fecha_hora_inicio', '>=', $f['desde']);
         }
@@ -46,19 +46,20 @@ class EventoController extends Controller
             // Admin: filtra por uno o más agentes (vacío = todos)
             $ids = array_map('intval', $f['agentes'] ?? []);
             if ($ids) {
-                $consulta->whereHas('tareas.turno', fn ($q) => $q->whereIn('agente_id', $ids));
+                $consulta->whereHas('tareas.turno', fn($q) => $q->whereIn('agente_id', $ids));
             }
         } elseif ($usuario->agente_id && ($f['alcance'] ?? 'propios') === 'propios') {
             // Agente: por defecto, solo sus eventos
-            $consulta->whereHas('tareas.turno', fn ($q) => $q->where('agente_id', $usuario->agente_id));
+            $consulta->whereHas('tareas.turno', fn($q) => $q->where('agente_id', $usuario->agente_id));
         }
 
-        $eventos = $consulta
+        $eventos = EventoOperativo::query()
+            ->with(['lugar:id,nombre', 'tareas.turno.agente:id,nombre,apellido'])
+            ->filtrar($f, $gestiona, $usuario->agente_id)
             ->orderByDesc('fecha_hora_inicio')
             ->paginate(15)
             ->withQueryString()
-            ->through(fn (EventoOperativo $e) => $this->fila($e));
-
+            ->through(fn(EventoOperativo $e) => $this->fila($e));
         return Inertia::render('Eventos/Index', [
             'eventos' => $eventos,
             'filtros' => [
@@ -69,11 +70,11 @@ class EventoController extends Controller
             ],
             'agentes' => Agente::orderBy('apellido')->orderBy('nombre')
                 ->get(['id', 'nombre', 'apellido'])
-                ->map(fn (Agente $a) => ['id' => $a->id, 'nombre' => "{$a->apellido}, {$a->nombre}"])
+                ->map(fn(Agente $a) => ['id' => $a->id, 'nombre' => "{$a->apellido}, {$a->nombre}"])
                 ->values()
                 ->all(),
             'gestiona' => $gestiona,
-            'puedeFiltrarPorAlcance' => (bool) $usuario->agente_id && ! $gestiona,
+            'puedeFiltrarPorAlcance' => (bool) $usuario->agente_id && !$gestiona,
         ]);
     }
 
@@ -90,7 +91,9 @@ class EventoController extends Controller
                 'solicitante_celular' => $evento->solicitante_celular,
                 'latitud_inicio' => $evento->latitud_inicio,
                 'longitud_inicio' => $evento->longitud_inicio,
-                'puntos' => $evento->puntosRecorrido->map(fn ($p) => [
+                'ruta' => $e->ruta ?? [],
+                'calles' => $e->calles ?? [],
+                'puntos' => $evento->puntosRecorrido->map(fn($p) => [
                     'orden' => $p->orden,
                     'latitud' => $p->latitud,
                     'longitud' => $p->longitud,
@@ -105,17 +108,15 @@ class EventoController extends Controller
     {
         return Inertia::render('Eventos/Form', [
             'evento' => null,
-            'lugares' => $this->lugares(),
         ]);
     }
 
     public function edit(EventoOperativo $evento): Response
     {
-        $evento->load('puntosRecorrido');
+        $evento->load(['puntosRecorrido', 'lugar']);
 
         return Inertia::render('Eventos/Form', [
             'evento' => $this->datosFormulario($evento),
-            'lugares' => $this->lugares(),
         ]);
     }
 
@@ -131,10 +132,10 @@ class EventoController extends Controller
     private function fila(EventoOperativo $e): array
     {
         $agentes = $e->tareas
-            ->map(fn ($t) => $t->turno?->agente)
+            ->map(fn($t) => $t->turno?->agente)
             ->filter()
             ->unique('id')
-            ->map(fn ($a) => "{$a->apellido}, {$a->nombre}")
+            ->map(fn($a) => "{$a->apellido}, {$a->nombre}")
             ->values()
             ->all();
 
@@ -161,16 +162,18 @@ class EventoController extends Controller
             'fecha' => $e->fecha_hora_inicio->format('Y-m-d'),
             'hora_inicio' => $e->fecha_hora_inicio->format('H:i'),
             'hora_fin' => $e->fecha_hora_fin?->format('H:i'),
-            'lugar_id' => $e->lugar_id,
+            'lugar_nombre' => $e->lugar?->nombre,
             'direccion' => $e->direccion,
             'tipo_recorrido' => $e->tipo_recorrido,
             'latitud_inicio' => $e->latitud_inicio,
             'longitud_inicio' => $e->longitud_inicio,
+            'ruta' => $e->ruta ?? [],
+            'calles' => $e->calles ?? [],
             'solicitante_ente' => $e->solicitante_ente,
             'solicitante_nombre' => $e->solicitante_nombre,
             'solicitante_celular' => $e->solicitante_celular,
             'estado' => $e->estado,
-            'puntos' => $e->puntosRecorrido->map(fn ($p) => [
+            'puntos' => $e->puntosRecorrido->map(fn($p) => [
                 'latitud' => $p->latitud,
                 'longitud' => $p->longitud,
                 'descripcion_referencia' => $p->descripcion_referencia,
@@ -180,6 +183,6 @@ class EventoController extends Controller
 
     private function lugares(): array
     {
-        return Lugar::orderBy('nombre')->get(['id', 'nombre'])->map(fn ($l) => ['id' => $l->id, 'nombre' => $l->nombre])->all();
+        return Lugar::orderBy('nombre')->get(['id', 'nombre'])->map(fn($l) => ['id' => $l->id, 'nombre' => $l->nombre])->all();
     }
 }

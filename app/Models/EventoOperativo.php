@@ -25,7 +25,10 @@ class EventoOperativo extends Model
         'solicitante_nombre',
         'solicitante_celular',
         'estado',
-        'lugar_id', // 2. Añadir lugar_id al fillable
+        'lugar_id',
+        'ruta' => 'array',
+        'calles' => 'array',
+
     ];
 
     protected function casts(): array
@@ -56,26 +59,27 @@ class EventoOperativo extends Model
         return $this->belongsTo(Lugar::class, 'lugar_id');
     }
     public function tareas(): HasMany
-{
-    return $this->hasMany(Tarea::class, 'evento_operativo_id');
-}
-/** Filtros compartidos por la lista y el Excel. */
-public function scopeFiltrar(Builder $q, array $f, bool $gestiona, ?int $agenteId): Builder
-{
-    $q->when(! empty($f['desde']), fn ($c) => $c->whereDate('fecha_hora_inicio', '>=', $f['desde']))
-      ->when(! empty($f['hasta']), fn ($c) => $c->whereDate('fecha_hora_inicio', '<=', $f['hasta']))
-      ->when(! empty($f['buscar']), fn ($c) => $c->where('titulo', 'like', '%'.addcslashes($f['buscar'], '%_\\').'%'));
-    if ($gestiona) {
-        // Admin: uno o más agentes (vacío = todos)
-        $ids = array_map('intval', $f['agentes'] ?? []);
-        if ($ids) {
-            $q->whereHas('tareas.turno', fn ($t) => $t->whereIn('agente_id', $ids));
-        }
-    } elseif ($agenteId && ($f['alcance'] ?? 'propios') === 'propios') {
-        // Agente: por defecto solo los suyos
-        $q->whereHas('tareas.turno', fn ($t) => $t->where('agente_id', $agenteId));
+    {
+        return $this->hasMany(Tarea::class, 'evento_operativo_id');
     }
+    /** Filtros compartidos por la lista y el Excel. */
+    public function scopeFiltrar(Builder $q, array $f, bool $gestiona, ?int $agenteId): Builder
+    {
+        $q->when(!empty($f['desde']), fn($c) => $c->whereDate('fecha_hora_inicio', '>=', $f['desde']))
+            ->when(!empty($f['hasta']), fn($c) => $c->whereDate('fecha_hora_inicio', '<=', $f['hasta']))
+            ->when(!empty($f['buscar']), fn($c) => $c->where('titulo', 'like', '%' . addcslashes($f['buscar'], '%_\\') . '%'))
+            ->when(!empty($f['estado']), fn($c) => $c->where('estado', $f['estado']));
+        if ($gestiona) {
+            // Admin: uno o más agentes (vacío = todos)
+            $ids = array_map('intval', $f['agentes'] ?? []);
+            if ($ids) {
+                $q->whereHas('tareas.turno', fn($t) => $t->whereIn('agente_id', $ids));
+            }
+        } elseif ($agenteId && ($f['alcance'] ?? 'propios') === 'propios') {
+            // Agente: por defecto solo los suyos
+            $q->whereHas('tareas.turno', fn($t) => $t->where('agente_id', $agenteId));
+        }
 
-    return $q;
-}
+        return $q;
+    }
 }
