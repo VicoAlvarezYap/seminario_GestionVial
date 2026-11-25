@@ -1,7 +1,6 @@
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { AlertTriangle, ChevronLeft, ClipboardList, LogIn, LogOut, MapPin, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
-import type { TareaFila } from '@/components/turnos-compartidos';
 import MapaEvento from '@/components/mapa-evento';
 
 type Turno = {
@@ -25,7 +24,6 @@ type Fichaje = {
     tipo: 'entrada' | 'salida' | 'salida_anticipada';
     hora: string;
     origen: string;
-    //ip: string | null;
     latitud: string | number | null;
     longitud: string | number | null;
     precision_m: number | null;
@@ -47,7 +45,6 @@ type Reporte = {
 
 type Tarea = { titulo: string; lugar: string | null };
 
-// Campos opcionales: se completan según lo que envíe el controlador
 type Intervencion = { id: number; hora: string; estado: string; titulo?: string; descripcion?: string };
 type Infraccion = { id: number; hora?: string; titulo?: string; descripcion?: string; estado?: string };
 
@@ -99,8 +96,9 @@ const PESTANAS = [
 
 type PestanaId = (typeof PESTANAS)[number]['id'];
 
-const inputClase = 'w-full rounded-lg border bg-background p-2.5 text-sm';
-
+const cardClase = 'rounded-2xl border border-slate-400/90 bg-card shadow-sm shadow-slate-950/5';
+const inputClase =
+    'w-full rounded-xl border border-slate-400/90 bg-background p-2.5 text-sm shadow-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
 
 function aMinutos(hora: string): number {
     const [h, m] = hora.split(':').map(Number);
@@ -112,13 +110,65 @@ function Etiqueta({ texto, clase }: { texto: string; clase: string }) {
 }
 
 function Vacio({ mensaje }: { mensaje: string }) {
-    return <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{mensaje}</p>;
+    return (
+        <p className="rounded-2xl border border-dashed border-slate-400/80 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+            {mensaje}
+        </p>
+    );
 }
 
 function enlaceMapa(lat: string | number | null, lng: string | number | null): string | null {
     return lat !== null && lng !== null ? `https://www.google.com/maps?q=${lat},${lng}` : null;
 }
 
+function parsearNovedades(texto: string | null): {
+    campos: { clave: string; valor: string }[];
+    relato: string;
+} {
+    if (!texto?.trim()) {
+        return { campos: [], relato: 'Sin novedades.' };
+    }
+
+    const segmentos = texto
+        .replace(/\.\s+(?=[A-ZÁÉÍÓÚÑ][a-záéíóúñ\s]{1,20}:)/g, '.\n')
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+    const campos: { clave: string; valor: string }[] = [];
+    const relatoLineas: string[] = [];
+    const clavesConocidas = /^(ubicación|ubicacion|urgencia|prioridad|lugar|estado|involucrados)\s*:\s*(.+)$/i;
+
+    for (const seg of segmentos) {
+        const match = seg.match(clavesConocidas);
+        if (match && relatoLineas.length === 0) {
+            const claveNormalizada = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+            const valorLimpio = match[2].replace(/\.$/, '').trim();
+            campos.push({ clave: claveNormalizada, valor: valorLimpio });
+        } else {
+            relatoLineas.push(seg);
+        }
+    }
+
+    return {
+        campos,
+        relato: relatoLineas.join(' ') || 'Sin detalle adicional.',
+    };
+}
+
+function badgeUrgencia(valor: string): string {
+    const v = valor.toLowerCase();
+    if (v.includes('alta') || v.includes('crítica') || v.includes('critica')) {
+        return 'border-red-400 bg-red-100 text-red-900';
+    }
+    if (v.includes('media')) {
+        return 'border-amber-400 bg-amber-100 text-amber-900';
+    }
+    if (v.includes('baja')) {
+        return 'border-emerald-400 bg-emerald-100 text-emerald-900';
+    }
+    return 'border-slate-400 bg-muted text-foreground';
+}
 
 export default function Detalle({ turno, fichajes, reporte, tareas, intervenciones, infracciones }: Props) {
     const [fotoAbierta, setFotoAbierta] = useState<string | null>(null);
@@ -142,13 +192,13 @@ export default function Detalle({ turno, fichajes, reporte, tareas, intervencion
             <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
                 <Link
                     href="/admin/turnos/historial"
-                    className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-400/90 bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent hover:shadow-sm"
                 >
                     <ChevronLeft className="size-4" /> Volver al historial
                 </Link>
 
                 {/* Encabezado */}
-                <header className="space-y-3">
+                <header className="space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <h1 className="text-2xl font-bold">{turno.agente}</h1>
@@ -182,7 +232,7 @@ export default function Detalle({ turno, fichajes, reporte, tareas, intervencion
                 {pendiente && <RevisionAbandono fichaje={pendiente} />}
 
                 {/* Pestañas */}
-                <div role="tablist" aria-label="Información del turno" className="flex flex-wrap gap-1 border-b">
+                <div role="tablist" aria-label="Información del turno" className="flex flex-wrap gap-1 border-b border-slate-300">
                     {PESTANAS.map((p) => (
                         <button
                             key={p.id}
@@ -190,10 +240,11 @@ export default function Detalle({ turno, fichajes, reporte, tareas, intervencion
                             role="tab"
                             aria-selected={pestana === p.id}
                             onClick={() => setPestana(p.id)}
-                            className={`-mb-px px-4 py-2 text-sm transition-colors ${pestana === p.id
+                            className={`-mb-px px-4 py-2 text-sm transition-colors ${
+                                pestana === p.id
                                     ? 'border-b-2 border-primary font-semibold text-foreground'
                                     : 'text-muted-foreground hover:text-foreground'
-                                } ${vacia(p.id) && pestana !== p.id ? 'opacity-50' : ''}`}
+                            } ${vacia(p.id) && pestana !== p.id ? 'opacity-50' : ''}`}
                         >
                             {p.nombre}
                             {contador[p.id] !== undefined && ` (${contador[p.id]})`}
@@ -217,12 +268,17 @@ export default function Detalle({ turno, fichajes, reporte, tareas, intervencion
                     {pestana === 'infracciones' && <ListaInfracciones items={infracciones} />}
                 </div>
             </div>
+
             {fotoAbierta && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
                     onClick={() => setFotoAbierta(null)}
                 >
-                    <img src={fotoAbierta} alt="Foto del fichaje" className="max-h-full max-w-full rounded-lg" />
+                    <img
+                        src={fotoAbierta}
+                        alt="Foto del fichaje"
+                        className="max-h-full max-w-full rounded-xl border border-slate-400"
+                    />
                 </div>
             )}
         </>
@@ -231,13 +287,12 @@ export default function Detalle({ turno, fichajes, reporte, tareas, intervencion
 
 function Dato({ titulo, valor }: { titulo: string; valor: string }) {
     return (
-        <div className="rounded-xl border bg-card p-3">
-            <dt className="text-xs text-muted-foreground">{titulo}</dt>
-            <dd className="mt-0.5 text-sm font-medium">{valor}</dd>
+        <div className={`${cardClase} p-3.5 transition-colors hover:border-slate-500`}>
+            <dt className="text-xs font-medium text-muted-foreground">{titulo}</dt>
+            <dd className="mt-0.5 text-sm font-semibold">{valor}</dd>
         </div>
     );
 }
-
 
 function RevisionAbandono({ fichaje }: { fichaje: Fichaje }) {
     const form = useForm<{ estado_revision: string; comentario_revision: string }>({
@@ -251,7 +306,7 @@ function RevisionAbandono({ fichaje }: { fichaje: Fichaje }) {
     };
 
     return (
-        <section className="space-y-3 rounded-xl border border-yellow-300 bg-yellow-50 p-4 text-yellow-950">
+        <section className="space-y-3 rounded-2xl border border-yellow-500/80 bg-yellow-50 p-4 text-yellow-950 shadow-md shadow-yellow-950/5">
             <div className="flex items-center gap-2 text-sm font-semibold">
                 <AlertTriangle className="size-4" /> El agente abandonó el turno a las {fichaje.hora}
             </div>
@@ -268,7 +323,7 @@ function RevisionAbandono({ fichaje }: { fichaje: Fichaje }) {
                     rows={2}
                     value={form.data.comentario_revision}
                     onChange={(e) => form.setData('comentario_revision', e.target.value)}
-                    className={`${inputClase} bg-white`}
+                    className={`${inputClase} border-yellow-600/50 bg-white`}
                 />
                 {form.errors.comentario_revision && (
                     <p className="text-sm text-red-700">{form.errors.comentario_revision}</p>
@@ -280,7 +335,7 @@ function RevisionAbandono({ fichaje }: { fichaje: Fichaje }) {
                     type="button"
                     disabled={form.processing}
                     onClick={() => resolver('justificada')}
-                    className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                    className="rounded-xl border border-green-800 bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-green-800 hover:shadow-md disabled:opacity-60"
                 >
                     Marcar como justificada
                 </button>
@@ -288,7 +343,7 @@ function RevisionAbandono({ fichaje }: { fichaje: Fichaje }) {
                     type="button"
                     disabled={form.processing}
                     onClick={() => resolver('injustificada')}
-                    className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                    className="rounded-xl border border-red-800 bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-red-800 hover:shadow-md disabled:opacity-60"
                 >
                     Marcar como injustificada
                 </button>
@@ -296,7 +351,6 @@ function RevisionAbandono({ fichaje }: { fichaje: Fichaje }) {
         </section>
     );
 }
-
 
 type Evento = {
     clave: string;
@@ -321,7 +375,6 @@ function Resumen({
     infracciones: Infraccion[];
     tareas: Tarea[];
 }) {
-    // Referencia para ordenar bien los turnos que cruzan la medianoche
     const base = aMinutos(turno.entrada ?? turno.hora_inicio_prog);
     const ordenable = (hora: string) => {
         const m = aMinutos(hora);
@@ -368,13 +421,15 @@ function Resumen({
                 {eventos.length === 0 ? (
                     <Vacio mensaje="Todavía no hay registros de este turno." />
                 ) : (
-                    <ol className="space-y-0">
+                    <ol className={`${cardClase} space-y-0 p-5`}>
                         {eventos.map((e, idx) => (
                             <li key={e.clave} className="relative flex gap-3 pb-5 last:pb-0">
                                 {idx < eventos.length - 1 && (
-                                    <span className="absolute left-[15px] top-8 h-[calc(100%-1.5rem)] w-px bg-border" aria-hidden />
+                                    <span className="absolute left-[15px] top-8 h-[calc(100%-1.5rem)] w-px bg-slate-300" aria-hidden />
                                 )}
-                                <span className={`flex size-8 shrink-0 items-center justify-center rounded-full ${e.tono}`}>
+                                <span
+                                    className={`flex size-8 shrink-0 items-center justify-center rounded-full border border-black/10 ${e.tono}`}
+                                >
                                     {e.icono}
                                 </span>
                                 <div className="min-w-0 pt-1">
@@ -395,10 +450,10 @@ function Resumen({
                 {tareas.length === 0 ? (
                     <Vacio mensaje="Sin tareas asignadas." />
                 ) : (
-                    <ul className="space-y-2 rounded-xl border bg-card p-4 text-sm">
+                    <ul className={`${cardClase} divide-y divide-slate-300/80 text-sm`}>
                         {tareas.map((t, i) => (
-                            <li key={i}>
-                                {t.titulo}
+                            <li key={i} className="px-4 py-3">
+                                <span className="font-medium">{t.titulo}</span>
                                 {t.lugar && <span className="text-muted-foreground"> en {t.lugar}</span>}
                             </li>
                         ))}
@@ -413,14 +468,14 @@ function Fichajes({ fichajes, onFoto }: { fichajes: Fichaje[]; onFoto: (url: str
     if (fichajes.length === 0) return <Vacio mensaje="El agente todavía no registró fichajes." />;
 
     return (
-        <ul className="space-y-3">
+        <ul className="space-y-4">
             {fichajes.map((f) => {
                 const mapa = enlaceMapa(f.latitud, f.longitud);
                 const revision = f.estado_revision ? REVISION[f.estado_revision] : null;
 
                 return (
-                    <li key={f.id} className="space-y-3 rounded-xl border bg-card p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
+                    <li key={f.id} className={`${cardClase} space-y-3 p-4 transition-colors hover:border-slate-500`}>
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-300/80 pb-2.5">
                             <p className="text-sm font-semibold">
                                 {TIPO_FICHAJE[f.tipo] ?? f.tipo} a las <span className="font-mono">{f.hora}</span>
                             </p>
@@ -434,22 +489,22 @@ function Fichajes({ fichajes, onFoto }: { fichajes: Fichaje[]; onFoto: (url: str
                                         src={f.foto_url}
                                         alt={`Foto de ${TIPO_FICHAJE[f.tipo] ?? f.tipo}`}
                                         loading="lazy"
-                                        className="h-28 w-28 rounded-lg border object-cover hover:opacity-80"
+                                        className="h-28 w-28 rounded-xl border border-slate-400/90 object-cover shadow-xs transition-opacity hover:opacity-85"
                                     />
                                 </button>
                             ) : (
-                                <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border text-xs text-muted-foreground">
+                                <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-400/80 bg-muted/20 text-xs text-muted-foreground">
                                     Sin foto
                                 </div>
                             )}
 
-                            <div className="min-w-0 flex-1 space-y-1">
+                            <div className="min-w-0 flex-1 space-y-1.5">
                                 {f.latitud !== null && f.longitud !== null ? (
                                     <>
                                         {f.precision_m !== null && (
                                             <p className="text-xs text-muted-foreground">Precisión: ±{f.precision_m} m</p>
                                         )}
-                                        <div className="max-w-sm [&>div]:h-40">
+                                        <div className="max-w-sm overflow-hidden rounded-xl border border-slate-400/90 [&>div]:h-40">
                                             <MapaEvento
                                                 puntos={[
                                                     {
@@ -465,7 +520,7 @@ function Fichajes({ fichajes, onFoto }: { fichajes: Fichaje[]; onFoto: (url: str
                                                 href={mapa}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                                             >
                                                 <MapPin className="size-3.5" /> Abrir en Google Maps
                                             </a>
@@ -484,7 +539,7 @@ function Fichajes({ fichajes, onFoto }: { fichajes: Fichaje[]; onFoto: (url: str
                         )}
 
                         {f.revisada_at && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="border-t border-slate-300/80 pt-2 text-sm text-muted-foreground">
                                 Revisada por {f.revisada_por ?? 'un administrador'} el {f.revisada_at}
                                 {f.comentario_revision && <>. Comentario: {f.comentario_revision}</>}
                             </p>
@@ -495,8 +550,14 @@ function Fichajes({ fichajes, onFoto }: { fichajes: Fichaje[]; onFoto: (url: str
         </ul>
     );
 }
+
 function ReporteTurno({ reporte }: { reporte: Reporte | null }) {
     if (!reporte) return <Vacio mensaje="Este turno no tiene reporte cargado." />;
+
+    const { campos, relato } = parsearNovedades(reporte.novedades);
+    const ubicacion = campos.find((c) => c.clave === 'Ubicación' || c.clave === 'Ubicacion');
+    const urgencia = campos.find((c) => c.clave === 'Urgencia' || c.clave === 'Prioridad');
+    const otrosCampos = campos.filter((c) => c !== ubicacion && c !== urgencia);
 
     return (
         <div className="space-y-4">
@@ -509,9 +570,44 @@ function ReporteTurno({ reporte }: { reporte: Reporte | null }) {
                 <Dato titulo="Otros equipos" valor={reporte.otros_equipos || 'Ninguno'} />
             </dl>
 
-            <section className="space-y-1 rounded-xl border bg-card p-4">
-                <h3 className="text-sm font-semibold">Novedades</h3>
-                <p className="whitespace-pre-line text-sm">{reporte.novedades || 'Sin novedades.'}</p>
+            {(ubicacion || urgencia || otrosCampos.length > 0) && (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {ubicacion && (
+                        <div className={`${cardClase} p-3.5 transition-colors hover:border-slate-500`}>
+                            <p className="text-xs font-medium text-muted-foreground">Ubicación</p>
+                            <p className="mt-1 text-sm font-semibold text-foreground">{ubicacion.valor}</p>
+                        </div>
+                    )}
+
+                    {urgencia && (
+                        <div className={`${cardClase} flex flex-col justify-between p-3.5 transition-colors hover:border-slate-500`}>
+                            <p className="text-xs font-medium text-muted-foreground">Urgencia</p>
+                            <div className="mt-1.5">
+                                <span
+                                    className={`inline-block rounded-full border px-3 py-0.5 text-xs font-semibold capitalize ${badgeUrgencia(
+                                        urgencia.valor,
+                                    )}`}
+                                >
+                                    {urgencia.valor}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {otrosCampos.map((c) => (
+                        <div key={c.clave} className={`${cardClase} p-3.5 transition-colors hover:border-slate-500`}>
+                            <p className="text-xs font-medium text-muted-foreground">{c.clave}</p>
+                            <p className="mt-1 text-sm font-semibold text-foreground">{c.valor}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <section className={`${cardClase} space-y-2 p-4 transition-colors hover:border-slate-500`}>
+                <div className="flex items-center justify-between border-b border-slate-300/80 pb-2">
+                    <h3 className="text-sm font-semibold">Detalle de novedades</h3>
+                </div>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">{relato}</p>
             </section>
         </div>
     );
@@ -521,7 +617,7 @@ function ListaIntervenciones({ items }: { items: Intervencion[] }) {
     if (items.length === 0) return <Vacio mensaje="No hubo intervenciones en este turno." />;
 
     return (
-        <ul className="divide-y rounded-xl border bg-card">
+        <ul className={`${cardClase} divide-y divide-slate-300/80`}>
             {items.map((i) => (
                 <li key={i.id} className="flex flex-wrap items-start justify-between gap-2 p-4 text-sm">
                     <div>
@@ -541,7 +637,7 @@ function ListaInfracciones({ items }: { items: Infraccion[] }) {
     if (items.length === 0) return <Vacio mensaje="No se registraron infracciones en este turno." />;
 
     return (
-        <ul className="divide-y rounded-xl border bg-card">
+        <ul className={`${cardClase} divide-y divide-slate-300/80`}>
             {items.map((x) => (
                 <li key={x.id} className="flex flex-wrap items-start justify-between gap-2 p-4 text-sm">
                     <div>

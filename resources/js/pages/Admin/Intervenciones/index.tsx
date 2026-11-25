@@ -65,25 +65,34 @@ const ETIQUETA_URGENCIA: Record<string, string> = {
 };
 
 const colorPorEstado: Record<string, string> = {
-    reportada: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-    en_curso: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-    resuelta: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-    derivada: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-    cancelada: 'bg-gray-100 text-gray-800 dark:bg-zinc-700 dark:text-zinc-200',
+    reportada:
+        'border-yellow-400/60 bg-yellow-100 text-yellow-800 dark:border-yellow-700/60 dark:bg-yellow-900/40 dark:text-yellow-300',
+    en_curso:
+        'border-blue-400/60 bg-blue-100 text-blue-800 dark:border-blue-700/60 dark:bg-blue-900/40 dark:text-blue-300',
+    resuelta:
+        'border-green-400/60 bg-green-100 text-green-800 dark:border-green-700/60 dark:bg-green-900/40 dark:text-green-300',
+    derivada:
+        'border-purple-400/60 bg-purple-100 text-purple-800 dark:border-purple-700/60 dark:bg-purple-900/40 dark:text-purple-300',
+    cancelada:
+        'border-zinc-400/60 bg-gray-100 text-gray-800 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200',
 };
 
 const colorPorUrgencia: Record<string, string> = {
-    baja: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-    media: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-    alta: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
-    critica: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+    baja:
+        'border-green-400/60 bg-green-100 text-green-800 dark:border-green-700/60 dark:bg-green-900/40 dark:text-green-300',
+    media:
+        'border-yellow-400/60 bg-yellow-100 text-yellow-800 dark:border-yellow-700/60 dark:bg-yellow-900/40 dark:text-yellow-300',
+    alta:
+        'border-orange-400/60 bg-orange-100 text-orange-800 dark:border-orange-700/60 dark:bg-orange-900/40 dark:text-orange-300',
+    critica:
+        'border-red-400/60 bg-red-100 text-red-800 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-300',
 };
 
 const claseInput =
-    'w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground disabled:opacity-60';
+    'w-full rounded-xl border border-zinc-400 bg-background px-3.5 py-2 text-sm text-foreground transition-colors focus:border-zinc-800 focus:outline-none disabled:opacity-60 dark:border-zinc-600 dark:focus:border-zinc-300';
 const claseEtiqueta = 'mb-1 block text-sm font-medium';
 const claseAccion =
-    'rounded-full border-2 border-primary/60 px-3 py-1 text-xs font-medium text-primary transition-all hover:border-primary hover:bg-primary/10 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:shadow-none';
+    'rounded-full border border-zinc-400 px-3.5 py-1 text-xs font-medium transition-all hover:border-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-zinc-400 disabled:hover:bg-transparent dark:border-zinc-600 dark:hover:border-zinc-400 dark:hover:bg-zinc-800';
 const sinFiltros: Filtros = { buscar: '', estado: '', urgencia: '', tipo: '', desde: '', hasta: '' };
 
 function limpiar(f: Filtros): Record<string, string> {
@@ -154,17 +163,20 @@ export default function AdminIntervencionesIndex({
 
                 <form
                     onSubmit={buscar}
-                    className="grid grid-cols-1 gap-3 rounded-lg border bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4 dark:bg-zinc-900"
+                    className="grid grid-cols-1 gap-4 rounded-2xl border border-zinc-300 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-4 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                     <div className="sm:col-span-2 lg:col-span-4">
                         <label className={claseEtiqueta}>Buscar</label>
-                        <input
-                            type="text"
-                            placeholder="Ubicacion o agente (nombre, apellido o DNI)"
-                            value={borrador.buscar}
-                            onChange={(e) => setBorrador({ ...borrador, buscar: e.target.value })}
-                            className={claseInput}
-                        />
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Ubicacion o agente (nombre, apellido o DNI)"
+                                value={borrador.buscar}
+                                onChange={(e) => setBorrador({ ...borrador, buscar: e.target.value })}
+                                className={`${claseInput} pl-10`}
+                            />
+                        </div>
                     </div>
 
                     <div>
@@ -239,7 +251,7 @@ export default function AdminIntervencionesIndex({
                     <div className="flex items-end gap-2 sm:col-span-2">
                         <button
                             type="submit"
-                            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:opacity-90"
                         >
                             <Search className="size-4" />
                             Buscar
@@ -248,7 +260,7 @@ export default function AdminIntervencionesIndex({
                             <button
                                 type="button"
                                 onClick={quitarFiltros}
-                                className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                className="rounded-full border border-zinc-400 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
                             >
                                 Limpiar
                             </button>
@@ -256,7 +268,7 @@ export default function AdminIntervencionesIndex({
                     </div>
                 </form>
 
-                <div className="rounded-lg border bg-white p-6 shadow-sm dark:bg-zinc-900">
+                <div className="rounded-2xl border border-zinc-300 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                     {intervenciones.data.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                             No hay intervenciones para los filtros elegidos.
@@ -265,7 +277,7 @@ export default function AdminIntervencionesIndex({
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <thead>
-                                    <tr className="border-b text-muted-foreground">
+                                    <tr className="border-b border-zinc-300 text-muted-foreground dark:border-zinc-700">
                                         <th className="p-3">Fecha y hora</th>
                                         <th className="p-3">Evento</th>
                                         <th className="p-3">Urgencia</th>
@@ -277,12 +289,15 @@ export default function AdminIntervencionesIndex({
                                 </thead>
                                 <tbody>
                                     {intervenciones.data.map((i) => (
-                                        <tr key={i.id} className="border-b last:border-0">
+                                        <tr
+                                            key={i.id}
+                                            className="border-b border-zinc-200 last:border-0 dark:border-zinc-800"
+                                        >
                                             <td className="p-3">{i.fecha_hora}</td>
                                             <td className="p-3 font-medium">{i.tipo_evento}</td>
                                             <td className="p-3">
                                                 <span
-                                                    className={`rounded px-2 py-1 text-xs font-medium ${colorPorUrgencia[i.nivel_urgencia] ?? ''}`}
+                                                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${colorPorUrgencia[i.nivel_urgencia] ?? ''}`}
                                                 >
                                                     {ETIQUETA_URGENCIA[i.nivel_urgencia] ?? i.nivel_urgencia}
                                                 </span>
@@ -290,7 +305,7 @@ export default function AdminIntervencionesIndex({
                                             <td className="p-3">{i.ubicacion_direccion}</td>
                                             <td className="p-3">
                                                 <span
-                                                    className={`rounded px-2 py-1 text-xs font-medium ${colorPorEstado[i.estado_resolucion] ?? ''}`}
+                                                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${colorPorEstado[i.estado_resolucion] ?? ''}`}
                                                 >
                                                     {nombreEstado(i.estado_resolucion)}
                                                 </span>
@@ -323,7 +338,7 @@ export default function AdminIntervencionesIndex({
                     )}
 
                     {intervenciones.last_page > 1 && (
-                        <div className="mt-4 flex items-center justify-between gap-3 border-t pt-4 text-sm">
+                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-zinc-300 pt-4 text-sm dark:border-zinc-700">
                             <button
                                 type="button"
                                 disabled={!intervenciones.prev_page_url}
@@ -356,7 +371,7 @@ export default function AdminIntervencionesIndex({
                     }
                 }}
             >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-zinc-300 dark:border-zinc-700 sm:max-w-2xl">
                     {seleccion && (
                         <>
                             <DialogHeader>
@@ -367,7 +382,7 @@ export default function AdminIntervencionesIndex({
                             </DialogHeader>
 
                             <div className="space-y-5">
-                                <dl className="grid grid-cols-2 gap-3 rounded-lg border p-4">
+                                <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-zinc-300 p-4 dark:border-zinc-700">
                                     <Dato titulo="Ubicación" valor={seleccion.ubicacion_direccion} />
                                     <Dato
                                         titulo="Urgencia"
@@ -379,15 +394,15 @@ export default function AdminIntervencionesIndex({
                                     <Dato titulo="DNI del agente" valor={seleccion.reportante_dni} />
                                 </dl>
 
-                                <div>
-                                    <p className="text-xs text-muted-foreground">Descripción de la situación</p>
+                                <div className="rounded-2xl border border-zinc-300 p-4 dark:border-zinc-700">
+                                    <p className="mb-1 text-xs text-muted-foreground">Descripción de la situación</p>
                                     <p className="text-sm">{seleccion.descripcion_situacion ?? '-'}</p>
                                 </div>
 
                                 {seleccion.participantes.length > 0 && (
                                     <div className="space-y-2">
                                         <p className="text-sm font-semibold">Otros agentes que participaron</p>
-                                        <ul className="divide-y rounded-lg border">
+                                        <ul className="divide-y divide-zinc-200 rounded-2xl border border-zinc-300 dark:divide-zinc-800 dark:border-zinc-700">
                                             {seleccion.participantes.map((p) => (
                                                 <li key={p.id} className="p-3 text-sm">
                                                     <div className="font-medium">{p.nombre}</div>
@@ -405,13 +420,13 @@ export default function AdminIntervencionesIndex({
                                 <button
                                     type="button"
                                     onClick={() => setSeleccion(null)}
-                                    className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                    className="rounded-full border border-zinc-400 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
                                 >
                                     Cerrar
                                 </button>
                                 <a
                                     href={`/admin/intervenciones/${seleccion.id}/pdf`}
-                                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                                    className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
                                 >
                                     <Download className="size-4" />
                                     Descargar PDF

@@ -1,7 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Download, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -73,25 +72,34 @@ const ETIQUETA_ESTADO: Record<string, string> = {
 };
 
 const colorPorEstado: Record<string, string> = {
-    reportada: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-    en_curso: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-    resuelta: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-    derivada: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-    cancelada: 'bg-gray-100 text-gray-800 dark:bg-zinc-700 dark:text-zinc-200',
+    reportada:
+        'border-yellow-400/60 bg-yellow-100 text-yellow-800 dark:border-yellow-700/60 dark:bg-yellow-900/40 dark:text-yellow-300',
+    en_curso:
+        'border-blue-400/60 bg-blue-100 text-blue-800 dark:border-blue-700/60 dark:bg-blue-900/40 dark:text-blue-300',
+    resuelta:
+        'border-green-400/60 bg-green-100 text-green-800 dark:border-green-700/60 dark:bg-green-900/40 dark:text-green-300',
+    derivada:
+        'border-purple-400/60 bg-purple-100 text-purple-800 dark:border-purple-700/60 dark:bg-purple-900/40 dark:text-purple-300',
+    cancelada:
+        'border-zinc-400/60 bg-gray-100 text-gray-800 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200',
 };
 
 const colorPorUrgencia: Record<string, string> = {
-    baja: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-    media: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-    alta: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
-    critica: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+    baja:
+        'border-green-400/60 bg-green-100 text-green-800 dark:border-green-700/60 dark:bg-green-900/40 dark:text-green-300',
+    media:
+        'border-yellow-400/60 bg-yellow-100 text-yellow-800 dark:border-yellow-700/60 dark:bg-yellow-900/40 dark:text-yellow-300',
+    alta:
+        'border-orange-400/60 bg-orange-100 text-orange-800 dark:border-orange-700/60 dark:bg-orange-900/40 dark:text-orange-300',
+    critica:
+        'border-red-400/60 bg-red-100 text-red-800 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-300',
 };
 
 const claseInput =
-    'w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground disabled:opacity-60';
+    'w-full rounded-xl border border-zinc-400 bg-background px-3 py-2 text-sm text-foreground transition-colors focus:border-zinc-800 focus:outline-none disabled:opacity-60 dark:border-zinc-600 dark:focus:border-zinc-300';
 const claseEtiqueta = 'mb-1 block text-sm font-medium';
 const claseAccion =
-    'rounded-md border px-3 py-1 text-xs font-medium hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-zinc-800';
+    'rounded-xl border border-zinc-400 px-3 py-1 text-xs font-medium transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:border-zinc-600 dark:hover:bg-zinc-800';
 
 function nombreEstado(estado: string): string {
     return estado.replace('_', ' ');
@@ -221,7 +229,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                     </button>
                 </div>
 
-                <div className="rounded-lg border bg-white p-6 shadow-sm dark:bg-zinc-900">
+                <div className="rounded-2xl border border-zinc-300 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                     {intervenciones.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                             Todavía no tenés intervenciones registradas ni asignadas.
@@ -230,7 +238,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <thead>
-                                    <tr className="border-b text-muted-foreground">
+                                    <tr className="border-b border-zinc-300 text-muted-foreground dark:border-zinc-700">
                                         <th className="p-3">Fecha y hora</th>
                                         <th className="p-3">Evento</th>
                                         <th className="p-3">Urgencia</th>
@@ -242,7 +250,10 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                 </thead>
                                 <tbody>
                                     {intervenciones.map((i) => (
-                                        <tr key={i.id} className="border-b last:border-0">
+                                        <tr
+                                            key={i.id}
+                                            className="border-b border-zinc-200 last:border-0 dark:border-zinc-800"
+                                        >
                                             <td className="p-3">{i.fecha_hora}</td>
                                             <td className="p-3 font-medium">
                                                 {i.evento}
@@ -252,7 +263,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                             </td>
                                             <td className="p-3">
                                                 <span
-                                                    className={`rounded px-2 py-1 text-xs font-medium ${colorPorUrgencia[i.nivel_urgencia] ?? ''}`}
+                                                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${colorPorUrgencia[i.nivel_urgencia] ?? ''}`}
                                                 >
                                                     {ETIQUETA_URGENCIA[i.nivel_urgencia] ?? i.nivel_urgencia}
                                                 </span>
@@ -260,7 +271,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                             <td className="p-3">{i.lugar}</td>
                                             <td className="p-3">
                                                 <span
-                                                    className={`rounded px-2 py-1 text-xs font-medium ${colorPorEstado[i.estado_resolucion] ?? ''}`}
+                                                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${colorPorEstado[i.estado_resolucion] ?? ''}`}
                                                 >
                                                     {nombreEstado(i.estado_resolucion)}
                                                 </span>
@@ -328,7 +339,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                     }
                 }}
             >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+                <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-zinc-300 dark:border-zinc-700 sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>{editando ? 'Editar intervención' : 'Nueva intervención'}</DialogTitle>
                         <DialogDescription>
@@ -424,14 +435,14 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                             <button
                                 type="button"
                                 onClick={cerrarReporte}
-                                className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                className="rounded-xl border border-zinc-400 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
                             >
                                 Cancelar
                             </button>
                             <button
                                 type="submit"
                                 disabled={reporte.processing}
-                                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                                className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                             >
                                 {reporte.processing ? 'Guardando...' : 'Guardar'}
                             </button>
@@ -448,7 +459,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                     }
                 }}
             >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+                <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-zinc-300 dark:border-zinc-700 sm:max-w-xl">
                     {seleccion && (
                         <>
                             <DialogHeader>
@@ -457,7 +468,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                             </DialogHeader>
 
                             <form onSubmit={enviarInforme} className="space-y-4">
-                                <dl className="grid grid-cols-2 gap-3 rounded-lg border p-4">
+                                <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-zinc-300 p-4 dark:border-zinc-700">
                                     <Dato titulo="Lugar" valor={seleccion.lugar} />
                                     <Dato
                                         titulo="Urgencia"
@@ -467,13 +478,13 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                     <Dato titulo="Mi rol" valor={seleccion.mi_rol} />
                                 </dl>
 
-                                <div>
-                                    <p className="text-xs text-muted-foreground">Descripción</p>
+                                <div className="rounded-2xl border border-zinc-300 p-4 dark:border-zinc-700">
+                                    <p className="mb-1 text-xs text-muted-foreground">Descripción</p>
                                     <p className="whitespace-pre-line text-sm">{seleccion.descripcion ?? '-'}</p>
                                 </div>
 
                                 {seleccion.siguientes.length > 0 ? (
-                                    <div className="space-y-3 rounded-lg border p-4">
+                                    <div className="space-y-3 rounded-2xl border border-zinc-300 p-4 dark:border-zinc-700">
                                         <p className="text-sm font-semibold">Informar el resultado</p>
 
                                         <div>
@@ -514,7 +525,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                     <button
                                         type="button"
                                         onClick={cerrarDetalle}
-                                        className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                        className="rounded-xl border border-zinc-400 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
                                     >
                                         Cerrar
                                     </button>
@@ -522,7 +533,7 @@ export default function IntervencionesAsignadas({ intervenciones, tipos }: Props
                                         <button
                                             type="submit"
                                             disabled={informe.processing || informe.data.estado_resolucion === ''}
-                                            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                                            className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                                         >
                                             {informe.processing ? 'Enviando...' : 'Enviar informe'}
                                         </button>

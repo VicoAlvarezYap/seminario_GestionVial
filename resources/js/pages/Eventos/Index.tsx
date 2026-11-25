@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Fila = {
     id: number;
@@ -29,7 +29,9 @@ const ESTADOS: Record<string, { texto: string; clase: string }> = {
     suspendido: { texto: 'Suspendido', clase: 'bg-red-100 text-red-800' },
 };
 
-const campo = 'rounded-lg border bg-background px-3 py-2 text-sm';
+const campo =
+    'rounded-xl border border-slate-400/90 bg-background px-3 py-2 text-sm shadow-2xs transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
+
 function SelectorAgentes({
     agentes,
     valor,
@@ -57,25 +59,25 @@ function SelectorAgentes({
             <button
                 type="button"
                 onClick={() => setAbierto((v) => !v)}
-                className="flex min-w-56 items-center justify-between rounded-lg border bg-background px-3 py-2 text-left text-sm font-normal"
+                className="flex min-w-56 items-center justify-between rounded-xl border border-slate-400/90 bg-background px-3 py-2 text-left text-sm font-normal shadow-2xs transition-all hover:border-slate-500"
             >
                 {etiqueta}
                 <span className="text-muted-foreground">▾</span>
             </button>
 
             {abierto && (
-                <div className="absolute top-full z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border bg-background p-2 shadow-md">
+                <div className="absolute top-full z-20 mt-1.5 max-h-64 w-full overflow-y-auto rounded-2xl border border-slate-400/90 bg-background p-2 shadow-xl shadow-slate-950/10">
                     <button
                         type="button"
                         onClick={() => onChange([])}
-                        className="mb-1 w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+                        className="mb-1 w-full rounded-xl px-2.5 py-1.5 text-left text-sm hover:bg-accent"
                     >
                         Todos los agentes
                     </button>
                     {agentes.map((a) => (
                         <label
                             key={a.id}
-                            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm font-normal hover:bg-accent"
+                            className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-1.5 text-sm font-normal hover:bg-accent"
                         >
                             <input
                                 type="checkbox"
@@ -88,7 +90,7 @@ function SelectorAgentes({
                     <button
                         type="button"
                         onClick={() => setAbierto(false)}
-                        className="mt-1 w-full rounded-md bg-primary px-2 py-1.5 text-sm text-primary-foreground"
+                        className="mt-1.5 w-full rounded-xl border border-primary/90 bg-primary px-2.5 py-1.5 text-sm font-medium text-primary-foreground shadow-xs"
                     >
                         Listo
                     </button>
@@ -97,6 +99,7 @@ function SelectorAgentes({
         </div>
     );
 }
+
 export default function EventosIndex({ eventos, filtros, agentes, gestiona, puedeFiltrarPorAlcance }: Props) {
     const [desde, setDesde] = useState(filtros.desde);
     const [hasta, setHasta] = useState(filtros.hasta);
@@ -135,14 +138,16 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
             router.delete(`/admin/eventos-operativos/${f.id}`, { preserveScroll: true });
         }
     };
+
     const excelUrl =
-    '/eventos/excel?' +
-    new URLSearchParams({
-        desde: filtros.desde,
-        hasta: filtros.hasta,
-        ...(puedeFiltrarPorAlcance ? { alcance: filtros.alcance } : {}),
-        ...(gestiona ? Object.fromEntries(filtros.agentes.map((a, i) => [`agentes[${i}]`, a])) : {}),
-    }).toString();
+        '/eventos/excel?' +
+        new URLSearchParams({
+            desde: filtros.desde,
+            hasta: filtros.hasta,
+            ...(puedeFiltrarPorAlcance ? { alcance: filtros.alcance } : {}),
+            ...(gestiona ? Object.fromEntries(filtros.agentes.map((a, i) => [`agentes[${i}]`, a])) : {}),
+        }).toString();
+
     return (
         <>
             <Head title="Eventos" />
@@ -152,17 +157,22 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
                     <div>
                         <h1 className="text-2xl font-bold">Eventos</h1>
                         <p className="text-sm text-muted-foreground">
-                            {gestiona ? 'Todos los eventos, del más reciente al más antiguo.' : 'Tus eventos, del más reciente al más antiguo.'}
+                            {gestiona
+                                ? 'Todos los eventos, del más reciente al más antiguo.'
+                                : 'Tus eventos, del más reciente al más antiguo.'}
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <a href={excelUrl} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-accent">
+                    <div className="flex flex-wrap gap-2.5">
+                        <a
+                            href={excelUrl}
+                            className="rounded-xl border border-slate-400/90 bg-background px-4 py-2 text-sm font-medium shadow-xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent hover:shadow-sm"
+                        >
                             Exportar Excel
                         </a>
                         {gestiona && (
                             <Link
                                 href="/admin/eventos-operativos/crear"
-                                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                                className="rounded-xl border border-primary/90 bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-md"
                             >
                                 Crear evento
                             </Link>
@@ -171,14 +181,25 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
                 </div>
 
                 {/* Filtros */}
-                <div className="flex flex-wrap items-end gap-3 rounded-xl border p-4">
+                <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-400/90 bg-card p-4 shadow-md shadow-slate-950/5 transition-colors hover:border-slate-500">
                     <label className="flex flex-col gap-1 text-xs font-medium">
                         Desde
-                        <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className={campo} />
+                        <input
+                            type="date"
+                            value={desde}
+                            onChange={(e) => setDesde(e.target.value)}
+                            className={campo}
+                        />
                     </label>
                     <label className="flex flex-col gap-1 text-xs font-medium">
                         Hasta
-                        <input type="date" value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)} className={campo} />
+                        <input
+                            type="date"
+                            value={hasta}
+                            min={desde || undefined}
+                            onChange={(e) => setHasta(e.target.value)}
+                            className={campo}
+                        />
                     </label>
 
                     {puedeFiltrarPorAlcance && (
@@ -192,30 +213,34 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
                     )}
 
                     {gestiona && (
-                        <SelectorAgentes
-                           agentes={agentes}
-                           valor={agentesSel}
-                           onChange={setAgentesSel}
-                        />
+                        <SelectorAgentes agentes={agentes} valor={agentesSel} onChange={setAgentesSel} />
                     )}
 
-                    <button type="button" onClick={() => aplicar()} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                    <button
+                        type="button"
+                        onClick={() => aplicar()}
+                        className="rounded-xl border border-primary/90 bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    >
                         Filtrar
                     </button>
-                    <button type="button" onClick={limpiar} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-accent">
+                    <button
+                        type="button"
+                        onClick={limpiar}
+                        className="rounded-xl border border-slate-400/90 bg-background px-4 py-2 text-sm font-medium shadow-2xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent hover:shadow-sm"
+                    >
                         Limpiar
                     </button>
                 </div>
 
                 {/* Lista */}
                 {eventos.data.length === 0 ? (
-                    <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+                    <p className="rounded-2xl border border-dashed border-slate-400/80 bg-muted/20 p-6 text-sm text-muted-foreground">
                         No hay eventos con los filtros elegidos.
                     </p>
                 ) : (
-                    <div className="overflow-x-auto rounded-xl border">
+                    <div className="overflow-x-auto rounded-2xl border border-slate-400/90 bg-card shadow-md shadow-slate-950/5 transition-colors hover:border-slate-500">
                         <table className="w-full text-left text-sm">
-                            <thead className="border-b bg-muted/40 text-muted-foreground">
+                            <thead className="border-b border-slate-300/90 bg-muted/40 text-muted-foreground">
                                 <tr>
                                     <th className="p-3">Fecha</th>
                                     <th className="p-3">Horario</th>
@@ -226,11 +251,14 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
                                     <th className="p-3">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-slate-300/80">
                                 {eventos.data.map((f) => {
-                                    const estado = ESTADOS[f.estado] ?? { texto: f.estado, clase: 'bg-zinc-100 text-zinc-700' };
+                                    const estado = ESTADOS[f.estado] ?? {
+                                        texto: f.estado,
+                                        clase: 'bg-zinc-100 text-zinc-700',
+                                    };
                                     return (
-                                        <tr key={f.id} className="border-b last:border-0">
+                                        <tr key={f.id} className="transition-colors hover:bg-muted/25">
                                             <td className="p-3">{f.fecha}</td>
                                             <td className="p-3 font-mono text-xs">
                                                 {f.hora_inicio}
@@ -240,18 +268,25 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
                                             <td className="p-3">{f.lugar ?? '-'}</td>
                                             <td className="p-3 text-xs">{f.agentes.length ? f.agentes.join('; ') : '-'}</td>
                                             <td className="p-3">
-                                                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${estado.clase}`}>{estado.texto}</span>
+                                                <span
+                                                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${estado.clase}`}
+                                                >
+                                                    {estado.texto}
+                                                </span>
                                             </td>
                                             <td className="p-3">
                                                 <div className="flex flex-wrap gap-2">
-                                                    <Link href={`/eventos/${f.id}`} className="rounded-lg border px-2.5 py-1 text-xs font-medium hover:bg-accent">
+                                                    <Link
+                                                        href={`/eventos/${f.id}`}
+                                                        className="rounded-xl border border-slate-400/90 bg-background px-2.5 py-1 text-xs font-medium shadow-2xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent"
+                                                    >
                                                         Ver
                                                     </Link>
                                                     {gestiona && (
                                                         <>
                                                             <Link
                                                                 href={`/admin/eventos-operativos/${f.id}/editar`}
-                                                                className="rounded-lg border px-2.5 py-1 text-xs font-medium hover:bg-accent"
+                                                                className="rounded-xl border border-slate-400/90 bg-background px-2.5 py-1 text-xs font-medium shadow-2xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent"
                                                             >
                                                                 Editar
                                                             </Link>
@@ -259,14 +294,14 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
                                                                 type="button"
                                                                 disabled={f.estado === 'cancelado'}
                                                                 onClick={() => cancelar(f)}
-                                                                className="rounded-lg border px-2.5 py-1 text-xs font-medium hover:bg-accent disabled:opacity-40"
+                                                                className="rounded-xl border border-slate-400/90 bg-background px-2.5 py-1 text-xs font-medium shadow-2xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent disabled:translate-y-0 disabled:opacity-40"
                                                             >
                                                                 Cancelar
                                                             </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => eliminar(f)}
-                                                                className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                                                                className="rounded-xl border border-red-400/90 bg-red-50/70 px-2.5 py-1 text-xs font-medium text-red-700 shadow-2xs transition-all hover:-translate-y-0.5 hover:border-red-500 hover:bg-red-100"
                                                             >
                                                                 Eliminar
                                                             </button>
@@ -288,7 +323,7 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
                             type="button"
                             disabled={eventos.current_page <= 1}
                             onClick={() => aplicar(eventos.current_page - 1)}
-                            className="rounded-lg border px-3 py-1.5 disabled:opacity-40"
+                            className="rounded-xl border border-slate-400/90 bg-background px-3 py-1.5 font-medium shadow-2xs transition-all hover:border-slate-500 hover:bg-accent disabled:opacity-40"
                         >
                             Anterior
                         </button>
@@ -299,7 +334,7 @@ export default function EventosIndex({ eventos, filtros, agentes, gestiona, pued
                             type="button"
                             disabled={eventos.current_page >= eventos.last_page}
                             onClick={() => aplicar(eventos.current_page + 1)}
-                            className="rounded-lg border px-3 py-1.5 disabled:opacity-40"
+                            className="rounded-xl border border-slate-400/90 bg-background px-3 py-1.5 font-medium shadow-2xs transition-all hover:border-slate-500 hover:bg-accent disabled:opacity-40"
                         >
                             Siguiente
                         </button>

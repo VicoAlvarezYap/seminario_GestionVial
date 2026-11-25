@@ -32,19 +32,19 @@ export default function TurnoActual({ hoy, turnos, horarios, hrefDetalle, hrefAs
     })).filter((b) => b.items.length > 0);
 
     return (
-        <section className="bg-muted/40 space-y-4 rounded-2xl border p-5 sm:p-6">
+        <section className="space-y-4 rounded-2xl border border-slate-200 bg-muted/40 p-5 shadow-sm sm:p-6">
             <div>
                 <Titulo className="text-2xl font-bold">Turno actual</Titulo>
-                <p className="text-muted-foreground text-sm capitalize">{fechaLarga(hoy)}</p>
+                <p className="text-sm capitalize text-muted-foreground">{fechaLarga(hoy)}</p>
             </div>
 
             {bloques.length === 0 ? (
-                <div className="text-muted-foreground rounded-xl border border-dashed p-6 text-sm">
+                <div className="rounded-xl border border-dashed border-slate-400/80 bg-background/60 p-6 text-sm text-muted-foreground">
                     Hoy no hay turnos asignados.
                     {hrefAsignar && (
                         <>
                             {' '}
-                            <Link href={hrefAsignar} className="text-primary hover:underline">
+                            <Link href={hrefAsignar} className="font-medium text-primary hover:underline">
                                 Asignar turnos
                             </Link>
                         </>
@@ -52,14 +52,17 @@ export default function TurnoActual({ hoy, turnos, horarios, hrefDetalle, hrefAs
                 </div>
             ) : (
                 bloques.map(({ turno, items }) => (
-                    <div key={turno} className="bg-card overflow-hidden rounded-xl border shadow-sm">
-                        <div className="bg-muted/30 flex items-baseline justify-between border-b px-5 py-3">
+                    <div
+                        key={turno}
+                        className="overflow-hidden rounded-2xl border border-slate-400/90 bg-card shadow-md shadow-slate-950/5 transition-colors hover:border-slate-500"
+                    >
+                        <div className="flex items-baseline justify-between border-b border-slate-300/90 bg-muted/40 px-5 py-3">
                             <h3 className="font-semibold">{NOMBRES[turno]}</h3>
-                            <span className="text-muted-foreground font-mono text-xs">
+                            <span className="font-mono text-xs text-muted-foreground">
                                 {horarioDe(items[0], horarios)}
                             </span>
                         </div>
-                        <ul className="divide-y">
+                        <ul className="divide-y divide-slate-300/80">
                             {items.map((t) => {
                                 const estado = ESTADOS[t.estado] ?? {
                                     texto: t.estado.replace(/_/g, ' '),
@@ -83,7 +86,7 @@ export default function TurnoActual({ hoy, turnos, horarios, hrefDetalle, hrefAs
                                         {hrefDetalle && (
                                             <Link
                                                 href={hrefDetalle(t)}
-                                                className="bg-background hover:bg-accent flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium"
+                                                className="flex items-center gap-1 rounded-xl border border-slate-400/90 bg-background px-3 py-1.5 text-sm font-medium shadow-xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent hover:shadow-sm"
                                             >
                                                 Ver más <ChevronRight className="size-4" />
                                             </Link>

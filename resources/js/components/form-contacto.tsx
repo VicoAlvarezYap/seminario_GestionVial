@@ -15,6 +15,8 @@ type Props = {
     onCerrar: () => void;
 };
 
+const claseCampoRedondeado = `${CLASE_CAMPO} rounded-xl border border-zinc-500 transition-colors focus:border-zinc-800 focus:outline-none dark:border-zinc-500 dark:focus:border-zinc-300`;
+
 export default function FormContacto({ contacto, onCerrar }: Props) {
     const form = useForm({
         nombre: contacto?.nombre ?? '',
@@ -37,15 +39,19 @@ export default function FormContacto({ contacto, onCerrar }: Props) {
 
     return (
         <ModalSimple titulo={contacto ? 'Editar contacto' : 'Nuevo contacto de emergencia'} onCerrar={onCerrar}>
-            <form onSubmit={enviar} className="flex flex-col gap-3">
+            <form onSubmit={enviar} className="flex flex-col gap-3.5">
                 <Campo etiqueta="Nombre y apellido" error={errors.nombre}>
-                    <input className={CLASE_CAMPO} value={data.nombre} onChange={(e) => form.setData('nombre', e.target.value)} />
+                    <input
+                        className={claseCampoRedondeado}
+                        value={data.nombre}
+                        onChange={(e) => form.setData('nombre', e.target.value)}
+                    />
                 </Campo>
 
                 <Campo etiqueta="Celular" error={errors.celular}>
                     <input
                         type="tel"
-                        className={CLASE_CAMPO}
+                        className={claseCampoRedondeado}
                         value={data.celular}
                         onChange={(e) => form.setData('celular', e.target.value)}
                     />
@@ -53,16 +59,29 @@ export default function FormContacto({ contacto, onCerrar }: Props) {
 
                 <Campo etiqueta="Relación" error={errors.relacion}>
                     <input
-                        className={CLASE_CAMPO}
+                        className={claseCampoRedondeado}
                         placeholder="Ej: madre, esposo, hermana"
                         value={data.relacion}
                         onChange={(e) => form.setData('relacion', e.target.value)}
                     />
                 </Campo>
 
-                <div className="mt-2 flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={onCerrar}>Cancelar</Button>
-                    <Button type="submit" disabled={form.processing}>{contacto ? 'Guardar cambios' : 'Agregar'}</Button>
+                <div className="mt-3 flex justify-end gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onCerrar}
+                        className="rounded-full border-zinc-500 px-4 hover:border-zinc-700 hover:bg-zinc-100 dark:border-zinc-500 dark:hover:border-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        type="submit"
+                        disabled={form.processing}
+                        className="rounded-full border border-primary/30 px-5 shadow-sm transition-all hover:opacity-95"
+                    >
+                        {contacto ? 'Guardar cambios' : 'Agregar'}
+                    </Button>
                 </div>
             </form>
         </ModalSimple>

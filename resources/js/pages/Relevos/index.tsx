@@ -200,6 +200,15 @@ const claseEtiqueta = 'mb-1 block text-sm font-medium';
 const claseAccion =
     'rounded-md border px-2 py-1 text-xs font-medium hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-zinc-800';
 
+const claseAccionBase =
+    'rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent';
+
+const claseAccionNeutro = `${claseAccionBase} border-zinc-500 text-foreground hover:border-zinc-700 hover:bg-zinc-100 dark:border-zinc-500 dark:hover:border-zinc-300 dark:hover:bg-zinc-800`;
+
+const claseAccionEditar = `${claseAccionBase} border-blue-500 bg-blue-50/50 text-blue-700 hover:border-blue-600 hover:bg-blue-100 dark:border-blue-400 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/60`;
+
+const claseAccionEliminar = `${claseAccionBase} border-red-500 bg-red-50/50 text-red-700 hover:border-red-600 hover:bg-red-100 dark:border-red-400 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/60`;
+
 const GEOREF = 'https://apis.datos.gob.ar/georef/api';
 const URL_PAISES = 'https://restcountries.com/v3.1/all?fields=name';
 
@@ -338,7 +347,7 @@ function Combobox({
             {abierto && (
                 <ul
                     onMouseDown={(e) => e.preventDefault()}
-                    className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-white text-sm shadow-md dark:bg-zinc-900"
+                    className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-zinc-400 bg-white text-sm shadow-md dark:border-zinc-600 dark:bg-zinc-900"
                 >
                     {visibles.length === 0 && (
                         <li className="px-3 py-2 text-muted-foreground">Sin resultados</li>
@@ -465,7 +474,7 @@ function UbicacionFields({
     };
 
     return (
-        <div className="space-y-3 rounded-md border border-dashed p-3">
+        <div className="space-y-3 rounded-2xl border border-dashed border-zinc-400 p-4 dark:border-zinc-600">
             <label className="flex items-center gap-2 text-sm">
                 <input
                     type="checkbox"
@@ -748,7 +757,7 @@ export default function ActasIndex({
                         onClick={abrirNueva}
                         disabled={!agente || !enTurno}
                         title={enTurno ? 'Cargar un acta de infracción' : 'Necesitás un turno en curso'}
-                        className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:opacity-95 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
                     >
                         <Plus className="size-4" />
                         Nueva acta de infracción
@@ -792,7 +801,7 @@ export default function ActasIndex({
                                 </thead>
                                 <tbody>
                                     {relevos.map((r) => (
-                                        <tr key={r.id} className="border-b last:border-0">
+                                        <tr key={r.id} className="border-b border-zinc-300 last:border-0 dark:border-zinc-700">
                                             <td className="p-3">{r.fecha_hora}</td>
                                             <td className="p-3">{r.numero_acta || '-'}</td>
                                             <td className="p-3">
@@ -817,7 +826,7 @@ export default function ActasIndex({
                                                                 ? 'Editar el acta'
                                                                 : 'Solo se puede editar un acta cargada hoy'
                                                         }
-                                                        className={claseAccion}
+                                                        className={claseAccionEditar}
                                                     >
                                                         Editar
                                                     </button>
@@ -825,7 +834,7 @@ export default function ActasIndex({
                                                     <a
                                                         href={`/relevos/${r.id}/pdf`}
                                                         title="Descargar el acta en PDF"
-                                                        className={`${claseAccion} inline-flex items-center gap-1`}
+                                                        className={`${claseAccionNeutro} inline-flex items-center gap-1`}
                                                     >
                                                         <Download className="size-3" />
                                                         Descargar PDF
@@ -840,10 +849,11 @@ export default function ActasIndex({
                                                                 ? `Enviar a ${r.conductor_correo}`
                                                                 : 'El infractor no tiene correo cargado'
                                                         }
-                                                        className={claseAccion}
+                                                        className={claseAccionNeutro}
                                                     >
                                                         Enviar por correo
                                                     </button>
+
                                                     {r.correo_enviado_at && (
                                                         <span className="text-xs text-muted-foreground">
                                                             Enviado {r.correo_enviado_at}
@@ -859,7 +869,7 @@ export default function ActasIndex({
                                                                 ? 'Eliminar el acta'
                                                                 : 'Solo se puede eliminar un acta cargada hoy'
                                                         }
-                                                        className={claseAccion}
+                                                        className={claseAccionEliminar}
                                                     >
                                                         Eliminar
                                                     </button>

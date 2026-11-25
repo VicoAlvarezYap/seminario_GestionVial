@@ -88,7 +88,12 @@ const hora = (iso: string | null) =>
 const fechaLarga = (f: string) =>
     parseFecha(f).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-const claseCampo = 'bg-background rounded-md border px-2 py-1.5 text-sm';
+// Bordes más marcados y esquinas redondeadas consistentes
+const claseCampo =
+    'rounded-xl border border-slate-400/90 bg-background px-3 py-2 text-sm shadow-2xs transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
+
+const claseTarjeta =
+    'rounded-2xl border border-slate-400/90 bg-white shadow-md shadow-slate-950/5 transition-colors hover:border-slate-500 dark:bg-zinc-900';
 
 function Detalle({ r }: { r: Reporte }) {
     const recursos = [
@@ -98,7 +103,7 @@ function Detalle({ r }: { r: Reporte }) {
     ].filter(Boolean);
 
     return (
-        <div className="space-y-4 border-t p-4 text-sm">
+        <div className="space-y-4 border-t border-slate-300/90 p-4 text-sm dark:border-zinc-700/80">
             <section>
                 <h3 className="mb-1 font-semibold">Horario</h3>
                 <p>
@@ -110,11 +115,11 @@ function Detalle({ r }: { r: Reporte }) {
             <section>
                 <h3 className="mb-1 font-semibold">Tareas realizadas</h3>
                 {r.tareas.length === 0 ? (
-                    <p className="text-muted-foreground italic">Sin tareas cargadas.</p>
+                    <p className="italic text-muted-foreground">Sin tareas cargadas.</p>
                 ) : (
                     <ul className="space-y-1.5">
                         {r.tareas.map((t) => (
-                            <li key={t.id}>
+                            <li key={t.id} className="rounded-xl border border-slate-200/90 bg-muted/20 px-3 py-2 dark:border-zinc-800">
                                 <span className="font-medium">{t.titulo ?? 'Sin título'}</span>
                                 <span className="text-muted-foreground">
                                     {[t.lugar, t.hora_inicio && `${t.hora_inicio}${t.hora_fin ? `–${t.hora_fin}` : ''}`]
@@ -122,7 +127,7 @@ function Detalle({ r }: { r: Reporte }) {
                                         .map((x) => ` · ${x}`)
                                         .join('')}
                                 </span>
-                                {t.detalle && <div className="text-muted-foreground text-xs">{t.detalle}</div>}
+                                {t.detalle && <div className="text-xs text-muted-foreground">{t.detalle}</div>}
                             </li>
                         ))}
                     </ul>
@@ -132,11 +137,11 @@ function Detalle({ r }: { r: Reporte }) {
             <section>
                 <h3 className="mb-1 font-semibold">Intervenciones</h3>
                 {r.intervenciones.length === 0 ? (
-                    <p className="text-muted-foreground italic">Sin intervenciones durante el turno.</p>
+                    <p className="italic text-muted-foreground">Sin intervenciones durante el turno.</p>
                 ) : (
                     <ul className="space-y-1.5">
                         {r.intervenciones.map((i) => (
-                            <li key={i.id}>
+                            <li key={i.id} className="rounded-xl border border-slate-200/90 bg-muted/20 px-3 py-2 dark:border-zinc-800">
                                 <span className="font-medium">
                                     {NOMBRE_TIPO[i.tipo] ?? i.tipo}
                                     {i.tipo_evento ? ` · ${i.tipo_evento}` : ''}
@@ -146,7 +151,7 @@ function Detalle({ r }: { r: Reporte }) {
                                     {` · ${i.hora}`}
                                     {i.lugar ? ` · ${i.lugar}` : ''}
                                 </span>
-                                {i.descripcion && <div className="text-muted-foreground text-xs">{i.descripcion}</div>}
+                                {i.descripcion && <div className="text-xs text-muted-foreground">{i.descripcion}</div>}
                             </li>
                         ))}
                     </ul>
@@ -160,7 +165,7 @@ function Detalle({ r }: { r: Reporte }) {
 
             <section>
                 <h3 className="mb-1 font-semibold">Novedades</h3>
-                <p className={r.novedades ? '' : 'text-muted-foreground italic'}>{r.novedades || 'Sin novedades.'}</p>
+                <p className={r.novedades ? '' : 'italic text-muted-foreground'}>{r.novedades || 'Sin novedades.'}</p>
             </section>
         </div>
     );
@@ -175,6 +180,7 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo, vista = 
     const [turnosPdf, setTurnosPdf] = useState<string[]>([]);
     const [seccionesPdf, setSeccionesPdf] = useState<string[]>(['tareas', 'intervenciones']);
     const [agenteFiltro, setAgenteFiltro] = useState<string>(agenteId ? String(agenteId) : '');
+
     // Usa desdeInput y hastaInput, por eso va dentro del componente
     const urlPdf = () => {
         const p = new URLSearchParams({ desde: desdeInput, hasta: hastaInput });
@@ -184,30 +190,34 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo, vista = 
         return `/reportes/pdf?${p.toString()}`;
     };
 
-   const filtrar = () => {
-    if (!desdeInput || !hastaInput || desdeInput > hastaInput) {
-        return;
-    }
+    const filtrar = () => {
+        if (!desdeInput || !hastaInput || desdeInput > hastaInput) {
+            return;
+        }
 
-    router.get(
-        veTodo ? '/admin/reportes' : '/reportes',
-        { desde: desdeInput, hasta: hastaInput, agente_id: agenteFiltro || undefined },
-        { preserveScroll: true, replace: true },
-    );
+        router.get(
+            veTodo ? '/admin/reportes' : '/reportes',
+            { desde: desdeInput, hasta: hastaInput, agente_id: agenteFiltro || undefined },
+            { preserveScroll: true, replace: true },
+        );
     };
 
     return (
         <>
             <Head title="Mis reportes" />
 
-            <main className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
-                <div className="flex items-center gap-2">
-                    <FileText className="size-6" />
-                    <h1 className="text-2xl font-bold">{vista === 'propios' ? 'Mis reportes' : 'Reportes de turno (todos los agentes)'}</h1>
+            <main className="mx-auto max-w-4xl space-y-5 p-4 sm:p-6">
+                <div className="flex items-center gap-2.5">
+                    <div className="flex size-10 items-center justify-center rounded-xl border border-slate-400/90 bg-background shadow-2xs">
+                        <FileText className="size-5" />
+                    </div>
+                    <h1 className="text-2xl font-bold">
+                        {vista === 'propios' ? 'Mis reportes' : 'Reportes de turno (todos los agentes)'}
+                    </h1>
                 </div>
 
                 {/* Filtro de fechas de la pantalla */}
-                <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
+                <div className={`flex flex-wrap items-end gap-3 p-4 ${claseTarjeta}`}>
                     <label className="flex flex-col gap-1 text-xs font-medium">
                         Desde
                         <input
@@ -238,7 +248,9 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo, vista = 
                             >
                                 <option value="">Todos</option>
                                 {agentes.map((a) => (
-                                    <option key={a.id} value={a.id}>{a.nombre}</option>
+                                    <option key={a.id} value={a.id}>
+                                        {a.nombre}
+                                    </option>
                                 ))}
                             </select>
                         </label>
@@ -247,79 +259,107 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo, vista = 
                         type="button"
                         onClick={filtrar}
                         disabled={desdeInput === desde && hastaInput === hasta && agenteFiltro === (agenteId ? String(agenteId) : '')}
-                        className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
+                        className="rounded-xl border border-primary/90 bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-md disabled:translate-y-0 disabled:opacity-50"
                     >
                         Filtrar
                     </button>
-                    <span className="text-muted-foreground ml-auto text-sm">
+                    <span className="ml-auto rounded-xl border border-slate-300/90 bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
                         {reportes.length} {reportes.length === 1 ? 'reporte' : 'reportes'}
                     </span>
                 </div>
 
                 {/* Bloque nuevo: descarga del PDF con filtros */}
-                <div className="space-y-3 rounded-lg border p-3">
+                <div className={`space-y-3.5 p-4 ${claseTarjeta}`}>
                     <h2 className="text-sm font-semibold">Descargar PDF</h2>
 
                     <fieldset className="space-y-2 text-sm">
-                        <legend className="text-xs font-medium">Turnos a incluir (sin selección = todos)</legend>
-                        <div className="flex flex-wrap gap-4">
-                            {TURNOS_OPC.map(([valor, etiqueta]) => (
-                                <label key={valor} className="flex items-center gap-1">
-                                    <input
-                                        type="checkbox"
-                                        checked={turnosPdf.includes(valor)}
-                                        onChange={() => alternar(turnosPdf, valor, setTurnosPdf)}
-                                    />
-                                    {etiqueta}
-                                </label>
-                            ))}
+                        <legend className="text-xs font-medium text-muted-foreground">
+                            Turnos a incluir (sin selección = todos)
+                        </legend>
+                        <div className="flex flex-wrap gap-2">
+                            {TURNOS_OPC.map(([valor, etiqueta]) => {
+                                const activo = turnosPdf.includes(valor);
+                                return (
+                                    <label
+                                        key={valor}
+                                        className={`flex cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
+                                            activo
+                                                ? 'border-primary/90 bg-primary/10 text-primary shadow-2xs'
+                                                : 'border-slate-300/90 bg-background hover:border-slate-400 hover:bg-accent'
+                                        }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={activo}
+                                            onChange={() => alternar(turnosPdf, valor, setTurnosPdf)}
+                                            className="accent-primary"
+                                        />
+                                        {etiqueta}
+                                    </label>
+                                );
+                            })}
                         </div>
                     </fieldset>
 
                     <fieldset className="space-y-2 text-sm">
-                        <legend className="text-xs font-medium">Secciones a incluir</legend>
-                        <div className="flex flex-wrap gap-4">
-                            {SECCIONES_OPC.map(([valor, etiqueta]) => (
-                                <label key={valor} className="flex items-center gap-1">
-                                    <input
-                                        type="checkbox"
-                                        checked={seccionesPdf.includes(valor)}
-                                        onChange={() => alternar(seccionesPdf, valor, setSeccionesPdf)}
-                                    />
-                                    {etiqueta}
-                                </label>
-                            ))}
+                        <legend className="text-xs font-medium text-muted-foreground">Secciones a incluir</legend>
+                        <div className="flex flex-wrap gap-2">
+                            {SECCIONES_OPC.map(([valor, etiqueta]) => {
+                                const activo = seccionesPdf.includes(valor);
+                                return (
+                                    <label
+                                        key={valor}
+                                        className={`flex cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
+                                            activo
+                                                ? 'border-primary/90 bg-primary/10 text-primary shadow-2xs'
+                                                : 'border-slate-300/90 bg-background hover:border-slate-400 hover:bg-accent'
+                                        }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={activo}
+                                            onChange={() => alternar(seccionesPdf, valor, setSeccionesPdf)}
+                                            className="accent-primary"
+                                        />
+                                        {etiqueta}
+                                    </label>
+                                );
+                            })}
                         </div>
                     </fieldset>
 
-                    <a
-                        href={urlPdf()}
-                        className={`inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                            seccionesPdf.length === 0 ? 'pointer-events-none opacity-50' : ''
-                        }`}
-                    >
-                        Descargar PDF
-                    </a>
+                    <div>
+                        <a
+                            href={urlPdf()}
+                            className={`inline-flex items-center rounded-xl border border-slate-400/90 bg-background px-4 py-2 text-sm font-medium shadow-2xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent hover:shadow-sm ${
+                                seccionesPdf.length === 0 ? 'pointer-events-none opacity-50' : ''
+                            }`}
+                        >
+                            Descargar PDF
+                        </a>
+                    </div>
                 </div>
 
                 {reportes.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">No hay reportes en el rango seleccionado.</p>
+                    <p className="rounded-2xl border border-dashed border-slate-400/80 bg-muted/20 p-6 text-sm text-muted-foreground">
+                        No hay reportes en el rango seleccionado.
+                    </p>
                 ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {reportes.map((r) => {
                             const expandido = abierto === r.id;
 
                             return (
-                                <div key={r.id} className="rounded-lg border bg-white shadow-sm dark:bg-zinc-900">
+                                <div key={r.id} className={claseTarjeta}>
                                     <button
                                         type="button"
                                         onClick={() => setAbierto(expandido ? null : r.id)}
                                         aria-expanded={expandido}
-                                        className="flex w-full items-center justify-between gap-3 p-4 text-left"
+                                        className="flex w-full items-center justify-between gap-3 rounded-2xl p-4 text-left transition-colors hover:bg-muted/20"
                                     >
                                         <div className="min-w-0">
                                             <div className="font-semibold capitalize">{fechaLarga(r.fecha)}</div>
-                                            <div className="text-muted-foreground text-sm">
+                                            <div className="text-sm text-muted-foreground">
                                                 Turno {NOMBRE_TURNO[r.turno] ?? r.turno}
                                                 {veTodo ? ` · ${r.agente}` : ''}
                                                 {` · ${r.tareas.length} ${r.tareas.length === 1 ? 'tarea' : 'tareas'}`}
@@ -327,11 +367,9 @@ export default function ReportesIndex({ reportes, desde, hasta, veTodo, vista = 
                                                     ` · ${r.intervenciones.length} ${r.intervenciones.length === 1 ? 'intervención' : 'intervenciones'}`}
                                             </div>
                                         </div>
-                                        {expandido ? (
-                                            <ChevronUp className="size-5 shrink-0" />
-                                        ) : (
-                                            <ChevronDown className="size-5 shrink-0" />
-                                        )}
+                                        <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-slate-300/90 bg-background">
+                                            {expandido ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                                        </span>
                                     </button>
 
                                     {expandido && <Detalle r={r} />}

@@ -100,7 +100,7 @@ export function DiaHistorial({
     })).filter((b) => b.agentes.length > 0);
 
     return (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-slate-400/90 bg-card shadow-md shadow-slate-950/5 transition-colors hover:border-slate-500">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
                 <div className="flex flex-wrap items-center gap-3">
                     <CalendarDays className="size-4 text-muted-foreground" />
@@ -114,7 +114,7 @@ export function DiaHistorial({
                     aria-expanded={abierto}
                     aria-controls={panelId}
                     onClick={() => setAbierto((v) => !v)}
-                    className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
+                    className="flex items-center gap-1 rounded-xl border border-slate-400/90 bg-background px-3 py-1.5 text-sm font-medium shadow-xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent hover:shadow-sm"
                 >
                     {abierto ? 'Ver menos' : 'Ver más'}
                     <ChevronDown className={`size-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
@@ -122,12 +122,12 @@ export function DiaHistorial({
             </div>
 
             {abierto && (
-                <div id={panelId} className="border-t">
-                    <div className="grid grid-cols-[6.5rem_1fr] gap-4 bg-muted/30 px-5 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[10rem_1fr]">
+                <div id={panelId} className="border-t border-slate-300/90">
+                    <div className="grid grid-cols-[6.5rem_1fr] gap-4 bg-muted/40 px-5 py-2 text-xs font-semibold text-muted-foreground sm:grid-cols-[10rem_1fr]">
                         <span>Turno</span>
                         <span>Agentes</span>
                     </div>
-                    <div className="divide-y">
+                    <div className="divide-y divide-slate-300/80">
                         {bloques.map(({ turno, agentes }) => (
                             <div
                                 key={turno}
@@ -157,7 +157,7 @@ export function DiaHistorial({
                                                 {detalleHref && (
                                                     <Link
                                                         href={detalleHref(t.id)}
-                                                        className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1 text-xs font-medium hover:bg-accent"
+                                                        className="flex items-center gap-1 rounded-xl border border-slate-400/90 bg-background px-3 py-1 text-xs font-medium shadow-xs transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:bg-accent hover:shadow-sm"
                                                     >
                                                         Ver más <ChevronRight className="size-3.5" />
                                                     </Link>
@@ -181,7 +181,8 @@ export function Paginador({ actual, ultima, onIr }: { actual: number; ultima: nu
     const paginas = Array.from({ length: ultima }, (_, i) => i + 1).filter(
         (p) => p === 1 || p === ultima || Math.abs(p - actual) <= 2,
     );
-    const base = 'rounded-lg border px-3 py-1.5 text-sm font-medium';
+    const base =
+        'rounded-xl border px-3 py-1.5 text-sm font-medium transition-all hover:-translate-y-0.5';
 
     return (
         <nav aria-label="Paginación" className="flex flex-wrap items-center justify-center gap-2 pt-2">
@@ -189,7 +190,7 @@ export function Paginador({ actual, ultima, onIr }: { actual: number; ultima: nu
                 type="button"
                 disabled={actual === 1}
                 onClick={() => onIr(actual - 1)}
-                className={`${base} bg-background hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50`}
+                className={`${base} border-slate-400/90 bg-background shadow-xs hover:border-slate-500 hover:bg-accent hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0`}
             >
                 Anterior
             </button>
@@ -200,10 +201,11 @@ export function Paginador({ actual, ultima, onIr }: { actual: number; ultima: nu
                         type="button"
                         aria-current={p === actual ? 'page' : undefined}
                         onClick={() => onIr(p)}
-                        className={`${base} ${p === actual
-                                ? 'border-primary bg-primary text-primary-foreground'
-                                : 'bg-background hover:bg-accent'
-                            }`}
+                        className={`${base} ${
+                            p === actual
+                                ? 'border-primary/90 bg-primary text-primary-foreground shadow-md shadow-primary/25'
+                                : 'border-slate-400/90 bg-background shadow-xs hover:border-slate-500 hover:bg-accent hover:shadow-sm'
+                        }`}
                     >
                         {p}
                     </button>
@@ -213,7 +215,7 @@ export function Paginador({ actual, ultima, onIr }: { actual: number; ultima: nu
                 type="button"
                 disabled={actual === ultima}
                 onClick={() => onIr(actual + 1)}
-                className={`${base} bg-background hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50`}
+                className={`${base} border-slate-400/90 bg-background shadow-xs hover:border-slate-500 hover:bg-accent hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0`}
             >
                 Siguiente
             </button>

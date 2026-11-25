@@ -61,13 +61,13 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
     return (
         <Link
             href={`/admin/perfiles/${a.id}`}
-            className={`flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-sm transition-all hover:border-blue-500 hover:shadow-md dark:bg-neutral-900 ${
+            className={`flex flex-col gap-3 rounded-2xl border border-slate-400/90 bg-white p-4 shadow-md shadow-slate-950/5 transition-all hover:-translate-y-0.5 hover:border-slate-500 hover:shadow-lg dark:bg-neutral-900 ${
                 a.activo ? '' : 'opacity-75'
             }`}
         >
             <div className="flex items-center gap-3">
                 <div
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white ${
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-black/10 text-lg font-bold text-white shadow-xs ${
                         a.activo ? 'bg-blue-600' : 'bg-zinc-400'
                     }`}
                 >
@@ -82,10 +82,10 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
                     </p>
                 </div>
                 <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
                         a.activo
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                            ? 'border-green-300 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/40 dark:text-green-300'
+                            : 'border-red-300 bg-red-100 text-red-800 dark:border-red-800 dark:bg-red-900/40 dark:text-red-300'
                     }`}
                 >
                     {a.activo ? 'Activo' : 'De baja'}
@@ -112,7 +112,7 @@ function TarjetaPerfil({ a }: { a: PerfilAgente }) {
             </div>
 
             {resumen && (
-                <p className="text-muted-foreground border-t pt-2 text-xs">
+                <p className="text-muted-foreground border-t border-slate-300/80 pt-2 text-xs">
                     <span className="line-clamp-2">{resumen}</span>
                 </p>
             )}
@@ -157,31 +157,31 @@ export default function PerfilesIndex({ agentes }: Props) {
         <>
             <Head title="Perfiles" />
 
-            <main className="flex flex-col gap-4 p-4">
+            <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold">Perfiles de agentes</h1>
+                        <h1 className="text-xl font-bold">Perfiles de agentes</h1>
                         <p className="text-muted-foreground text-sm">
                             {filtrados.length} {filtrados.length === 1 ? 'agente' : 'agentes'}
                         </p>
                     </div>
 
-                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                    <div className="flex w-full flex-wrap items-center gap-2.5 sm:w-auto">
                         <label className="relative w-full sm:w-72">
-                            <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+                            <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
                             <input
                                 type="search"
                                 value={busqueda}
                                 onChange={(e) => setBusqueda(e.target.value)}
                                 placeholder="Buscar por nombre o documento"
-                                className="bg-background w-full rounded-md border py-2 pr-3 pl-8 text-sm"
+                                className="bg-background w-full rounded-xl border border-slate-400/90 py-2 pr-3 pl-9 text-sm shadow-xs transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
                             />
                         </label>
 
                         <button
                             type="button"
                             onClick={() => setCreando(true)}
-                            className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium hover:opacity-90"
+                            className="bg-primary text-primary-foreground border-primary/90 inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold shadow-md shadow-primary/25 transition-all hover:-translate-y-0.5 hover:shadow-lg"
                         >
                             <Plus className="size-4" />
                             Nuevo agente
@@ -198,10 +198,10 @@ export default function PerfilesIndex({ agentes }: Props) {
                             role="tab"
                             aria-selected={filtro === p.valor}
                             onClick={() => setFiltro(p.valor)}
-                            className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                            className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all ${
                                 filtro === p.valor
-                                    ? 'bg-primary text-primary-foreground border-primary'
-                                    : 'bg-background hover:bg-accent'
+                                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                                    : 'bg-background border-slate-400/90 shadow-2xs hover:border-slate-500 hover:bg-accent'
                             }`}
                         >
                             {p.texto}{' '}
@@ -213,13 +213,13 @@ export default function PerfilesIndex({ agentes }: Props) {
                 </div>
 
                 {filtrados.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {filtrados.map((a) => (
                             <TarjetaPerfil key={a.id} a={a} />
                         ))}
                     </div>
                 ) : (
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground rounded-2xl border border-dashed border-slate-400/80 bg-muted/20 p-6 text-center text-sm">
                         {busqueda.trim()
                             ? 'No se encontraron agentes con esa búsqueda.'
                             : filtro === 'bajas'
