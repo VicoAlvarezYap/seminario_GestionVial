@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use App\Models\HistorialLaboral;
 
 class DatabaseSeeder extends Seeder
 {
@@ -24,51 +25,51 @@ class DatabaseSeeder extends Seeder
 
         // ---- Director: tiene legajo (ficha, tiene perfil) y rol Administrador ----
         $this->crearAgenteConUsuario([
-            'nombre'           => 'Carlos',
-            'apellido'         => 'Gómez',
+            'nombre' => 'Carlos',
+            'apellido' => 'Gómez',
             'numero_documento' => '10000001',
-            'celular'          => '3871000001',
-            'correo'           => 'admin@ejemplo.com',
-            'rango'            => 'director',
+            'celular' => '3871000001',
+            'correo' => 'admin@ejemplo.com',
+            'rango' => 'director',
         ]);
 
         // ---- Instructor / examinador: rol Supervisor ----
         $this->crearAgenteConUsuario([
-            'nombre'           => 'Laura',
-            'apellido'         => 'Díaz',
+            'nombre' => 'Laura',
+            'apellido' => 'Díaz',
             'numero_documento' => '10000002',
-            'celular'          => '3871000002',
-            'correo'           => 'laura.diaz@example.com',
-            'rango'            => 'instructor_examinador',
+            'celular' => '3871000002',
+            'correo' => 'laura.diaz@example.com',
+            'rango' => 'instructor_examinador',
         ]);
 
         // ---- Inspectores: rol Agente ----
         $this->crearAgenteConUsuario([
-            'nombre'           => 'Juan',
-            'apellido'         => 'Pérez',
+            'nombre' => 'Juan',
+            'apellido' => 'Pérez',
             'numero_documento' => '12345678',
-            'celular'          => '3871234567',
-            'correo'           => 'juan.perez@example.com',
-            'rango'            => 'inspector',
+            'celular' => '3871234567',
+            'correo' => 'juan.perez@example.com',
+            'rango' => 'inspector',
         ]);
 
         $this->crearAgenteConUsuario([
-            'nombre'           => 'Mauro',
-            'apellido'         => 'Pérez',
+            'nombre' => 'Mauro',
+            'apellido' => 'Pérez',
             'numero_documento' => '2563803',
-            'celular'          => '3871234568',
-            'domicilio'        => 'Siempre Verde 23',
-            'correo'           => 'mauro.perez@example.com',
-            'rango'            => 'inspector',
+            'celular' => '3871234568',
+            'domicilio' => 'Siempre Verde 23',
+            'correo' => 'mauro.perez@example.com',
+            'rango' => 'inspector',
         ]);
 
         $this->crearAgenteConUsuario([
-            'nombre'           => 'Tabita',
-            'apellido'         => 'Paz',
+            'nombre' => 'Tabita',
+            'apellido' => 'Paz',
             'numero_documento' => '25638873',
-            'celular'          => '3871234569',
-            'correo'           => 'tabita.paz@example.com',
-            'rango'            => 'inspector',
+            'celular' => '3871234569',
+            'correo' => 'tabita.paz@example.com',
+            'rango' => 'inspector',
         ]);
 
         // ---- Lugares de ejemplo (se pueden editar o borrar) ----
@@ -92,15 +93,25 @@ class DatabaseSeeder extends Seeder
             ['numero_documento' => $datos['numero_documento']],
             $datos,
         );
+        $agente = Agente::updateOrCreate(
+            ['numero_documento' => $datos['numero_documento']],
+            $datos,
+        );
+
+        // Alta laboral: si no tiene un período vigente, se crea uno
+        HistorialLaboral::firstOrCreate(
+            ['agente_id' => $agente->id, 'fecha_baja' => null],
+            ['fecha_alta' => now()->toDateString(), 'motivo_ingreso' => 'Alta inicial'],
+        );
 
         // El correo identifica al usuario: si ya existe, no se duplica
         $usuario = User::firstOrCreate(
             ['email' => $datos['correo']],
             [
-                'name'      => "{$datos['nombre']} {$datos['apellido']}",
-                'password'  => Hash::make('password'), // solo para desarrollo: cambiarla en producción
+                'name' => "{$datos['nombre']} {$datos['apellido']}",
+                'password' => Hash::make('password'), // solo para desarrollo: cambiarla en producción
                 'agente_id' => $agente->id,
-                'activo'    => true,
+                'activo' => true,
             ],
         );
 
