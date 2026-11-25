@@ -101,14 +101,22 @@ class Relevos extends Model
 
         return $datos + [
             'id' => $this->id,
-            'fecha_hora' => $this->fecha_hora->format('d/m/Y H:i'),
+            'fecha_hora' => $this->fecha_hora
+    ? \Illuminate\Support\Carbon::parse($this->fecha_hora)->format('d/m/Y H:i')
+    : '',
             'motivo_detencion' => $this->motivo_detencion,
             'infracciones_codigos' => $this->infracciones_codigos ?? [],
             'vehiculo_anio' => $this->vehiculo_anio ? (string) $this->vehiculo_anio : '',
-            'licencia_vencimiento' => $this->licencia_vencimiento?->format('Y-m-d') ?? '',
-            'instrumento_fecha_hora' => $this->instrumento_fecha_hora?->format('Y-m-d\TH:i') ?? '',
+           'licencia_vencimiento' => $this->licencia_vencimiento
+    ? \Illuminate\Support\Carbon::parse($this->licencia_vencimiento)->format('Y-m-d')
+    : '',
+            'instrumento_fecha_hora' => $this->instrumento_fecha_hora
+    ? \Illuminate\Support\Carbon::parse($this->instrumento_fecha_hora)->format('Y-m-d\TH:i')
+    : '',
             'conductor_correo' => $this->conductor_correo,
-            'correo_enviado_at' => $this->correo_enviado_at?->format('d/m/Y H:i'),
+            'correo_enviado_at' => $this->correo_enviado_at
+    ? \Illuminate\Support\Carbon::parse($this->correo_enviado_at)->format('d/m/Y H:i')
+    : null,
         ];
     }
 }
